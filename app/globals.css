@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+  --container-bg: #0a0a0a;
+  --border-color: #333333;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-jetbrains-mono), monospace;
+  height: 100%;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Ant Design overrides for pure black theme */
+.ant-modal-content,
+.ant-drawer-content {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+.ant-table {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+.ant-table-thead > tr > th {
+  background: #0a0a0a !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #333333 !important;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid #1a1a1a !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: #0a0a0a !important;
+}
+
+.ant-input,
+.ant-select-selector {
+  background: #0a0a0a !important;
+  color: #ffffff !important;
+  border-color: #333333 !important;
+}
+
+.ant-btn {
+  background: #0a0a0a !important;
+  color: #ffffff !important;
+  border-color: #333333 !important;
+}
+
+.ant-btn-primary {
+  background: #1890ff !important;
+  border-color: #1890ff !important;
+}
+
+.ant-tree {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+.ant-tree-node-content-wrapper:hover {
+  background: #0a0a0a !important;
+}
+
+.ant-tree-node-selected .ant-tree-node-content-wrapper {
+  background: #0a0a0a !important;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
