@@ -32,7 +32,7 @@ export function ChartSelector({
   };
 
   return (
-    <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+    <Space size="middle" wrap>
       <Space>
         <Text type="secondary">Chart:</Text>
         <Select
@@ -82,15 +82,15 @@ export function ChartSelector({
           mode="multiple"
           value={config.yAxes}
           onChange={handleYAxesChange}
-          style={{ minWidth: 200 }}
+          style={{ minWidth: 150, maxWidth: 300 }}
           placeholder="Select columns"
-          maxTagCount={2}
+          maxTagCount="responsive"
           options={numericColumns.map((col) => ({
             value: col,
             label: col,
           }))}
         />
       </Space>
-    </div>
+    </Space>
   );
 }
