@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Drawer, Table, Typography, Tag, Tabs, Spin, Empty, Button, Tooltip, message, Grid } from 'antd';
+import { Drawer, Table, Typography, Tag, Tabs, Empty, Button, message, Grid } from 'antd';
 import {
   KeyOutlined,
   LinkOutlined,
@@ -11,6 +11,7 @@ import {
 import { useTableInfo } from '@/hooks/useTableInfo';
 import { useUiStore } from '@/stores/uiStore';
 import { useQueryStore } from '@/stores/queryStore';
+import { TechSpinner } from './TechSpinner';
 import type { ColumnInfo, IndexInfo } from '@/app/api/table-info/route';
 
 const { Text } = Typography;
@@ -28,7 +29,8 @@ export function TableDetailDrawer() {
   const screens = useBreakpoint();
 
   // Responsive drawer width: full width on mobile, 600px on larger screens
-  const drawerWidth = screens.md ? 600 : '100%';
+  const isMobile = !screens.md;
+  const drawerWidth = isMobile ? '100%' : 600;
 
   // Fetch table info when selected table changes
   useEffect(() => {
@@ -50,6 +52,10 @@ export function TableDetailDrawer() {
       : columnName;
     setCurrentQuery(newQuery);
     message.success(`Inserted: ${columnName}`);
+    // Close drawer on mobile after inserting
+    if (isMobile) {
+      handleClose();
+    }
   };
 
   const generateSelectQuery = () => {
@@ -57,6 +63,10 @@ export function TableDetailDrawer() {
     const query = `SELECT *\nFROM "${tableInfo.schema}"."${tableInfo.name}"\nLIMIT 100;`;
     setCurrentQuery(query);
     message.success('Query generated');
+    // Close drawer on mobile and take user to query
+    if (isMobile) {
+      handleClose();
+    }
   };
 
   const copyTableName = () => {
@@ -75,14 +85,10 @@ export function TableDetailDrawer() {
       render: (name: string, record: ColumnInfo) => (
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {record.isPrimaryKey && (
-            <Tooltip title="Primary Key">
-              <KeyOutlined style={{ color: '#888' }} />
-            </Tooltip>
+            <KeyOutlined style={{ color: '#888' }} aria-label="Primary Key" />
           )}
           {record.isForeignKey && (
-            <Tooltip title={`References: ${record.references}`}>
-              <LinkOutlined style={{ color: '#888' }} />
-            </Tooltip>
+            <LinkOutlined style={{ color: '#888' }} aria-label={`References: ${record.references}`} />
           )}
           <Button
             type="link"
@@ -144,16 +150,16 @@ export function TableDetailDrawer() {
       title: 'Columns',
       dataIndex: 'columns',
       key: 'columns',
-      render: (columns: string[]) => columns.join(', '),
+      render: (columns: string[] | undefined) => columns?.join(', ') || '-',
     },
     {
       title: 'Type',
       key: 'type',
       render: (_: unknown, record: IndexInfo) => (
         <>
-          {record.isPrimary && <Tag>Primary</Tag>}
-          {record.isUnique && !record.isPrimary && <Tag>Unique</Tag>}
-          {!record.isPrimary && !record.isUnique && <Tag>Index</Tag>}
+          {record?.isPrimary && <Tag>Primary</Tag>}
+          {record?.isUnique && !record?.isPrimary && <Tag>Unique</Tag>}
+          {!record?.isPrimary && !record?.isUnique && <Tag>Index</Tag>}
         </>
       ),
     },
@@ -173,14 +179,18 @@ export function TableDetailDrawer() {
       },
     })) || [];
 
+  // Safely get indexes length
+  const indexesLength = tableInfo?.indexes?.length ?? 0;
+  const sampleDataLength = tableInfo?.sampleData?.length ?? 0;
+
   const tabItems = [
     {
       key: 'columns',
-      label: `Columns (${tableInfo?.columns.length || 0})`,
+      label: `Columns (${tableInfo?.columns?.length ?? 0})`,
       children: (
         <Table
           columns={columnColumns}
-          dataSource={tableInfo?.columns.map((col, i) => ({ ...col, key: i }))}
+          dataSource={tableInfo?.columns?.map((col, i) => ({ ...col, key: i })) ?? []}
           pagination={false}
           size="small"
           scroll={{ x: 'max-content' }}
@@ -189,14 +199,14 @@ export function TableDetailDrawer() {
     },
     {
       key: 'indexes',
-      label: `Indexes (${tableInfo?.indexes.length || 0})`,
+      label: `Indexes (${indexesLength})`,
       children:
-        tableInfo?.indexes.length === 0 ? (
+        indexesLength === 0 ? (
           <Empty description="No indexes defined" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
           <Table
             columns={indexColumns}
-            dataSource={tableInfo?.indexes.map((idx, i) => ({ ...idx, key: i }))}
+            dataSource={tableInfo?.indexes?.map((idx, i) => ({ ...idx, key: i })) ?? []}
             pagination={false}
             size="small"
           />
@@ -206,12 +216,12 @@ export function TableDetailDrawer() {
       key: 'sample',
       label: `Sample Data`,
       children:
-        tableInfo?.sampleData.length === 0 ? (
+        sampleDataLength === 0 ? (
           <Empty description="No data in table" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
           <Table
             columns={sampleColumns}
-            dataSource={tableInfo?.sampleData.map((row, i) => ({ ...row, key: i }))}
+            dataSource={tableInfo?.sampleData?.map((row, i) => ({ ...row, key: i })) ?? []}
             pagination={false}
             size="small"
             scroll={{ x: 'max-content' }}
@@ -238,25 +248,27 @@ export function TableDetailDrawer() {
       onClose={handleClose}
       extra={
         <div style={{ display: 'flex', gap: 8 }}>
-          <Tooltip title="Copy table name">
-            <Button icon={<CopyOutlined />} size="small" onClick={copyTableName} />
-          </Tooltip>
-          <Tooltip title="Generate SELECT query">
-            <Button
-              icon={<CodeOutlined />}
-              size="small"
-              type="primary"
-              onClick={generateSelectQuery}
-            >
-              SELECT *
-            </Button>
-          </Tooltip>
+          <Button
+            icon={<CopyOutlined />}
+            size="small"
+            onClick={copyTableName}
+            aria-label="Copy table name"
+          />
+          <Button
+            icon={<CodeOutlined />}
+            size="small"
+            type="primary"
+            onClick={generateSelectQuery}
+            aria-label="Generate SELECT query"
+          >
+            SELECT *
+          </Button>
         </div>
       }
     >
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: 48 }}>
-          <Spin size="large" />
+          <TechSpinner size="large" />
           <Text type="secondary" style={{ display: 'block', marginTop: 16 }}>
             Loading table information...
           </Text>

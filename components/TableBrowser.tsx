@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
-import { Tree, Input, Typography, Spin, Empty, Button, Tooltip } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
+import { Tree, Input, Typography, Empty, Button } from 'antd';
+import { TechSpinner } from './TechSpinner';
 import {
   TableOutlined,
   EyeOutlined,
@@ -10,7 +11,6 @@ import {
   DatabaseOutlined,
   FolderOutlined,
 } from '@ant-design/icons';
-import { useState } from 'react';
 import { useTables } from '@/hooks/useTables';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -76,10 +76,10 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
     return Object.entries(filteredTables).map(([schema, schemaTables]) => ({
       key: schema,
       title: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FolderOutlined style={{ color: '#888' }} />
-          <span>{schema}</span>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+        <span className="mobile-tree-node">
+          <FolderOutlined style={{ color: '#888', flexShrink: 0 }} />
+          <span className="table-name">{schema}</span>
+          <Text type="secondary" className="row-count">
             ({schemaTables.length})
           </Text>
         </span>
@@ -88,15 +88,15 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
       children: schemaTables.map((table) => ({
         key: `${schema}.${table.name}`,
         title: (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+          <span className="mobile-tree-node">
             {table.type === 'view' ? (
-              <EyeOutlined style={{ color: '#888' }} />
+              <EyeOutlined style={{ color: '#888', flexShrink: 0 }} />
             ) : (
-              <TableOutlined style={{ color: '#888' }} />
+              <TableOutlined style={{ color: '#888', flexShrink: 0 }} />
             )}
-            <span style={{ flex: 1 }}>{table.name}</span>
+            <span className="table-name">{table.name}</span>
             {table.rowCount !== null && (
-              <Text type="secondary" style={{ fontSize: 11 }}>
+              <Text type="secondary" className="row-count">
                 ~{formatRowCount(table.rowCount)}
               </Text>
             )}
@@ -151,15 +151,14 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
         }}
       >
         <Text strong>Tables</Text>
-        <Tooltip title="Refresh tables">
-          <Button
-            type="text"
-            size="small"
-            icon={<ReloadOutlined spin={isLoading} />}
-            onClick={refreshTables}
-            disabled={isLoading}
-          />
-        </Tooltip>
+        <Button
+          type="text"
+          size="small"
+          icon={<ReloadOutlined spin={isLoading} />}
+          onClick={refreshTables}
+          disabled={isLoading}
+          aria-label="Refresh tables"
+        />
       </div>
 
       {/* Search */}
@@ -178,7 +177,7 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
       <div style={{ flex: 1, overflow: 'auto', padding: '0 8px' }}>
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: 24 }}>
-            <Spin size="small" />
+            <TechSpinner size="small" />
             <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
               Loading tables...
             </Text>

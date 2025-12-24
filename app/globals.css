@@ -22,6 +22,8 @@ body {
   font-family: var(--font-jetbrains-mono), monospace;
   height: 100%;
   overflow: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 * {
@@ -401,6 +403,96 @@ body {
   color: #fff;
 }
 
+/* Custom tech-style spinner */
+.custom-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-spinner-dot {
+  width: 8px;
+  height: 8px;
+  background: #ffffff;
+  border-radius: 1px;
+  margin: 0 2px;
+  animation: custom-spinner-bounce 1.4s infinite ease-in-out both;
+}
+
+.custom-spinner-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.custom-spinner-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.custom-spinner-dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes custom-spinner-bounce {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Override Ant Design spinner to be white */
+.ant-spin-dot-item {
+  background-color: #ffffff !important;
+}
+
+/* Greyscale warning alert for connection dialog */
+.greyscale-alert {
+  background: #1a1a1a !important;
+  border: 1px solid #333333 !important;
+}
+
+.greyscale-alert .ant-alert-message {
+  color: #ffffff !important;
+}
+
+.greyscale-alert .ant-alert-description {
+  color: #aaaaaa !important;
+}
+
+.greyscale-alert .ant-alert-icon {
+  color: #888888 !important;
+}
+
+/* Mobile sidebar table tree fixes */
+.mobile-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.mobile-tree-node .table-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-tree-node .row-count {
+  flex-shrink: 0;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* Touch-friendly buttons */
+.ant-btn {
+  touch-action: manipulation;
+}
+
 /* Responsive adjustments for mobile */
 @media (max-width: 767px) {
   .app-header {
@@ -424,5 +516,21 @@ body {
 
   .chart-config {
     padding: 8px 12px;
+  }
+
+  /* Disable tooltips on mobile - they interfere with touch */
+  .ant-tooltip {
+    display: none !important;
+  }
+
+  /* Mobile tree node styling */
+  .ant-tree-title {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .ant-tree-node-content-wrapper {
+    overflow: hidden;
+    width: 100%;
   }
 }

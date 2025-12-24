@@ -55,6 +55,7 @@ export function ConnectionDialog() {
           description="Your connection string will be stored in browser localStorage and sent to API routes for query execution. Never use this on a shared computer or with production databases containing sensitive data."
           type="warning"
           showIcon
+          className="greyscale-alert"
           style={{ marginBottom: 16 }}
         />
 
