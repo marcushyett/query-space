@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
-import { Button, Typography, Tooltip, Grid } from 'antd';
+import React, { useEffect } from 'react';
+import { Button, Typography, Grid } from 'antd';
+// Tooltips disabled for mobile - using aria-labels instead
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DatabaseOutlined,
   HistoryOutlined,
+  PlayCircleOutlined,
 } from '@ant-design/icons';
 import { ConnectionDialog } from './ConnectionDialog';
 import { SqlEditor } from './SqlEditor';
@@ -16,7 +18,9 @@ import { TableDetailDrawer } from './TableDetailDrawer';
 import { QueryHistoryDrawer } from './QueryHistoryDrawer';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
+import { useQueryStore } from '@/stores/queryStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useQuery } from '@/hooks/useQuery';
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -26,19 +30,34 @@ const TABLE_BROWSER_WIDTH_MOBILE = 200;
 
 export function HomePage() {
   const { connectionString } = useConnectionStore();
-  const { setConnectionDialogOpen, tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer } = useUiStore();
+  const { connectionDialogOpen, setConnectionDialogOpen, tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer } = useUiStore();
+  const { currentQuery, isExecuting } = useQueryStore();
+  const { executeQuery } = useQuery();
   const screens = useBreakpoint();
+  const hasCheckedConnection = React.useRef(false);
 
   // Determine if we're on mobile (xs or sm breakpoints)
   const isMobile = !screens.md;
 
   useKeyboardShortcuts();
 
+  // Only show connection dialog if not connected (run once after mount)
   useEffect(() => {
-    if (!connectionString) {
-      setConnectionDialogOpen(true);
+    // Wait for zustand to hydrate and only check once
+    const timer = setTimeout(() => {
+      if (!hasCheckedConnection.current && !connectionString && !connectionDialogOpen) {
+        hasCheckedConnection.current = true;
+        setConnectionDialogOpen(true);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [connectionString, connectionDialogOpen, setConnectionDialogOpen]);
+
+  const handleRunQuery = () => {
+    if (currentQuery) {
+      executeQuery(currentQuery);
     }
-  }, [connectionString, setConnectionDialogOpen]);
+  };
 
   // Auto-close sidebar on mobile
   useEffect(() => {
@@ -53,13 +72,12 @@ export function HomePage() {
     <div className="app-container">
       <header className="app-header">
         <div className="flex items-center gap-4">
-          <Tooltip title={tableBrowserOpen ? 'Hide sidebar (Cmd+B)' : 'Show sidebar (Cmd+B)'}>
-            <Button
-              type="text"
-              icon={tableBrowserOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
-              onClick={toggleTableBrowser}
-            />
-          </Tooltip>
+          <Button
+            type="text"
+            icon={tableBrowserOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+            onClick={toggleTableBrowser}
+            aria-label={tableBrowserOpen ? 'Hide sidebar' : 'Show sidebar'}
+          />
           <Title level={4} className="app-title">
             Query Space
           </Title>
@@ -73,19 +91,31 @@ export function HomePage() {
               </Text>
             </div>
           )}
-          <Button
-            size="small"
-            onClick={() => setConnectionDialogOpen(true)}
-          >
-            {connectionString ? (isMobile ? 'Connect' : 'Change Connection') : 'Connect'}
-          </Button>
-          <Tooltip title="Query History (Cmd+H)">
+          {!connectionString && (
             <Button
-              type="text"
-              icon={<HistoryOutlined />}
-              onClick={toggleHistoryDrawer}
-            />
-          </Tooltip>
+              size="small"
+              onClick={() => setConnectionDialogOpen(true)}
+            >
+              Connect
+            </Button>
+          )}
+          {isMobile && connectionString && (
+            <Button
+              type="primary"
+              size="small"
+              icon={<PlayCircleOutlined />}
+              onClick={handleRunQuery}
+              loading={isExecuting}
+            >
+              Run
+            </Button>
+          )}
+          <Button
+            type="text"
+            icon={<HistoryOutlined />}
+            onClick={toggleHistoryDrawer}
+            aria-label="Query History"
+          />
           {!isMobile && (
             <Text type="secondary" className="text-xs">
               Cmd+Enter to run

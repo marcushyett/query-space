@@ -1,11 +1,18 @@
 'use client';
 
 import { Editor } from '@monaco-editor/react';
+import { Button, Grid } from 'antd';
+import { FormatPainterOutlined } from '@ant-design/icons';
 import { useQueryStore } from '@/stores/queryStore';
 import { useUrlState } from '@/hooks/useUrlState';
+import { formatSql } from '@/lib/sql-formatter';
+
+const { useBreakpoint } = Grid;
 
 export function SqlEditor() {
   const { currentQuery, setCurrentQuery } = useQueryStore();
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
 
   // Sync query with URL parameters
   useUrlState();
@@ -15,8 +22,15 @@ export function SqlEditor() {
     setCurrentQuery(newQuery);
   };
 
+  const handleFormat = () => {
+    if (currentQuery) {
+      const formatted = formatSql(currentQuery);
+      setCurrentQuery(formatted);
+    }
+  };
+
   return (
-    <div className="sql-editor-container">
+    <div className="sql-editor-container" style={{ position: 'relative' }}>
       <Editor
         height="100%"
         language="sql"
@@ -25,7 +39,7 @@ export function SqlEditor() {
         onChange={handleChange}
         options={{
           minimap: { enabled: false },
-          fontSize: 14,
+          fontSize: isMobile ? 13 : 14,
           fontFamily: 'JetBrains Mono, monospace',
           lineNumbers: 'on',
           wordWrap: 'on',
@@ -37,6 +51,23 @@ export function SqlEditor() {
           insertSpaces: true,
         }}
       />
+      <Button
+        type="text"
+        size="small"
+        icon={<FormatPainterOutlined />}
+        onClick={handleFormat}
+        style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          zIndex: 10,
+          background: 'rgba(0, 0, 0, 0.6)',
+          borderColor: '#333',
+        }}
+        aria-label="Format SQL"
+      >
+        {!isMobile && 'Format'}
+      </Button>
     </div>
   );
 }

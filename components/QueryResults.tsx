@@ -5,6 +5,7 @@ import { Table, Typography, Alert, Tabs } from 'antd';
 import { TableOutlined, BarChartOutlined } from '@ant-design/icons';
 import { useQueryStore } from '@/stores/queryStore';
 import { VisualizationPanel } from './VisualizationPanel';
+import { TechSpinner } from './TechSpinner';
 import { isChartable } from '@/lib/chart-utils';
 
 const { Text } = Typography;
@@ -15,7 +16,8 @@ export function QueryResults() {
 
   if (isExecuting) {
     return (
-      <div className="loading-state">
+      <div className="loading-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        <TechSpinner />
         <Text>Executing query...</Text>
       </div>
     );
