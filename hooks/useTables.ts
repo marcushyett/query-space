@@ -40,8 +40,8 @@ export function useTables() {
       }
 
       setTables(data.tables);
-    } catch (err: any) {
-      const errorMessage = err.message || 'An error occurred while fetching tables';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while fetching tables';
       setError(errorMessage);
       message.error(errorMessage);
       console.error('Tables fetch error:', err);

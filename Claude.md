@@ -52,6 +52,13 @@
 - Enable strict mode in tsconfig.json
 - All function parameters and return types should be explicitly typed
 
+### 8. Linting Before Commit
+- **Always run `npm run lint` before committing code**
+- All lint errors must be fixed before committing
+- Use `unknown` instead of `any` for error handling in catch blocks
+- Remove unused variables and imports
+- Ensure no ESLint warnings or errors exist in the codebase
+
 ## File Organization
 
 ```
@@ -70,5 +77,6 @@ Before committing, ensure:
 - [ ] Colors are greyscale (except for justified exceptions)
 - [ ] No inline or component-specific styling
 - [ ] Components are small and focused
+- [ ] Linting passes with no errors (`npm run lint`)
 - [ ] TypeScript compiles with no errors (`npm run build`)
 - [ ] All tests pass (`npm test`)

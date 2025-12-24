@@ -161,30 +161,38 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json(response);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Table info fetch error:', error);
 
     let errorMessage = 'Failed to fetch table information';
     let statusCode = 500;
+    let errorCode: string | undefined;
 
-    if (error.code === 'ECONNREFUSED') {
-      errorMessage = 'Unable to connect to database. Check your connection string and ensure the database is running.';
-      statusCode = 503;
-    } else if (error.code === '28P01') {
-      errorMessage = 'Authentication failed. Check your username and password.';
-      statusCode = 401;
-    } else if (error.code === '3D000') {
-      errorMessage = 'Database does not exist. Check your connection string.';
-      statusCode = 404;
-    } else if (error.code === '42P01') {
-      errorMessage = `Table "${table ?? 'unknown'}" does not exist in schema "${schema ?? 'unknown'}".`;
-      statusCode = 404;
-    } else if (error.message) {
+    if (error instanceof Error && 'code' in error) {
+      const dbError = error as Error & { code: string };
+      errorCode = dbError.code;
+
+      if (dbError.code === 'ECONNREFUSED') {
+        errorMessage = 'Unable to connect to database. Check your connection string and ensure the database is running.';
+        statusCode = 503;
+      } else if (dbError.code === '28P01') {
+        errorMessage = 'Authentication failed. Check your username and password.';
+        statusCode = 401;
+      } else if (dbError.code === '3D000') {
+        errorMessage = 'Database does not exist. Check your connection string.';
+        statusCode = 404;
+      } else if (dbError.code === '42P01') {
+        errorMessage = `Table "${table ?? 'unknown'}" does not exist in schema "${schema ?? 'unknown'}".`;
+        statusCode = 404;
+      } else {
+        errorMessage = dbError.message;
+      }
+    } else if (error instanceof Error) {
       errorMessage = error.message;
     }
 
     return NextResponse.json(
-      { error: errorMessage, code: error.code },
+      { error: errorMessage, code: errorCode },
       { status: statusCode }
     );
   } finally {

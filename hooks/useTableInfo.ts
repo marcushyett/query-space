@@ -40,8 +40,8 @@ export function useTableInfo() {
       }
 
       setTableInfo(data);
-    } catch (err: any) {
-      const errorMessage = err.message || 'An error occurred while fetching table info';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while fetching table info';
       setError(errorMessage);
       message.error(errorMessage);
       console.error('Table info fetch error:', err);
