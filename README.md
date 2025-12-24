@@ -2,14 +2,14 @@
 
 A PostgreSQL analytics tool for writing SQL queries, exploring database schemas, and visualizing data. Built with Next.js, featuring a dark techy interface, keyboard-driven navigation, and AI-powered query generation.
 
-![Status](https://img.shields.io/badge/status-Phase%201%20Complete-green)
+![Status](https://img.shields.io/badge/status-Phase%203%20Complete-green)
 ![Next.js](https://img.shields.io/badge/Next.js-14-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ## Features
 
-✅ **Phase 1 (Current):**
+**Phases 1-3 (Complete):**
 - SQL editor with syntax highlighting (Monaco Editor)
 - Execute PostgreSQL queries with `Cmd+Enter`
 - View results in table format with row count and execution time
@@ -17,10 +17,10 @@ A PostgreSQL analytics tool for writing SQL queries, exploring database schemas,
 - Query history (auto-saves last 50 queries)
 - Dark theme (pure black background, JetBrains Mono font)
 - SQL validation with dangerous operation warnings
+- Database schema browser with table details
+- Data visualization with column and line charts
 
-🚧 **Coming Soon:**
-- Database schema browser (Phase 2)
-- Data visualization with charts (Phase 3)
+**Coming Soon:**
 - URL-based query sharing (Phase 4)
 - AI query generation with Claude (Phase 5)
 
@@ -70,8 +70,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `Cmd+Enter` | Execute SQL query |
 | `Cmd+K` | Open connection dialog |
 | `Cmd+N` | Clear editor (new query) |
+| `Cmd+B` | Toggle table browser |
 | `Cmd+H` | Toggle query history _(coming soon)_ |
-| `Cmd+B` | Toggle table browser _(coming soon)_ |
 
 ## Security
 
@@ -90,7 +90,7 @@ The app is designed for local development and analysis on trusted machines.
 - **Frontend**: Next.js 14, TypeScript, Ant Design
 - **Editor**: Monaco Editor (VS Code's editor)
 - **State**: Zustand with localStorage persistence
-- **Charts** _(coming)_: Recharts
+- **Charts**: Recharts
 - **AI** _(coming)_: Anthropic Claude API
 - **Database**: node-postgres (pg)
 - **Deployment**: Vercel
@@ -106,6 +106,9 @@ npm run build
 
 # Start production server
 npm start
+
+# Run tests
+npm test
 
 # Type checking
 npm run type-check
@@ -163,7 +166,7 @@ See [ROADMAP.md](./ROADMAP.md) for:
 
 ---
 
-**Current Status**: Phase 1 Complete ✅
-**Next Up**: Phase 2 - Table Browser
+**Current Status**: Phase 3 Complete
+**Next Up**: Phase 4 - Query Persistence
 
 Built with [Claude Code](https://claude.com/claude-code)

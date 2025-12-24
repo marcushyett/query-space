@@ -15,7 +15,7 @@ export function QueryResults() {
 
   if (isExecuting) {
     return (
-      <div style={{ padding: 16, textAlign: 'center' }}>
+      <div className="loading-state">
         <Text>Executing query...</Text>
       </div>
     );
@@ -23,7 +23,7 @@ export function QueryResults() {
 
   if (!queryResults) {
     return (
-      <div style={{ padding: 16, textAlign: 'center', color: '#666' }}>
+      <div className="empty-state">
         <Text type="secondary">Execute a query to see results (Cmd+Enter)</Text>
       </div>
     );
@@ -31,9 +31,9 @@ export function QueryResults() {
 
   if (queryResults.rows.length === 0) {
     return (
-      <div style={{ padding: 16 }}>
+      <div className="p-4">
         <Alert
-          message="Query executed successfully"
+          title="Query executed successfully"
           description={`No rows returned. Execution time: ${queryResults.executionTime}ms`}
           type="info"
           showIcon
@@ -42,7 +42,6 @@ export function QueryResults() {
     );
   }
 
-  // Generate columns from fields
   const columns = queryResults.fields.map((field) => ({
     title: field.name,
     dataIndex: field.name,
@@ -67,7 +66,7 @@ export function QueryResults() {
         </span>
       ),
       children: (
-        <div style={{ height: '100%', overflow: 'auto' }}>
+        <div className="h-full overflow-auto">
           <Table
             columns={columns}
             dataSource={queryResults.rows.map((row, index) => ({
@@ -91,7 +90,7 @@ export function QueryResults() {
         <span>
           <BarChartOutlined />
           Chart
-          {!canVisualize && <Text type="secondary" style={{ marginLeft: 4, fontSize: 10 }}>(N/A)</Text>}
+          {!canVisualize && <Text type="secondary" className="chart-na-label">(N/A)</Text>}
         </span>
       ),
       disabled: !canVisualize,
@@ -100,32 +99,19 @@ export function QueryResults() {
   ];
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div
-        style={{
-          padding: '8px 16px',
-          borderBottom: '1px solid #333',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
+    <div className="panel">
+      <div className="results-header">
         <Text>
           {queryResults.rowCount} {queryResults.rowCount === 1 ? 'row' : 'rows'}
         </Text>
         <Text type="secondary">{queryResults.executionTime}ms</Text>
       </div>
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      <div className="flex-1 overflow-hidden">
         <Tabs
           activeKey={activeTab}
           onChange={setActiveTab}
           items={tabItems}
-          style={{ height: '100%' }}
-          tabBarStyle={{
-            marginBottom: 0,
-            paddingLeft: 16,
-            borderBottom: '1px solid #333',
-          }}
+          className="results-tabs"
         />
       </div>
     </div>

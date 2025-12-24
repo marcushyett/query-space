@@ -71,12 +71,12 @@ export function TableDetailDrawer() {
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {record.isPrimaryKey && (
             <Tooltip title="Primary Key">
-              <KeyOutlined style={{ color: '#faad14' }} />
+              <KeyOutlined style={{ color: '#888' }} />
             </Tooltip>
           )}
           {record.isForeignKey && (
             <Tooltip title={`References: ${record.references}`}>
-              <LinkOutlined style={{ color: '#1890ff' }} />
+              <LinkOutlined style={{ color: '#888' }} />
             </Tooltip>
           )}
           <Button
@@ -95,7 +95,7 @@ export function TableDetailDrawer() {
       dataIndex: 'type',
       key: 'type',
       render: (type: string) => (
-        <Tag color="blue" style={{ fontFamily: 'JetBrains Mono' }}>
+        <Tag style={{ fontFamily: 'JetBrains Mono' }}>
           {type}
         </Tag>
       ),
@@ -146,8 +146,8 @@ export function TableDetailDrawer() {
       key: 'type',
       render: (_: unknown, record: IndexInfo) => (
         <>
-          {record.isPrimary && <Tag color="gold">Primary</Tag>}
-          {record.isUnique && !record.isPrimary && <Tag color="green">Unique</Tag>}
+          {record.isPrimary && <Tag>Primary</Tag>}
+          {record.isUnique && !record.isPrimary && <Tag>Unique</Tag>}
           {!record.isPrimary && !record.isUnique && <Tag>Index</Tag>}
         </>
       ),

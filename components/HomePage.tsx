@@ -6,12 +6,14 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DatabaseOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import { ConnectionDialog } from './ConnectionDialog';
 import { SqlEditor } from './SqlEditor';
 import { QueryResults } from './QueryResults';
 import { TableBrowser } from './TableBrowser';
 import { TableDetailDrawer } from './TableDetailDrawer';
+import { QueryHistoryDrawer } from './QueryHistoryDrawer';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -22,12 +24,10 @@ const TABLE_BROWSER_WIDTH = 260;
 
 export function HomePage() {
   const { connectionString } = useConnectionStore();
-  const { setConnectionDialogOpen, tableBrowserOpen, toggleTableBrowser } = useUiStore();
+  const { setConnectionDialogOpen, tableBrowserOpen, toggleTableBrowser, toggleHistoryDrawer } = useUiStore();
 
-  // Register keyboard shortcuts
   useKeyboardShortcuts();
 
-  // Show connection dialog if no connection
   useEffect(() => {
     if (!connectionString) {
       setConnectionDialogOpen(true);
@@ -35,26 +35,9 @@ export function HomePage() {
   }, [connectionString, setConnectionDialogOpen]);
 
   return (
-    <div
-      style={{
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: '8px 16px',
-          borderBottom: '1px solid #333',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          height: 48,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div className="app-container">
+      <header className="app-header">
+        <div className="flex items-center gap-4">
           <Tooltip title={tableBrowserOpen ? 'Hide sidebar (Cmd+B)' : 'Show sidebar (Cmd+B)'}>
             <Button
               type="text"
@@ -62,17 +45,15 @@ export function HomePage() {
               onClick={toggleTableBrowser}
             />
           </Tooltip>
-          <div>
-            <Title level={4} style={{ margin: 0, color: '#fff', fontSize: 16 }}>
-              Query Space
-            </Title>
-          </div>
+          <Title level={4} className="app-title">
+            Query Space
+          </Title>
         </div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div className="flex items-center gap-4">
           {connectionString && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <DatabaseOutlined style={{ color: '#52c41a' }} />
-              <Text type="secondary" style={{ fontSize: 12 }}>
+            <div className="flex items-center gap-2">
+              <DatabaseOutlined className="icon-muted" />
+              <Text type="secondary" className="text-sm">
                 Connected
               </Text>
             </div>
@@ -83,46 +64,40 @@ export function HomePage() {
           >
             {connectionString ? 'Change Connection' : 'Connect'}
           </Button>
-          <Text type="secondary" style={{ fontSize: 11 }}>
+          <Tooltip title="Query History (Cmd+H)">
+            <Button
+              type="text"
+              icon={<HistoryOutlined />}
+              onClick={toggleHistoryDrawer}
+            />
+          </Tooltip>
+          <Text type="secondary" className="text-xs">
             Cmd+Enter to run
           </Text>
         </div>
-      </div>
+      </header>
 
-      {/* Main Content Area - Three Panel Layout */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Left Panel - Table Browser */}
-        <div
-          style={{
-            width: tableBrowserOpen ? TABLE_BROWSER_WIDTH : 0,
-            borderRight: tableBrowserOpen ? '1px solid #333' : 'none',
-            overflow: 'hidden',
-            transition: 'width 0.2s ease-in-out',
-            flexShrink: 0,
-          }}
+      <main className="app-main">
+        <aside
+          className={tableBrowserOpen ? 'sidebar' : 'sidebar sidebar-hidden'}
+          style={{ width: tableBrowserOpen ? TABLE_BROWSER_WIDTH : 0 }}
         >
           {tableBrowserOpen && <TableBrowser />}
-        </div>
+        </aside>
 
-        {/* Center Panel - Editor + Results */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-          {/* SQL Editor */}
-          <div style={{ height: '40%', minHeight: 200, borderBottom: '1px solid #333' }}>
+        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+          <div className="editor-pane">
             <SqlEditor />
           </div>
-
-          {/* Query Results */}
-          <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div className="results-pane">
             <QueryResults />
           </div>
         </div>
-      </div>
+      </main>
 
-      {/* Connection Dialog */}
       <ConnectionDialog />
-
-      {/* Table Detail Drawer */}
       <TableDetailDrawer />
+      <QueryHistoryDrawer />
     </div>
   );
 }

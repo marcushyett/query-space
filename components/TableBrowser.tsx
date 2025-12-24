@@ -77,7 +77,7 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
       key: schema,
       title: (
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FolderOutlined style={{ color: '#1890ff' }} />
+          <FolderOutlined style={{ color: '#888' }} />
           <span>{schema}</span>
           <Text type="secondary" style={{ fontSize: 12 }}>
             ({schemaTables.length})
@@ -90,9 +90,9 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
         title: (
           <span style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
             {table.type === 'view' ? (
-              <EyeOutlined style={{ color: '#52c41a' }} />
+              <EyeOutlined style={{ color: '#888' }} />
             ) : (
-              <TableOutlined style={{ color: '#1890ff' }} />
+              <TableOutlined style={{ color: '#888' }} />
             )}
             <span style={{ flex: 1 }}>{table.name}</span>
             {table.rowCount !== null && (

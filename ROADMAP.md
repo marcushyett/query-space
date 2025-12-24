@@ -4,70 +4,70 @@
 
 Query Space is a PostgreSQL analytics tool built with Next.js that allows you to write SQL queries, visualize data, and explore database schemas. It features a dark, techy interface with keyboard-driven navigation and AI-powered query generation.
 
-## Current Status: Phase 3 Complete ✅
+## Current Status: Phase 3 Complete
 
 ### What's Working Now
 
 **Core Infrastructure:**
-- ✅ Next.js 14 with TypeScript and App Router
-- ✅ Ant Design component library with custom dark theme
-- ✅ Pure black (#000000) background, white text, JetBrains Mono font
-- ✅ Zustand state management with localStorage persistence
-- ✅ Comprehensive test suite with Vitest (199 tests)
-- ✅ GitHub Actions CI (tests, lint, build on Node 18.x and 20.x)
+- [x] Next.js 14 with TypeScript and App Router
+- [x] Ant Design component library with custom dark theme
+- [x] Pure black (#000000) background, white text, JetBrains Mono font
+- [x] Zustand state management with localStorage persistence
+- [x] Comprehensive test suite with Vitest (199 tests)
+- [x] GitHub Actions CI (tests, lint, build on Node 18.x and 20.x)
 
 **Phase 1 Features (Complete):**
-- ✅ PostgreSQL connection management (localStorage-based, stateless)
-- ✅ SQL editor with Monaco (VS Code's editor)
-- ✅ SQL syntax highlighting for PostgreSQL
-- ✅ Query execution via secure API routes
-- ✅ Results display in table format
-- ✅ Row count and execution time tracking
-- ✅ Query history (auto-saves last 50 queries)
-- ✅ SQL validation with dangerous operation warnings
-- ✅ Connection string stored in localStorage per session
+- [x] PostgreSQL connection management (localStorage-based, stateless)
+- [x] SQL editor with Monaco (VS Code's editor)
+- [x] SQL syntax highlighting for PostgreSQL
+- [x] Query execution via secure API routes
+- [x] Results display in table format
+- [x] Row count and execution time tracking
+- [x] Query history (auto-saves last 50 queries)
+- [x] SQL validation with dangerous operation warnings
+- [x] Connection string stored in localStorage per session
 
 **Phase 2 Features (Complete):**
-- ✅ Database schema tree view (left sidebar)
-- ✅ List all tables grouped by schema
-- ✅ Search/filter tables by name
-- ✅ Click table to view details in drawer:
-  - ✅ Column names and data types
-  - ✅ Primary/Foreign key indicators
-  - ✅ NULL/NOT NULL constraints
-  - ✅ Sample data (first 10 rows)
-  - ✅ Index information
-- ✅ Two-panel collapsible layout:
-  - ✅ Table Browser (260px width, toggleable)
-  - ✅ Editor + Results (remaining space)
-- ✅ `Cmd+B` keyboard shortcut to toggle table browser
-- ✅ `POST /api/tables` - List all tables from information_schema
-- ✅ `POST /api/table-info` - Get columns, indexes, and sample data
+- [x] Database schema tree view (left sidebar)
+- [x] List all tables grouped by schema
+- [x] Search/filter tables by name
+- [x] Click table to view details in drawer:
+  - [x] Column names and data types
+  - [x] Primary/Foreign key indicators
+  - [x] NULL/NOT NULL constraints
+  - [x] Sample data (first 10 rows)
+  - [x] Index information
+- [x] Two-panel collapsible layout:
+  - [x] Table Browser (260px width, toggleable)
+  - [x] Editor + Results (remaining space)
+- [x] `Cmd+B` keyboard shortcut to toggle table browser
+- [x] `POST /api/tables` - List all tables from information_schema
+- [x] `POST /api/table-info` - Get columns, indexes, and sample data
 
 **Keyboard Shortcuts:**
-- ✅ `Cmd+Enter`: Execute SQL query
-- ✅ `Cmd+K`: Open connection dialog
-- ✅ `Cmd+N`: Clear editor (new query)
-- ✅ `Cmd+B`: Toggle table browser
+- [x] `Cmd+Enter`: Execute SQL query
+- [x] `Cmd+K`: Open connection dialog
+- [x] `Cmd+N`: Clear editor (new query)
+- [x] `Cmd+B`: Toggle table browser
 
 **Phase 3 Features (Complete):**
-- ✅ Auto-detect chart type from data types (date → line, text → column)
-- ✅ Column chart (bar chart)
+- [x] Auto-detect chart type from data types (date -> line, text -> column)
+- [x] Column chart (bar chart)
   - Categorical X-axis (text columns)
   - Numeric Y-axis (numeric columns)
   - Multiple Y-axis support
-- ✅ Line chart
+- [x] Line chart
   - Date/time X-axis with formatting
   - Numeric Y-axis
   - Multiple series support
-- ✅ Chart configuration panel:
+- [x] Chart configuration panel:
   - Chart type selector (column/line)
   - X-axis column picker
   - Y-axis column picker(s) with multi-select
   - Legend display
-- ✅ Dark theme charts with coordinated color palette
-- ✅ Auto-suggest chart based on query results
-- ✅ Tab interface to switch between Table and Chart views
+- [x] Dark theme charts with coordinated color palette
+- [x] Auto-suggest chart based on query results
+- [x] Tab interface to switch between Table and Chart views
 
 **Libraries Used:**
 - Recharts (React charting library)
@@ -151,12 +151,12 @@ Query Space is a PostgreSQL analytics tool built with Next.js that allows you to
 
 **Features to Implement:**
 - [ ] Complete keyboard shortcuts system:
-  - `Cmd+Enter`: Execute query ✅
+  - `Cmd+Enter`: Execute query [x]
   - `Cmd+K`: AI query generator (when connected) / Connection dialog (when not)
   - `Cmd+H`: Toggle history
   - `Cmd+B`: Toggle table browser
   - `Cmd+/`: Show shortcuts help
-  - `Cmd+N`: New query ✅
+  - `Cmd+N`: New query [x]
   - `Cmd+S`: Save query to history (manual save)
 - [ ] Shortcuts help modal
 - [ ] Loading states for all async operations
@@ -251,43 +251,43 @@ query-space/
 │   ├── page.tsx                   # Main app page
 │   ├── globals.css                # Global styles, antd overrides
 │   └── api/
-│       ├── query/route.ts         # ✅ Execute SQL queries
-│       ├── tables/route.ts        # ✅ List database tables
-│       ├── table-info/route.ts    # ✅ Get table schema + sample data
+│       ├── query/route.ts         # [x] Execute SQL queries
+│       ├── tables/route.ts        # [x] List database tables
+│       ├── table-info/route.ts    # [x] Get table schema + sample data
 │       └── ai-query/route.ts      # TODO: AI SQL generation
 │
 ├── components/
-│   ├── Providers.tsx              # ✅ Ant Design ConfigProvider wrapper
-│   ├── HomePage.tsx               # ✅ Main app container with layout
-│   ├── ConnectionDialog.tsx       # ✅ Connect to database modal
-│   ├── SqlEditor.tsx              # ✅ Monaco editor wrapper
-│   ├── QueryResults.tsx           # ✅ Table view of results
-│   ├── TableBrowser.tsx           # ✅ Left sidebar - table tree
-│   ├── TableDetailDrawer.tsx      # ✅ Drawer with column info
-│   ├── VisualizationPanel.tsx     # TODO: Chart container + config
-│   ├── ColumnChart.tsx            # TODO: Recharts bar chart
-│   ├── LineChart.tsx              # TODO: Recharts line chart
-│   ├── ChartSelector.tsx          # TODO: Chart type/axis selector
+│   ├── Providers.tsx              # [x] Ant Design ConfigProvider wrapper
+│   ├── HomePage.tsx               # [x] Main app container with layout
+│   ├── ConnectionDialog.tsx       # [x] Connect to database modal
+│   ├── SqlEditor.tsx              # [x] Monaco editor wrapper
+│   ├── QueryResults.tsx           # [x] Table view of results
+│   ├── TableBrowser.tsx           # [x] Left sidebar - table tree
+│   ├── TableDetailDrawer.tsx      # [x] Drawer with column info
+│   ├── VisualizationPanel.tsx     # [x] Chart container + config
+│   ├── ColumnChart.tsx            # [x] Recharts bar chart
+│   ├── LineChart.tsx              # [x] Recharts line chart
+│   ├── ChartSelector.tsx          # [x] Chart type/axis selector
 │   ├── AiQueryButton.tsx          # TODO: AI generation modal
 │   ├── QueryHistoryDrawer.tsx     # TODO: Saved query history
 │   └── KeyboardShortcutsHelp.tsx  # TODO: Shortcuts reference
 │
 ├── stores/
-│   ├── connectionStore.ts         # ✅ Connection state + localStorage
-│   ├── queryStore.ts              # ✅ Query state + history
-│   └── uiStore.ts                 # ✅ UI state (drawers, modals)
+│   ├── connectionStore.ts         # [x] Connection state + localStorage
+│   ├── queryStore.ts              # [x] Query state + history
+│   └── uiStore.ts                 # [x] UI state (drawers, modals)
 │
 ├── hooks/
-│   ├── useQuery.ts                # ✅ Execute SQL queries
-│   ├── useKeyboardShortcuts.ts    # ✅ Global keyboard shortcuts
-│   ├── useTables.ts               # ✅ Fetch table list
-│   ├── useTableInfo.ts            # ✅ Fetch table details
+│   ├── useQuery.ts                # [x] Execute SQL queries
+│   ├── useKeyboardShortcuts.ts    # [x] Global keyboard shortcuts
+│   ├── useTables.ts               # [x] Fetch table list
+│   ├── useTableInfo.ts            # [x] Fetch table details
 │   ├── useAiQuery.ts              # TODO: AI query generation
 │   └── useUrlState.ts             # TODO: Query URL persistence
 │
 ├── lib/
-│   ├── sql-validation.ts          # ✅ SQL injection prevention
-│   ├── chart-utils.ts             # TODO: Chart data transformation
+│   ├── sql-validation.ts          # [x] SQL injection prevention
+│   ├── chart-utils.ts             # [x] Chart data transformation
 │   ├── db.ts                      # TODO: PostgreSQL utilities
 │   ├── ai.ts                      # TODO: Anthropic API wrapper
 │   └── storage.ts                 # TODO: localStorage schema
@@ -298,7 +298,7 @@ query-space/
 │   └── storage.ts                 # TODO: Storage types
 │
 └── config/
-    ├── theme.ts                   # ✅ Ant Design dark theme
+    ├── theme.ts                   # [x] Ant Design dark theme
     ├── shortcuts.ts               # TODO: Keyboard shortcut definitions
     └── monaco.ts                  # TODO: Monaco editor config
 ```
