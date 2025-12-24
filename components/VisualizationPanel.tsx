@@ -4,6 +4,8 @@ import { useState, useMemo, useCallback } from 'react';
 import { Typography, Empty } from 'antd';
 import { ColumnChart } from './ColumnChart';
 import { LineChart } from './LineChart';
+import { AreaChart } from './AreaChart';
+import { PieChart } from './PieChart';
 import { ChartSelector } from './ChartSelector';
 import {
   isChartable,
@@ -11,6 +13,7 @@ import {
   prepareChartData,
   isNumericType,
   isDateType,
+  getBreakdownColumns,
   type ChartConfig,
 } from '@/lib/chart-utils';
 import type { QueryResult } from '@/stores/queryStore';
@@ -37,7 +40,7 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
     if (queryResult && isChartable(queryResult)) {
       return suggestChartConfig(queryResult);
     }
-    return { type: 'column', xAxis: null, yAxes: [] };
+    return { type: 'column', xAxis: null, yAxes: [], stacked: false, breakdownBy: null };
   }, [queryResult]);
 
   // Get current result key
@@ -71,6 +74,12 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
       .filter((f) => isNumericType(f.dataTypeID))
       .map((f) => f.name);
   }, [queryResult]);
+
+  // Get breakdown columns
+  const breakdownColumns = useMemo(() => {
+    if (!queryResult) return [];
+    return getBreakdownColumns(queryResult, chartConfig.xAxis);
+  }, [queryResult, chartConfig.xAxis]);
 
   // Check if X-axis is a date column
   const isDateXAxis = useMemo(() => {
@@ -110,6 +119,60 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
     );
   }
 
+  const renderChart = () => {
+    if (!chartData) {
+      return (
+        <Empty
+          description={
+            <Text type="secondary">
+              Select X and Y axes to visualize data
+            </Text>
+          }
+        />
+      );
+    }
+
+    switch (chartConfig.type) {
+      case 'line':
+        return (
+          <LineChart
+            data={chartData.data}
+            xAxisKey={chartData.xAxisKey}
+            yAxisKeys={chartData.yAxisKeys}
+            isDateXAxis={isDateXAxis}
+          />
+        );
+      case 'area':
+        return (
+          <AreaChart
+            data={chartData.data}
+            xAxisKey={chartData.xAxisKey}
+            yAxisKeys={chartData.yAxisKeys}
+            isDateXAxis={isDateXAxis}
+            stacked={chartConfig.stacked}
+          />
+        );
+      case 'pie':
+        return (
+          <PieChart
+            data={chartData.data}
+            nameKey={chartData.xAxisKey}
+            valueKey={chartData.yAxisKeys[0]}
+          />
+        );
+      case 'column':
+      default:
+        return (
+          <ColumnChart
+            data={chartData.data}
+            xAxisKey={chartData.xAxisKey}
+            yAxisKeys={chartData.yAxisKeys}
+            stacked={chartConfig.stacked}
+          />
+        );
+    }
+  };
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div
@@ -123,35 +186,13 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
           config={chartConfig}
           availableColumns={availableColumns}
           numericColumns={numericColumns}
+          breakdownColumns={breakdownColumns}
           onConfigChange={handleConfigChange}
         />
       </div>
 
       <div style={{ flex: 1, minHeight: 300, padding: 16 }}>
-        {chartData ? (
-          chartConfig.type === 'line' ? (
-            <LineChart
-              data={chartData.data}
-              xAxisKey={chartData.xAxisKey}
-              yAxisKeys={chartData.yAxisKeys}
-              isDateXAxis={isDateXAxis}
-            />
-          ) : (
-            <ColumnChart
-              data={chartData.data}
-              xAxisKey={chartData.xAxisKey}
-              yAxisKeys={chartData.yAxisKeys}
-            />
-          )
-        ) : (
-          <Empty
-            description={
-              <Text type="secondary">
-                Select X and Y axes to visualize data
-              </Text>
-            }
-          />
-        )}
+        {renderChart()}
       </div>
     </div>
   );

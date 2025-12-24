@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client, FieldDef } from 'pg';
 import { validateSql } from '@/lib/sql-validation';
+import { addDefaultLimit } from '@/lib/sql-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,6 +29,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Add default LIMIT if not present (for SELECT queries)
+    const { sql: queryToExecute, limitAdded } = addDefaultLimit(sql);
+
     // Create PostgreSQL client
     client = new Client({
       connectionString,
@@ -39,8 +43,15 @@ export async function POST(request: NextRequest) {
 
     // Execute query
     const startTime = Date.now();
-    const result = await client.query(sql);
+    const result = await client.query(queryToExecute);
     const executionTime = Date.now() - startTime;
+
+    // Combine warnings
+    let warning = validationResult.warning;
+    if (limitAdded) {
+      const limitWarning = 'Results limited to 1000 rows. Add your own LIMIT clause to override.';
+      warning = warning ? `${warning}; ${limitWarning}` : limitWarning;
+    }
 
     // Format response
     const response = {
@@ -51,7 +62,8 @@ export async function POST(request: NextRequest) {
       })),
       rowCount: result.rowCount || 0,
       executionTime,
-      warning: validationResult.warning,
+      warning,
+      limitAdded,
     };
 
     return NextResponse.json(response);

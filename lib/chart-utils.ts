@@ -1,11 +1,13 @@
 import type { QueryResult } from '@/stores/queryStore';
 
-export type ChartType = 'column' | 'line' | 'none';
+export type ChartType = 'column' | 'line' | 'area' | 'pie' | 'none';
 
 export interface ChartConfig {
   type: ChartType;
   xAxis: string | null;
   yAxes: string[];
+  breakdownBy?: string | null;
+  stacked?: boolean;
   title?: string;
 }
 
@@ -62,6 +64,11 @@ export function detectChartType(result: QueryResult): ChartType {
     return 'none'; // No numeric data to chart
   }
 
+  // If we have few categories and one numeric field, pie chart might be good
+  if (textFields.length > 0 && numericFields.length === 1 && result.rows.length <= 10) {
+    return 'pie';
+  }
+
   // If we have date fields, suggest line chart
   if (dateFields.length > 0) {
     return 'line';
@@ -112,6 +119,30 @@ export function suggestYAxes(result: QueryResult, xAxis: string | null): string[
 }
 
 /**
+ * Suggest a breakdown column (categorical field not used as X-axis)
+ */
+export function suggestBreakdown(result: QueryResult, xAxis: string | null): string | null {
+  if (!result || result.fields.length < 3) return null;
+
+  const textFields = result.fields.filter(
+    f => f.name !== xAxis && isTextType(f.dataTypeID)
+  );
+
+  return textFields.length > 0 ? textFields[0].name : null;
+}
+
+/**
+ * Get available breakdown columns
+ */
+export function getBreakdownColumns(result: QueryResult, xAxis: string | null): string[] {
+  if (!result) return [];
+
+  return result.fields
+    .filter(f => f.name !== xAxis && (isTextType(f.dataTypeID) || isDateType(f.dataTypeID)))
+    .map(f => f.name);
+}
+
+/**
  * Get a suggested chart configuration for the query result
  */
 export function suggestChartConfig(result: QueryResult): ChartConfig {
@@ -123,6 +154,8 @@ export function suggestChartConfig(result: QueryResult): ChartConfig {
     type,
     xAxis,
     yAxes,
+    stacked: false,
+    breakdownBy: null,
   };
 }
 
@@ -151,6 +184,11 @@ export function prepareChartData(
     return null;
   }
 
+  // Handle breakdown (pivot data by breakdown column)
+  if (config.breakdownBy && config.yAxes.length === 1) {
+    return prepareBreakdownChartData(result, config);
+  }
+
   // Transform rows to ensure proper typing
   const data = result.rows.map(row => {
     const transformed: Record<string, unknown> = {};
@@ -176,6 +214,51 @@ export function prepareChartData(
 }
 
 /**
+ * Prepare data with breakdown (pivot) for charts
+ */
+export function prepareBreakdownChartData(
+  result: QueryResult,
+  config: ChartConfig
+): ChartableData | null {
+  if (!config.xAxis || !config.breakdownBy || config.yAxes.length === 0) {
+    return null;
+  }
+
+  const xAxis = config.xAxis;
+  const breakdownBy = config.breakdownBy;
+  const yKey = config.yAxes[0];
+
+  // Get unique breakdown values
+  const breakdownValues = [...new Set(result.rows.map(row => String(row[breakdownBy] ?? 'Unknown')))];
+
+  // Group by X-axis value
+  const grouped: Record<string, Record<string, unknown>> = {};
+
+  result.rows.forEach(row => {
+    const xValue = String(row[xAxis] ?? '');
+    const breakdownValue = String(row[breakdownBy] ?? 'Unknown');
+    const yValue = typeof row[yKey] === 'number' ? row[yKey] : parseFloat(String(row[yKey])) || 0;
+
+    if (!grouped[xValue]) {
+      grouped[xValue] = { [xAxis]: row[xAxis] };
+    }
+
+    // Sum values for the same x-axis and breakdown combination
+    const currentValue = (grouped[xValue][breakdownValue] as number) || 0;
+    grouped[xValue][breakdownValue] = currentValue + yValue;
+  });
+
+  const data = Object.values(grouped);
+
+  return {
+    data,
+    xAxisKey: xAxis,
+    yAxisKeys: breakdownValues,
+    chartType: config.type,
+  };
+}
+
+/**
  * Generate chart colors (dark theme compatible)
  */
 export function getChartColors(): string[] {
@@ -188,6 +271,10 @@ export function getChartColors(): string[] {
     '#13c2c2', // Cyan
     '#fa541c', // Orange
     '#a0d911', // Lime
+    '#36cfc9', // Teal
+    '#f759ab', // Pink
+    '#ffc53d', // Yellow
+    '#73d13d', // Light Green
   ];
 }
 

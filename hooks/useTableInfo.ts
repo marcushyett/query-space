@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { message } from 'antd';
+import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
 import type { TableInfoResponse, ColumnInfo, IndexInfo } from '@/app/api/table-info/route';
 
@@ -12,6 +12,7 @@ export interface TableInfoState {
 }
 
 export function useTableInfo() {
+  const { message } = App.useApp();
   const { connectionString } = useConnectionStore();
   const [tableInfo, setTableInfo] = useState<TableInfoResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +49,7 @@ export function useTableInfo() {
     } finally {
       setIsLoading(false);
     }
-  }, [connectionString]);
+  }, [connectionString, message]);
 
   const clearTableInfo = useCallback(() => {
     setTableInfo(null);

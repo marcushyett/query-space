@@ -76,9 +76,12 @@ export function QueryResults() {
               key: index,
             }))}
             pagination={{
-              pageSize: 100,
+              defaultPageSize: 50,
+              pageSizeOptions: ['25', '50', '100', '250', '500'],
               showSizeChanger: true,
-              showTotal: (total) => `Total ${total} rows`,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} rows`,
+              showQuickJumper: queryResults.rows.length > 100,
+              size: 'small',
             }}
             scroll={{ x: 'max-content' }}
             size="small"

@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { message } from 'antd';
+import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useQueryStore, QueryResult } from '@/stores/queryStore';
 
 export function useQuery() {
+  const { message } = App.useApp();
   const { connectionString } = useConnectionStore();
   const { setQueryResults, addToHistory, setIsExecuting } = useQueryStore();
   const [error, setError] = useState<string | null>(null);

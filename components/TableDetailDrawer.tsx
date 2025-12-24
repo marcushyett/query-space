@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Drawer, Table, Typography, Tag, Tabs, Empty, Button, message, Grid } from 'antd';
+import { Drawer, Table, Typography, Tag, Tabs, Empty, Button, App, Grid } from 'antd';
 import {
   KeyOutlined,
   LinkOutlined,
@@ -18,6 +18,7 @@ const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 export function TableDetailDrawer() {
+  const { message } = App.useApp();
   const {
     tableDetailDrawerOpen,
     selectedTable,

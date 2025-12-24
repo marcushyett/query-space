@@ -21,6 +21,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useQueryStore } from '@/stores/queryStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useQuery } from '@/hooks/useQuery';
+import { useSchema } from '@/hooks/useSchema';
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -35,6 +36,9 @@ export function HomePage() {
   const { executeQuery } = useQuery();
   const screens = useBreakpoint();
   const hasCheckedConnection = React.useRef(false);
+
+  // Fetch schema for autocomplete (automatically triggered when connected)
+  useSchema();
 
   // Determine if we're on mobile (xs or sm breakpoints)
   const isMobile = !screens.md;
