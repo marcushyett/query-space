@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Client } from 'pg';
+import { Client, FieldDef } from 'pg';
 import { validateSql } from '@/lib/sql-validation';
 
 export const runtime = 'nodejs';
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     // Format response
     const response = {
       rows: result.rows,
-      fields: result.fields.map((f) => ({
+      fields: result.fields.map((f: FieldDef) => ({
         name: f.name,
         dataTypeID: f.dataTypeID,
       })),
