@@ -4,7 +4,7 @@
 
 Query Space is a PostgreSQL analytics tool built with Next.js that allows you to write SQL queries, visualize data, and explore database schemas. It features a dark, techy interface with keyboard-driven navigation and AI-powered query generation.
 
-## Current Status: Phase 2 Complete ✅
+## Current Status: Phase 3 Complete ✅
 
 ### What's Working Now
 
@@ -13,7 +13,8 @@ Query Space is a PostgreSQL analytics tool built with Next.js that allows you to
 - ✅ Ant Design component library with custom dark theme
 - ✅ Pure black (#000000) background, white text, JetBrains Mono font
 - ✅ Zustand state management with localStorage persistence
-- ✅ Comprehensive test suite with Vitest (114 tests)
+- ✅ Comprehensive test suite with Vitest (199 tests)
+- ✅ GitHub Actions CI (tests, lint, build on Node 18.x and 20.x)
 
 **Phase 1 Features (Complete):**
 - ✅ PostgreSQL connection management (localStorage-based, stateless)
@@ -49,42 +50,38 @@ Query Space is a PostgreSQL analytics tool built with Next.js that allows you to
 - ✅ `Cmd+N`: Clear editor (new query)
 - ✅ `Cmd+B`: Toggle table browser
 
-## Remaining Phases
-
----
-
-### Phase 3: Data Visualization
-
-**Goal:** Create column and line charts from query results
-
-**Features to Implement:**
-- [ ] Auto-detect chart type from data types
-- [ ] Column chart (bar chart)
+**Phase 3 Features (Complete):**
+- ✅ Auto-detect chart type from data types (date → line, text → column)
+- ✅ Column chart (bar chart)
   - Categorical X-axis (text columns)
   - Numeric Y-axis (numeric columns)
-- [ ] Line chart
-  - Date/time X-axis
+  - Multiple Y-axis support
+- ✅ Line chart
+  - Date/time X-axis with formatting
   - Numeric Y-axis
-  - Support multiple series
-- [ ] Chart configuration panel:
+  - Multiple series support
+- ✅ Chart configuration panel:
   - Chart type selector (column/line)
   - X-axis column picker
-  - Y-axis column picker(s)
-  - Legend toggle
-- [ ] Dark theme charts with simple color palette
-- [ ] Auto-suggest chart based on query results
+  - Y-axis column picker(s) with multi-select
+  - Legend display
+- ✅ Dark theme charts with coordinated color palette
+- ✅ Auto-suggest chart based on query results
+- ✅ Tab interface to switch between Table and Chart views
 
-**Libraries:**
-- Recharts (React-native charting library)
+**Libraries Used:**
+- Recharts (React charting library)
 
-**Components to Build:**
+**Components Built:**
 - `VisualizationPanel.tsx` - Chart container and orchestrator
 - `ChartSelector.tsx` - UI for selecting chart type and axes
 - `ColumnChart.tsx` - Bar chart wrapper (Recharts)
 - `LineChart.tsx` - Line chart wrapper (Recharts)
 
-**Utilities to Create:**
+**Utilities Created:**
 - `lib/chart-utils.ts` - Data transformation and chart type detection
+
+## Remaining Phases
 
 ---
 
@@ -440,5 +437,5 @@ For issues or questions:
 
 ---
 
-**Last Updated:** Phase 2 Complete (2025-12-24)
-**Next Milestone:** Phase 3 - Data Visualization
+**Last Updated:** Phase 3 Complete (2025-12-24)
+**Next Milestone:** Phase 4 - Query Persistence
