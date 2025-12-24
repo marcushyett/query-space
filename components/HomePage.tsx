@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Button, Typography, Tooltip } from 'antd';
+import { Button, Typography, Tooltip, Grid } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -19,12 +19,18 @@ import { useUiStore } from '@/stores/uiStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
 
 const TABLE_BROWSER_WIDTH = 260;
+const TABLE_BROWSER_WIDTH_MOBILE = 200;
 
 export function HomePage() {
   const { connectionString } = useConnectionStore();
-  const { setConnectionDialogOpen, tableBrowserOpen, toggleTableBrowser, toggleHistoryDrawer } = useUiStore();
+  const { setConnectionDialogOpen, tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer } = useUiStore();
+  const screens = useBreakpoint();
+
+  // Determine if we're on mobile (xs or sm breakpoints)
+  const isMobile = !screens.md;
 
   useKeyboardShortcuts();
 
@@ -33,6 +39,15 @@ export function HomePage() {
       setConnectionDialogOpen(true);
     }
   }, [connectionString, setConnectionDialogOpen]);
+
+  // Auto-close sidebar on mobile
+  useEffect(() => {
+    if (isMobile && tableBrowserOpen) {
+      setTableBrowserOpen(false);
+    }
+  }, [isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sidebarWidth = isMobile ? TABLE_BROWSER_WIDTH_MOBILE : TABLE_BROWSER_WIDTH;
 
   return (
     <div className="app-container">
@@ -50,7 +65,7 @@ export function HomePage() {
           </Title>
         </div>
         <div className="flex items-center gap-4">
-          {connectionString && (
+          {connectionString && !isMobile && (
             <div className="flex items-center gap-2">
               <DatabaseOutlined className="icon-muted" />
               <Text type="secondary" className="text-sm">
@@ -62,7 +77,7 @@ export function HomePage() {
             size="small"
             onClick={() => setConnectionDialogOpen(true)}
           >
-            {connectionString ? 'Change Connection' : 'Connect'}
+            {connectionString ? (isMobile ? 'Connect' : 'Change Connection') : 'Connect'}
           </Button>
           <Tooltip title="Query History (Cmd+H)">
             <Button
@@ -71,16 +86,18 @@ export function HomePage() {
               onClick={toggleHistoryDrawer}
             />
           </Tooltip>
-          <Text type="secondary" className="text-xs">
-            Cmd+Enter to run
-          </Text>
+          {!isMobile && (
+            <Text type="secondary" className="text-xs">
+              Cmd+Enter to run
+            </Text>
+          )}
         </div>
       </header>
 
       <main className="app-main">
         <aside
           className={tableBrowserOpen ? 'sidebar' : 'sidebar sidebar-hidden'}
-          style={{ width: tableBrowserOpen ? TABLE_BROWSER_WIDTH : 0 }}
+          style={{ width: tableBrowserOpen ? sidebarWidth : 0 }}
         >
           {tableBrowserOpen && <TableBrowser />}
         </aside>

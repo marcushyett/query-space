@@ -400,3 +400,29 @@ body {
 .history-query-text .ant-typography {
   color: #fff;
 }
+
+/* Responsive adjustments for mobile */
+@media (max-width: 767px) {
+  .app-header {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .editor-pane {
+    height: 35%;
+    min-height: 150px;
+  }
+
+  .chart-container {
+    min-height: 200px;
+    padding: 8px;
+  }
+
+  .results-header {
+    padding: 8px 12px;
+  }
+
+  .chart-config {
+    padding: 8px 12px;
+  }
+}

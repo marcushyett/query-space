@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Drawer, Table, Typography, Tag, Tabs, Spin, Empty, Button, Tooltip, message } from 'antd';
+import { Drawer, Table, Typography, Tag, Tabs, Spin, Empty, Button, Tooltip, message, Grid } from 'antd';
 import {
   KeyOutlined,
   LinkOutlined,
@@ -14,6 +14,7 @@ import { useQueryStore } from '@/stores/queryStore';
 import type { ColumnInfo, IndexInfo } from '@/app/api/table-info/route';
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 export function TableDetailDrawer() {
   const {
@@ -24,6 +25,10 @@ export function TableDetailDrawer() {
   } = useUiStore();
   const { tableInfo, isLoading, fetchTableInfo, clearTableInfo } = useTableInfo();
   const { setCurrentQuery, currentQuery } = useQueryStore();
+  const screens = useBreakpoint();
+
+  // Responsive drawer width: full width on mobile, 600px on larger screens
+  const drawerWidth = screens.md ? 600 : '100%';
 
   // Fetch table info when selected table changes
   useEffect(() => {
@@ -228,7 +233,7 @@ export function TableDetailDrawer() {
         </div>
       }
       placement="right"
-      width={600}
+      width={drawerWidth}
       open={tableDetailDrawerOpen}
       onClose={handleClose}
       extra={

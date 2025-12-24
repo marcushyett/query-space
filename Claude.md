@@ -59,6 +59,15 @@
 - Remove unused variables and imports
 - Ensure no ESLint warnings or errors exist in the codebase
 
+### 9. Responsive Design
+- **Use Ant Design's native responsive features** as much as possible
+- Use `Grid.useBreakpoint()` hook for responsive logic in components
+- Prefer antd's responsive props (e.g., `Space wrap`, `maxTagCount="responsive"`) over custom CSS
+- **Avoid duplicating code for mobile** - one responsive version is always better
+- Only use CSS media queries in `globals.css` for layout adjustments that can't be handled by antd
+- Breakpoint reference: `xs` (<576px), `sm` (≥576px), `md` (≥768px), `lg` (≥992px), `xl` (≥1200px)
+- Use `!screens.md` to detect mobile devices (screens smaller than 768px)
+
 ## File Organization
 
 ```
@@ -77,6 +86,7 @@ Before committing, ensure:
 - [ ] Colors are greyscale (except for justified exceptions)
 - [ ] No inline or component-specific styling
 - [ ] Components are small and focused
+- [ ] Responsive design uses antd's native features (useBreakpoint, responsive props)
 - [ ] Linting passes with no errors (`npm run lint`)
 - [ ] TypeScript compiles with no errors (`npm run build`)
 - [ ] All tests pass (`npm test`)

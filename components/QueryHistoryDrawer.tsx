@@ -1,11 +1,12 @@
 'use client';
 
-import { Drawer, List, Typography, Button, Empty, Tooltip, Popconfirm } from 'antd';
+import { Drawer, List, Typography, Button, Empty, Tooltip, Popconfirm, Grid } from 'antd';
 import { DeleteOutlined, ClearOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useUiStore } from '@/stores/uiStore';
 import { useQueryStore, type SavedQuery } from '@/stores/queryStore';
 
 const { Text, Paragraph } = Typography;
+const { useBreakpoint } = Grid;
 
 function formatRelativeTime(timestamp: number): string {
   const now = Date.now();
@@ -88,6 +89,10 @@ function HistoryItem({ query, onSelect, onDelete }: HistoryItemProps) {
 export function QueryHistoryDrawer() {
   const { historyDrawerOpen, setHistoryDrawerOpen } = useUiStore();
   const { queryHistory, setCurrentQuery, removeFromHistory, clearHistory } = useQueryStore();
+  const screens = useBreakpoint();
+
+  // Responsive drawer width: full width on mobile, 400px on larger screens
+  const drawerWidth = screens.md ? 400 : '100%';
 
   const handleClose = () => {
     setHistoryDrawerOpen(false);
@@ -110,7 +115,7 @@ export function QueryHistoryDrawer() {
     <Drawer
       title="Query History"
       placement="right"
-      width={400}
+      width={drawerWidth}
       open={historyDrawerOpen}
       onClose={handleClose}
       extra={
