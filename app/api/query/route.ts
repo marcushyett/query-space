@@ -55,34 +55,42 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json(response);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Query execution error:', error);
 
     // Determine error type and return appropriate message
     let errorMessage = 'Query execution failed';
     let statusCode = 500;
+    let errorCode: string | undefined;
 
-    if (error.code === 'ECONNREFUSED') {
-      errorMessage = 'Unable to connect to database. Check your connection string and ensure the database is running.';
-      statusCode = 503;
-    } else if (error.code === '28P01') {
-      errorMessage = 'Authentication failed. Check your username and password.';
-      statusCode = 401;
-    } else if (error.code === '3D000') {
-      errorMessage = 'Database does not exist. Check your connection string.';
-      statusCode = 404;
-    } else if (error.code === '42601') {
-      errorMessage = `SQL syntax error: ${error.message}`;
-      statusCode = 400;
-    } else if (error.code === '42P01') {
-      errorMessage = `Table does not exist: ${error.message}`;
-      statusCode = 404;
-    } else if (error.message) {
+    if (error instanceof Error && 'code' in error) {
+      const dbError = error as Error & { code: string };
+      errorCode = dbError.code;
+
+      if (dbError.code === 'ECONNREFUSED') {
+        errorMessage = 'Unable to connect to database. Check your connection string and ensure the database is running.';
+        statusCode = 503;
+      } else if (dbError.code === '28P01') {
+        errorMessage = 'Authentication failed. Check your username and password.';
+        statusCode = 401;
+      } else if (dbError.code === '3D000') {
+        errorMessage = 'Database does not exist. Check your connection string.';
+        statusCode = 404;
+      } else if (dbError.code === '42601') {
+        errorMessage = `SQL syntax error: ${dbError.message}`;
+        statusCode = 400;
+      } else if (dbError.code === '42P01') {
+        errorMessage = `Table does not exist: ${dbError.message}`;
+        statusCode = 404;
+      } else {
+        errorMessage = dbError.message;
+      }
+    } else if (error instanceof Error) {
       errorMessage = error.message;
     }
 
     return NextResponse.json(
-      { error: errorMessage, code: error.code },
+      { error: errorMessage, code: errorCode },
       { status: statusCode }
     );
   } finally {

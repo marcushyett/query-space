@@ -53,8 +53,8 @@ export function useQuery() {
       setQueryResults(result);
       addToHistory(sql, data.rowCount, data.executionTime);
       message.success(`Query executed successfully (${data.executionTime}ms)`);
-    } catch (err: any) {
-      const errorMessage = err.message || 'An error occurred while executing the query';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while executing the query';
       setError(errorMessage);
       message.error(errorMessage);
       console.error('Query execution error:', err);

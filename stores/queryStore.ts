@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export interface QueryResult {
-  rows: any[];
+  rows: Record<string, unknown>[];
   fields: { name: string; dataTypeID: number }[];
   rowCount: number;
   executionTime: number;
@@ -33,7 +33,7 @@ const MAX_HISTORY_SIZE = 50;
 
 export const useQueryStore = create<QueryStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       currentQuery: '',
       queryResults: null,
       queryHistory: [],
