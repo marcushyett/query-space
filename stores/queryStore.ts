@@ -23,6 +23,7 @@ interface QueryStore {
   setQueryResults: (r: QueryResult) => void;
   queryHistory: SavedQuery[];
   addToHistory: (sql: string, rowCount: number | null, executionTime: number | null) => void;
+  removeFromHistory: (id: string) => void;
   clearHistory: () => void;
   isExecuting: boolean;
   setIsExecuting: (val: boolean) => void;
@@ -59,6 +60,12 @@ export const useQueryStore = create<QueryStore>()(
           const newHistory = [newQuery, ...state.queryHistory].slice(0, MAX_HISTORY_SIZE);
           return { queryHistory: newHistory };
         });
+      },
+
+      removeFromHistory: (id: string) => {
+        set((state) => ({
+          queryHistory: state.queryHistory.filter((q) => q.id !== id),
+        }));
       },
 
       clearHistory: () => {

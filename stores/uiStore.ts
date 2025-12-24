@@ -10,6 +10,7 @@ interface UiStore {
   aiModalOpen: boolean;
   toggleTableBrowser: () => void;
   toggleHistoryDrawer: () => void;
+  setHistoryDrawerOpen: (open: boolean) => void;
   setShortcutsHelpOpen: (open: boolean) => void;
   setConnectionDialogOpen: (open: boolean) => void;
   setTableDetailDrawerOpen: (open: boolean) => void;
@@ -31,6 +32,9 @@ export const useUiStore = create<UiStore>((set) => ({
 
   toggleHistoryDrawer: () =>
     set((state) => ({ historyDrawerOpen: !state.historyDrawerOpen })),
+
+  setHistoryDrawerOpen: (open: boolean) =>
+    set({ historyDrawerOpen: open }),
 
   setShortcutsHelpOpen: (open: boolean) =>
     set({ shortcutsHelpOpen: open }),

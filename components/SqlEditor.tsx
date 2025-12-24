@@ -2,22 +2,21 @@
 
 import { Editor } from '@monaco-editor/react';
 import { useQueryStore } from '@/stores/queryStore';
-import { useEffect } from 'react';
+import { useUrlState } from '@/hooks/useUrlState';
 
 export function SqlEditor() {
   const { currentQuery, setCurrentQuery } = useQueryStore();
+
+  // Sync query with URL parameters
+  useUrlState();
 
   const handleChange = (value: string | undefined) => {
     const newQuery = value || '';
     setCurrentQuery(newQuery);
   };
 
-  useEffect(() => {
-    // Load query from URL on mount (will implement in Phase 4)
-  }, []);
-
   return (
-    <div style={{ height: '100%', border: '1px solid #333' }}>
+    <div className="sql-editor-container">
       <Editor
         height="100%"
         language="sql"

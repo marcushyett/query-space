@@ -60,7 +60,7 @@ export function LineChart({
           }}
           labelStyle={{ color: '#fff' }}
           itemStyle={{ color: '#fff' }}
-          formatter={(value: number) => [value.toLocaleString(), '']}
+          formatter={(value) => [typeof value === 'number' ? value.toLocaleString() : String(value ?? ''), '']}
           labelFormatter={isDateXAxis ? (label) => formatDate(label) : undefined}
         />
         {showLegend && (
