@@ -4,7 +4,7 @@
 
 Query Space is a PostgreSQL analytics tool built with Next.js that allows you to write SQL queries, visualize data, and explore database schemas. It features a dark, techy interface with keyboard-driven navigation and AI-powered query generation.
 
-## Current Status: Phase 1 Complete ✅
+## Current Status: Phase 3 Complete ✅
 
 ### What's Working Now
 
@@ -13,8 +13,10 @@ Query Space is a PostgreSQL analytics tool built with Next.js that allows you to
 - ✅ Ant Design component library with custom dark theme
 - ✅ Pure black (#000000) background, white text, JetBrains Mono font
 - ✅ Zustand state management with localStorage persistence
+- ✅ Comprehensive test suite with Vitest (199 tests)
+- ✅ GitHub Actions CI (tests, lint, build on Node 18.x and 20.x)
 
-**Features:**
+**Phase 1 Features (Complete):**
 - ✅ PostgreSQL connection management (localStorage-based, stateless)
 - ✅ SQL editor with Monaco (VS Code's editor)
 - ✅ SQL syntax highlighting for PostgreSQL
@@ -25,74 +27,61 @@ Query Space is a PostgreSQL analytics tool built with Next.js that allows you to
 - ✅ SQL validation with dangerous operation warnings
 - ✅ Connection string stored in localStorage per session
 
+**Phase 2 Features (Complete):**
+- ✅ Database schema tree view (left sidebar)
+- ✅ List all tables grouped by schema
+- ✅ Search/filter tables by name
+- ✅ Click table to view details in drawer:
+  - ✅ Column names and data types
+  - ✅ Primary/Foreign key indicators
+  - ✅ NULL/NOT NULL constraints
+  - ✅ Sample data (first 10 rows)
+  - ✅ Index information
+- ✅ Two-panel collapsible layout:
+  - ✅ Table Browser (260px width, toggleable)
+  - ✅ Editor + Results (remaining space)
+- ✅ `Cmd+B` keyboard shortcut to toggle table browser
+- ✅ `POST /api/tables` - List all tables from information_schema
+- ✅ `POST /api/table-info` - Get columns, indexes, and sample data
+
 **Keyboard Shortcuts:**
 - ✅ `Cmd+Enter`: Execute SQL query
 - ✅ `Cmd+K`: Open connection dialog
 - ✅ `Cmd+N`: Clear editor (new query)
+- ✅ `Cmd+B`: Toggle table browser
 
-## Remaining Phases
-
-### Phase 2: Table Browser (Next Up)
-
-**Goal:** Navigate database schema and explore table structures
-
-**Features to Implement:**
-- [ ] Database schema tree view (left sidebar)
-- [ ] List all tables grouped by schema
-- [ ] Search/filter tables
-- [ ] Click table to view:
-  - Column names and data types
-  - NULL/NOT NULL constraints
-  - Sample data (first 10 rows)
-- [ ] Three-panel layout:
-  - Table Browser (20% width)
-  - Editor + Results (50% width)
-  - Visualization placeholder (30% width)
-- [ ] `Cmd+B` keyboard shortcut to toggle table browser
-
-**API Endpoints to Create:**
-- `POST /api/tables` - List all tables from information_schema
-- `POST /api/table-info` - Get columns and sample data for a specific table
-
-**Components to Build:**
-- `TableBrowser.tsx` - Tree view of database schemas/tables
-- `TableDetailDrawer.tsx` - Drawer showing column info and samples
-- `AppLayout.tsx` - Three-panel responsive layout
-
----
-
-### Phase 3: Data Visualization
-
-**Goal:** Create column and line charts from query results
-
-**Features to Implement:**
-- [ ] Auto-detect chart type from data types
-- [ ] Column chart (bar chart)
+**Phase 3 Features (Complete):**
+- ✅ Auto-detect chart type from data types (date → line, text → column)
+- ✅ Column chart (bar chart)
   - Categorical X-axis (text columns)
   - Numeric Y-axis (numeric columns)
-- [ ] Line chart
-  - Date/time X-axis
+  - Multiple Y-axis support
+- ✅ Line chart
+  - Date/time X-axis with formatting
   - Numeric Y-axis
-  - Support multiple series
-- [ ] Chart configuration panel:
+  - Multiple series support
+- ✅ Chart configuration panel:
   - Chart type selector (column/line)
   - X-axis column picker
-  - Y-axis column picker(s)
-  - Legend toggle
-- [ ] Dark theme charts with simple color palette
-- [ ] Auto-suggest chart based on query results
+  - Y-axis column picker(s) with multi-select
+  - Legend display
+- ✅ Dark theme charts with coordinated color palette
+- ✅ Auto-suggest chart based on query results
+- ✅ Tab interface to switch between Table and Chart views
 
-**Libraries:**
-- Recharts (React-native charting library)
+**Libraries Used:**
+- Recharts (React charting library)
 
-**Components to Build:**
+**Components Built:**
 - `VisualizationPanel.tsx` - Chart container and orchestrator
 - `ChartSelector.tsx` - UI for selecting chart type and axes
 - `ColumnChart.tsx` - Bar chart wrapper (Recharts)
 - `LineChart.tsx` - Line chart wrapper (Recharts)
 
-**Utilities to Create:**
+**Utilities Created:**
 - `lib/chart-utils.ts` - Data transformation and chart type detection
+
+## Remaining Phases
 
 ---
 
@@ -263,19 +252,18 @@ query-space/
 │   ├── globals.css                # Global styles, antd overrides
 │   └── api/
 │       ├── query/route.ts         # ✅ Execute SQL queries
-│       ├── tables/route.ts        # TODO: List database tables
-│       ├── table-info/route.ts    # TODO: Get table schema + sample data
+│       ├── tables/route.ts        # ✅ List database tables
+│       ├── table-info/route.ts    # ✅ Get table schema + sample data
 │       └── ai-query/route.ts      # TODO: AI SQL generation
 │
 ├── components/
 │   ├── Providers.tsx              # ✅ Ant Design ConfigProvider wrapper
-│   ├── HomePage.tsx               # ✅ Main app container
+│   ├── HomePage.tsx               # ✅ Main app container with layout
 │   ├── ConnectionDialog.tsx       # ✅ Connect to database modal
 │   ├── SqlEditor.tsx              # ✅ Monaco editor wrapper
 │   ├── QueryResults.tsx           # ✅ Table view of results
-│   ├── AppLayout.tsx              # TODO: Three-panel layout
-│   ├── TableBrowser.tsx           # TODO: Left sidebar - table tree
-│   ├── TableDetailDrawer.tsx      # TODO: Drawer with column info
+│   ├── TableBrowser.tsx           # ✅ Left sidebar - table tree
+│   ├── TableDetailDrawer.tsx      # ✅ Drawer with column info
 │   ├── VisualizationPanel.tsx     # TODO: Chart container + config
 │   ├── ColumnChart.tsx            # TODO: Recharts bar chart
 │   ├── LineChart.tsx              # TODO: Recharts line chart
@@ -291,9 +279,9 @@ query-space/
 │
 ├── hooks/
 │   ├── useQuery.ts                # ✅ Execute SQL queries
-│   ├── useKeyboardShortcuts.ts    # ✅ Global shortcuts (partial)
-│   ├── useTables.ts               # TODO: Fetch table list
-│   ├── useTableInfo.ts            # TODO: Fetch table details
+│   ├── useKeyboardShortcuts.ts    # ✅ Global keyboard shortcuts
+│   ├── useTables.ts               # ✅ Fetch table list
+│   ├── useTableInfo.ts            # ✅ Fetch table details
 │   ├── useAiQuery.ts              # TODO: AI query generation
 │   └── useUrlState.ts             # TODO: Query URL persistence
 │
@@ -449,5 +437,5 @@ For issues or questions:
 
 ---
 
-**Last Updated:** Phase 1 Complete (2025-12-24)
-**Next Milestone:** Phase 2 - Table Browser
+**Last Updated:** Phase 3 Complete (2025-12-24)
+**Next Milestone:** Phase 4 - Query Persistence

@@ -1,12 +1,17 @@
 'use client';
 
-import { Table, Typography, Alert } from 'antd';
+import { useState } from 'react';
+import { Table, Typography, Alert, Tabs } from 'antd';
+import { TableOutlined, BarChartOutlined } from '@ant-design/icons';
 import { useQueryStore } from '@/stores/queryStore';
+import { VisualizationPanel } from './VisualizationPanel';
+import { isChartable } from '@/lib/chart-utils';
 
 const { Text } = Typography;
 
 export function QueryResults() {
   const { queryResults, isExecuting } = useQueryStore();
+  const [activeTab, setActiveTab] = useState('table');
 
   if (isExecuting) {
     return (
@@ -43,12 +48,56 @@ export function QueryResults() {
     dataIndex: field.name,
     key: field.name,
     ellipsis: true,
-    render: (text: any) => {
+    render: (text: unknown) => {
       if (text === null) return <Text type="secondary">NULL</Text>;
       if (typeof text === 'object') return JSON.stringify(text);
       return String(text);
     },
   }));
+
+  const canVisualize = isChartable(queryResults);
+
+  const tabItems = [
+    {
+      key: 'table',
+      label: (
+        <span>
+          <TableOutlined />
+          Table
+        </span>
+      ),
+      children: (
+        <div style={{ height: '100%', overflow: 'auto' }}>
+          <Table
+            columns={columns}
+            dataSource={queryResults.rows.map((row, index) => ({
+              ...row,
+              key: index,
+            }))}
+            pagination={{
+              pageSize: 100,
+              showSizeChanger: true,
+              showTotal: (total) => `Total ${total} rows`,
+            }}
+            scroll={{ x: 'max-content' }}
+            size="small"
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'chart',
+      label: (
+        <span>
+          <BarChartOutlined />
+          Chart
+          {!canVisualize && <Text type="secondary" style={{ marginLeft: 4, fontSize: 10 }}>(N/A)</Text>}
+        </span>
+      ),
+      disabled: !canVisualize,
+      children: <VisualizationPanel queryResult={queryResults} />,
+    },
+  ];
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -66,20 +115,17 @@ export function QueryResults() {
         </Text>
         <Text type="secondary">{queryResults.executionTime}ms</Text>
       </div>
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        <Table
-          columns={columns}
-          dataSource={queryResults.rows.map((row, index) => ({
-            ...row,
-            key: index,
-          }))}
-          pagination={{
-            pageSize: 100,
-            showSizeChanger: true,
-            showTotal: (total) => `Total ${total} rows`,
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={tabItems}
+          style={{ height: '100%' }}
+          tabBarStyle={{
+            marginBottom: 0,
+            paddingLeft: 16,
+            borderBottom: '1px solid #333',
           }}
-          scroll={{ x: 'max-content' }}
-          size="small"
         />
       </div>
     </div>
