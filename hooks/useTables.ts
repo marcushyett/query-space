@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { message } from 'antd';
+import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
 import type { TableInfo } from '@/app/api/tables/route';
 
@@ -12,6 +12,7 @@ export interface TablesState {
 }
 
 export function useTables() {
+  const { message } = App.useApp();
   const { connectionString } = useConnectionStore();
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +49,7 @@ export function useTables() {
     } finally {
       setIsLoading(false);
     }
-  }, [connectionString]);
+  }, [connectionString, message]);
 
   const refreshTables = useCallback(() => {
     fetchTables();
