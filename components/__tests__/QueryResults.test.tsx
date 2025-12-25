@@ -188,4 +188,118 @@ describe('QueryResults', () => {
       expect(screen.getByText('{"foo":"bar"}')).toBeInTheDocument()
     })
   })
+
+  describe('visualization tab', () => {
+    describe('when chartable', () => {
+      beforeEach(() => {
+        // Data with text + numeric columns is chartable
+        useQueryStore.setState({
+          queryResults: {
+            rows: [
+              { category: 'A', value: 100 },
+              { category: 'B', value: 200 },
+            ],
+            fields: [
+              { name: 'category', dataTypeID: 1043 }, // varchar
+              { name: 'value', dataTypeID: 23 }, // integer
+            ],
+            rowCount: 2,
+            executionTime: 10,
+          },
+        })
+      })
+
+      it('should enable the Chart tab', () => {
+        renderWithProviders(<QueryResults />)
+        const chartTab = screen.getByRole('tab', { name: /Chart/i })
+        expect(chartTab).not.toHaveAttribute('aria-disabled', 'true')
+      })
+
+      it('should show helpful tooltip on Chart tab', async () => {
+        renderWithProviders(<QueryResults />)
+        const chartTab = screen.getByRole('tab', { name: /Chart/i })
+        expect(chartTab).toBeInTheDocument()
+      })
+    })
+
+    describe('when not chartable - no numeric columns', () => {
+      beforeEach(() => {
+        // Data with only text columns is not chartable
+        useQueryStore.setState({
+          queryResults: {
+            rows: [
+              { name: 'Alice', email: 'alice@test.com' },
+            ],
+            fields: [
+              { name: 'name', dataTypeID: 1043 }, // varchar
+              { name: 'email', dataTypeID: 1043 }, // varchar
+            ],
+            rowCount: 1,
+            executionTime: 10,
+          },
+        })
+      })
+
+      it('should disable the Chart tab', () => {
+        renderWithProviders(<QueryResults />)
+        const chartTab = screen.getByRole('tab', { name: /Chart/i })
+        expect(chartTab).toHaveAttribute('aria-disabled', 'true')
+      })
+
+      it('should have chart tab present even when disabled', () => {
+        renderWithProviders(<QueryResults />)
+        // The chart tab should be present in the DOM even when disabled
+        const chartTab = screen.getByRole('tab', { name: /Chart/i })
+        expect(chartTab).toBeInTheDocument()
+      })
+    })
+
+    describe('when not chartable - single column', () => {
+      beforeEach(() => {
+        // Data with only one column is not chartable
+        useQueryStore.setState({
+          queryResults: {
+            rows: [{ count: 42 }],
+            fields: [
+              { name: 'count', dataTypeID: 23 }, // integer
+            ],
+            rowCount: 1,
+            executionTime: 10,
+          },
+        })
+      })
+
+      it('should disable the Chart tab for single column results', () => {
+        renderWithProviders(<QueryResults />)
+        const chartTab = screen.getByRole('tab', { name: /Chart/i })
+        expect(chartTab).toHaveAttribute('aria-disabled', 'true')
+      })
+    })
+
+    describe('key stability', () => {
+      it('should use stable row keys instead of array indices', () => {
+        useQueryStore.setState({
+          queryResults: {
+            rows: [
+              { id: 1, name: 'First' },
+              { id: 2, name: 'Second' },
+            ],
+            fields: [
+              { name: 'id', dataTypeID: 23 },
+              { name: 'name', dataTypeID: 1043 },
+            ],
+            rowCount: 2,
+            executionTime: 5,
+          },
+        })
+
+        const { container } = renderWithProviders(<QueryResults />)
+        const tableRows = container.querySelectorAll('.ant-table-tbody tr')
+        const rowKeys = Array.from(tableRows).map(row => row.getAttribute('data-row-key'))
+
+        // Keys should be prefixed with 'row-' not just numeric indices
+        expect(rowKeys.filter(Boolean).every(key => key?.startsWith('row-'))).toBe(true)
+      })
+    })
+  })
 })

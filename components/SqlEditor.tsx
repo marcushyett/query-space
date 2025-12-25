@@ -1,12 +1,13 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import { Editor, type Monaco } from '@monaco-editor/react';
 import type { editor, Position, IRange } from 'monaco-editor';
 import { Button, Grid } from 'antd';
 import { FormatPainterOutlined } from '@ant-design/icons';
 import { useQueryStore } from '@/stores/queryStore';
 import { useSchemaStore } from '@/stores/schemaStore';
+import type { SchemaTable } from '@/app/api/schema/route';
 import { useUrlState } from '@/hooks/useUrlState';
 import { formatSql } from '@/lib/sql-formatter';
 
@@ -44,6 +45,14 @@ export function SqlEditor() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const completionProviderRef = useRef<{ dispose: () => void } | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
+  // Use ref to always access latest tables in completion provider
+  const tablesRef = useRef<SchemaTable[]>(tables);
+
+  // Keep tablesRef updated with latest tables
+  useEffect(() => {
+    tablesRef.current = tables;
+  }, [tables]);
 
   // Sync query with URL parameters
   useUrlState();
@@ -61,15 +70,21 @@ export function SqlEditor() {
   };
 
   const handleEditorMount = useCallback((editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
+    // Store monaco reference for potential future use
+    monacoRef.current = monaco;
+
     // Dispose of any existing provider
     if (completionProviderRef.current) {
       completionProviderRef.current.dispose();
     }
 
-    // Register completion provider
+    // Register completion provider - uses tablesRef to always access latest tables
     completionProviderRef.current = monaco.languages.registerCompletionItemProvider('sql', {
       triggerCharacters: ['.', ' ', '"', "'"],
       provideCompletionItems: (model: editor.ITextModel, position: Position) => {
+        // Access tables via ref to get latest value
+        const currentTables = tablesRef.current;
+
         const word = model.getWordUntilPosition(position);
         const range: IRange = {
           startLineNumber: position.lineNumber,
@@ -102,13 +117,13 @@ export function SqlEditor() {
 
           // Find table by name or check for alias in the query
           const aliasMatch = textBeforeCursor.match(new RegExp(`(\\w+\\.\\w+|\\w+)\\s+(?:AS\\s+)?${tableAlias}\\b`, 'i'));
-          let targetTable = tables.find(t => t.name.toLowerCase() === tableAlias);
+          let targetTable = currentTables.find(t => t.name.toLowerCase() === tableAlias);
 
           if (!targetTable && aliasMatch) {
             const tableName = aliasMatch[1].includes('.')
               ? aliasMatch[1].split('.')[1]
               : aliasMatch[1];
-            targetTable = tables.find(t => t.name.toLowerCase() === tableName.toLowerCase());
+            targetTable = currentTables.find(t => t.name.toLowerCase() === tableName.toLowerCase());
           }
 
           if (targetTable) {
@@ -128,7 +143,7 @@ export function SqlEditor() {
 
         // Add table suggestions (higher priority after FROM/JOIN)
         const afterFromOrJoin = /\b(FROM|JOIN)\s+\w*$/i.test(textBeforeCursor);
-        tables.forEach((table, index) => {
+        currentTables.forEach((table, index) => {
           const fullName = table.schema === 'public' ? table.name : `${table.schema}.${table.name}`;
           suggestions.push({
             label: fullName,
@@ -169,7 +184,7 @@ export function SqlEditor() {
         // Add column suggestions from all tables if in SELECT context
         const afterSelect = /\bSELECT\s+(?:(?!FROM)[^])*$/i.test(textBeforeCursor);
         if (afterSelect && !dotMatch) {
-          tables.forEach((table) => {
+          currentTables.forEach((table) => {
             table.columns.forEach((col, colIndex) => {
               const label = `${table.name}.${col.name}`;
               suggestions.push({
@@ -200,7 +215,7 @@ export function SqlEditor() {
       tabCompletion: 'on',
       wordBasedSuggestions: 'off',
     });
-  }, [tables]);
+  }, []);
 
   return (
     <div className="sql-editor-container" style={{ position: 'relative' }}>

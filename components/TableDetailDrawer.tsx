@@ -191,7 +191,7 @@ export function TableDetailDrawer() {
       children: (
         <Table
           columns={columnColumns}
-          dataSource={tableInfo?.columns?.map((col, i) => ({ ...col, key: i })) ?? []}
+          dataSource={tableInfo?.columns?.map((col) => ({ ...col, key: col.name })) ?? []}
           pagination={false}
           size="small"
           scroll={{ x: 'max-content' }}
@@ -207,7 +207,7 @@ export function TableDetailDrawer() {
         ) : (
           <Table
             columns={indexColumns}
-            dataSource={tableInfo?.indexes?.map((idx, i) => ({ ...idx, key: i })) ?? []}
+            dataSource={tableInfo?.indexes?.map((idx) => ({ ...idx, key: idx.name })) ?? []}
             pagination={false}
             size="small"
           />
@@ -222,7 +222,7 @@ export function TableDetailDrawer() {
         ) : (
           <Table
             columns={sampleColumns}
-            dataSource={tableInfo?.sampleData?.map((row, i) => ({ ...row, key: i })) ?? []}
+            dataSource={tableInfo?.sampleData?.map((row, i) => ({ ...row, key: `row-${i}-${JSON.stringify(row).slice(0, 50)}` })) ?? []}
             pagination={false}
             size="small"
             scroll={{ x: 'max-content' }}
