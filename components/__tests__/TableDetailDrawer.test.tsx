@@ -159,5 +159,80 @@ describe('TableDetailDrawer', () => {
         expect(screen.getByText(/100 rows/i)).toBeInTheDocument()
       })
     })
+
+    describe('table keys', () => {
+      it('should render columns without crashing', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockTableInfoResponse,
+        })
+
+        renderWithProviders(<TableDetailDrawer />)
+
+        await waitFor(() => {
+          expect(screen.getByText('id')).toBeInTheDocument()
+        })
+
+        // All column names should be visible
+        expect(screen.getByText('id')).toBeInTheDocument()
+        expect(screen.getByText('name')).toBeInTheDocument()
+        expect(screen.getByText('email')).toBeInTheDocument()
+      })
+
+      it('should render indexes without crashing', async () => {
+        const responseWithMultipleIndexes = {
+          ...mockTableInfoResponse,
+          indexes: [
+            { name: 'users_pkey', columns: ['id'], isUnique: true, isPrimary: true },
+            { name: 'users_email_idx', columns: ['email'], isUnique: true, isPrimary: false },
+          ],
+        }
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => responseWithMultipleIndexes,
+        })
+
+        renderWithProviders(<TableDetailDrawer />)
+
+        await waitFor(() => {
+          expect(screen.getByText('id')).toBeInTheDocument()
+        })
+
+        // Click on Indexes tab
+        const indexesTab = screen.getByRole('tab', { name: /Indexes/i })
+        indexesTab.click()
+
+        await waitFor(() => {
+          expect(screen.getByText('users_pkey')).toBeInTheDocument()
+          expect(screen.getByText('users_email_idx')).toBeInTheDocument()
+        })
+      })
+
+      it('should not crash when clicking on index rows', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockTableInfoResponse,
+        })
+
+        renderWithProviders(<TableDetailDrawer />)
+
+        await waitFor(() => {
+          expect(screen.getByText('id')).toBeInTheDocument()
+        })
+
+        // Click on Indexes tab - should not crash
+        const indexesTab = screen.getByRole('tab', { name: /Indexes/i })
+        expect(() => indexesTab.click()).not.toThrow()
+
+        await waitFor(() => {
+          expect(screen.getByText('users_pkey')).toBeInTheDocument()
+        })
+
+        // Clicking on the index row should not crash
+        const indexRow = screen.getByText('users_pkey')
+        expect(() => indexRow.click()).not.toThrow()
+      })
+    })
   })
 })

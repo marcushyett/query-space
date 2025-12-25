@@ -106,13 +106,50 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
   }
 
   if (!canChart) {
+    // Determine specific reason why charting isn't available
+    let reason = 'This query result cannot be visualized.';
+    let suggestions: string[] = [];
+
+    if (queryResult.rows.length === 0) {
+      reason = 'No data to visualize.';
+      suggestions = ['Run a query that returns data'];
+    } else if (queryResult.fields.length < 2) {
+      reason = 'Need at least 2 columns to create a chart.';
+      suggestions = [
+        'Add more columns to your SELECT statement',
+        'Example: SELECT category, COUNT(*) FROM table GROUP BY category'
+      ];
+    } else {
+      const hasNumeric = queryResult.fields.some(f => isNumericType(f.dataTypeID));
+      if (!hasNumeric) {
+        reason = 'No numeric columns found for chart values.';
+        suggestions = [
+          'Add a numeric column using COUNT(), SUM(), AVG(), etc.',
+          'Example: SELECT name, COUNT(*) as count FROM table GROUP BY name',
+          'Or select existing numeric columns (integers, decimals)'
+        ];
+      }
+    }
+
     return (
-      <div style={{ padding: 16, textAlign: 'center' }}>
+      <div style={{ padding: 24, textAlign: 'center' }}>
         <Empty
           description={
-            <Text type="secondary">
-              This query result cannot be visualized. Need at least 2 columns with numeric data.
-            </Text>
+            <div>
+              <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+                {reason}
+              </Text>
+              {suggestions.length > 0 && (
+                <div style={{ textAlign: 'left', maxWidth: 400, margin: '0 auto' }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>Tips:</Text>
+                  <ul style={{ paddingLeft: 20, margin: '4px 0 0 0', textAlign: 'left' }}>
+                    {suggestions.map((tip, i) => (
+                      <li key={i} style={{ color: '#666', fontSize: 12 }}>{tip}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           }
         />
       </div>
