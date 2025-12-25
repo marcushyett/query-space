@@ -8,7 +8,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { getChartColors, formatNumber } from '@/lib/chart-utils';
+import { getChartColors, truncateLabel } from '@/lib/chart-utils';
 
 interface PieChartProps {
   data: Record<string, unknown>[];
@@ -41,8 +41,8 @@ export function PieChart({
           data={pieData}
           cx="50%"
           cy="50%"
-          labelLine={true}
-          label={({ name, value, percent }) => `${name}: ${formatNumber(value as number)} (${((percent ?? 0) * 100).toFixed(1)}%)`}
+          labelLine={false}
+          label={false}
           outerRadius="70%"
           innerRadius="30%"
           fill="#8884d8"
@@ -58,13 +58,16 @@ export function PieChart({
             backgroundColor: '#1f1f1f',
             border: '1px solid #333',
             borderRadius: 4,
+            maxWidth: 300,
+            wordWrap: 'break-word',
           }}
-          labelStyle={{ color: '#fff' }}
+          labelStyle={{ color: '#fff', wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}
           itemStyle={{ color: '#fff' }}
-          formatter={(value) => {
+          formatter={(value, _name, props) => {
             const numValue = typeof value === 'number' ? value : 0;
             const percentage = total > 0 ? ((numValue / total) * 100).toFixed(1) : 0;
-            return [`${numValue.toLocaleString()} (${percentage}%)`, ''];
+            const fullName = props?.payload?.name || '';
+            return [`${fullName}: ${numValue.toLocaleString()} (${percentage}%)`, ''];
           }}
         />
         {showLegend && (
@@ -72,7 +75,7 @@ export function PieChart({
             layout="vertical"
             align="right"
             verticalAlign="middle"
-            formatter={(value) => <span style={{ color: '#888' }}>{value}</span>}
+            formatter={(value) => <span style={{ color: '#888' }} title={value}>{truncateLabel(value, 20)}</span>}
           />
         )}
       </RechartsPieChart>
