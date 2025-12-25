@@ -185,9 +185,9 @@ export function useAiChat() {
     [connectionString, setIsExecuting, setQueryResults, addToHistory]
   );
 
-  // Validate query results with AI
+  // Validate query results with AI and fix if issues found
   const validateResults = useCallback(
-    async (sql: string, result: QueryResult): Promise<void> => {
+    async (sql: string, result: QueryResult, sampleData?: TableSample[]): Promise<boolean> => {
       const resultInfo = analyzeQueryResult(result);
 
       // Build conversation history for API
@@ -203,9 +203,10 @@ export function useAiChat() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            prompt: 'Validate these query results and confirm they look correct.',
+            prompt: 'Validate these query results and fix any issues found (like empty columns).',
             apiKey,
             schema: tables,
+            sampleData,
             conversationHistory,
             currentSql: sql,
             queryResult: resultInfo,
@@ -222,29 +223,78 @@ export function useAiChat() {
               `${result.rowCount} rows returned. ${data.explanation || 'Results look correct.'}`,
               { rowCount: result.rowCount, executionTime: result.executionTime }
             );
+            return true;
           } else if (data.validation.issues && data.validation.issues.length > 0) {
-            // There are issues - report them
-            addSystemMessage(
-              `${result.rowCount} rows returned. ⚠️ ${data.validation.issues.join('. ')}`,
-              { rowCount: result.rowCount, executionTime: result.executionTime }
-            );
+            // There are issues - check if AI provided a fix
+            if (data.sql && data.sql !== sql) {
+              // AI provided a fixed query - apply it
+              addSystemMessage(
+                `⚠️ Found issues: ${data.validation.issues.join('. ')}. Attempting to fix...`,
+                { rowCount: result.rowCount, executionTime: result.executionTime }
+              );
+
+              const previousSql = sql;
+              addAssistantMessage({
+                content: data.explanation || 'Fixed the query based on result analysis.',
+                sql: data.sql,
+                previousSql,
+                explanation: data.explanation,
+                isAutoFix: true,
+              });
+
+              setCurrentQuery(data.sql);
+
+              // Execute the fixed query
+              if (isSelectQuery(data.sql)) {
+                const fixedResult = await executeQueryInternal(data.sql);
+                if (fixedResult.success && fixedResult.result) {
+                  if (fixedResult.result.rowCount > 0) {
+                    addSystemMessage(
+                      `Query fixed! ${fixedResult.result.rowCount} rows returned.`,
+                      { rowCount: fixedResult.result.rowCount, executionTime: fixedResult.result.executionTime }
+                    );
+                    message.success(`Query fixed (${fixedResult.result.executionTime}ms)`);
+                    return true;
+                  } else {
+                    // Fixed query still returns no rows
+                    addSystemMessage(
+                      `Fixed query still returned no rows.`,
+                      { rowCount: 0, executionTime: fixedResult.result.executionTime }
+                    );
+                    return false;
+                  }
+                } else if (fixedResult.error) {
+                  addSystemMessage(`Fixed query error: ${fixedResult.error}`);
+                  return false;
+                }
+              }
+            } else {
+              // No fix provided - just report the issues
+              addSystemMessage(
+                `${result.rowCount} rows returned. ⚠️ ${data.validation.issues.join('. ')}`,
+                { rowCount: result.rowCount, executionTime: result.executionTime }
+              );
+            }
+            return false;
           }
-        } else {
-          // Fallback to simple message
-          addSystemMessage(
-            `Query executed successfully`,
-            { rowCount: result.rowCount, executionTime: result.executionTime }
-          );
         }
+
+        // Fallback to simple message
+        addSystemMessage(
+          `Query executed successfully`,
+          { rowCount: result.rowCount, executionTime: result.executionTime }
+        );
+        return true;
       } catch {
         // On validation error, just show basic success message
         addSystemMessage(
           `Query executed successfully`,
           { rowCount: result.rowCount, executionTime: result.executionTime }
         );
+        return true;
       }
     },
-    [apiKey, tables, messages, analyzeQueryResult, addSystemMessage]
+    [apiKey, tables, messages, analyzeQueryResult, addSystemMessage, addAssistantMessage, setCurrentQuery, isSelectQuery, executeQueryInternal, message]
   );
 
   // Debug query when no rows returned
@@ -336,7 +386,7 @@ export function useAiChat() {
           const result = await executeQueryInternal(data.sql);
           if (result.success && result.result) {
             if (result.result.rowCount > 0) {
-              await validateResults(data.sql, result.result);
+              await validateResults(data.sql, result.result, sampleData);
               message.success(`Query fixed! ${result.result.rowCount} rows returned.`);
               autoFixAttemptRef.current = 0;
               return true;
@@ -445,7 +495,7 @@ export function useAiChat() {
           const result = await executeQueryInternal(data.sql);
           if (result.success && result.result) {
             if (result.result.rowCount > 0) {
-              await validateResults(data.sql, result.result);
+              await validateResults(data.sql, result.result, sampleData);
             } else {
               addSystemMessage(
                 `Query executed but returned no rows.`,
@@ -570,7 +620,7 @@ export function useAiChat() {
             if (result.success && result.result) {
               if (result.result.rowCount > 0) {
                 // Validate results with AI
-                await validateResults(data.sql, result.result);
+                await validateResults(data.sql, result.result, sampleData);
               } else {
                 // No rows returned - auto-debug
                 addSystemMessage(
@@ -641,7 +691,8 @@ export function useAiChat() {
         if (result.result.rowCount > 0) {
           // For manual runs, also validate if AI-generated
           if (isAiGenerated) {
-            await validateResults(queryToRun, result.result);
+            const sampleData = await fetchSampleData();
+            await validateResults(queryToRun, result.result, sampleData);
           } else {
             addSystemMessage(
               `Query executed successfully`,
