@@ -16,17 +16,23 @@ function formatSchemaForPrompt(schema: SchemaTable[]): string {
     return 'No schema information available.';
   }
 
-  const lines: string[] = ['Database Schema:', ''];
+  const lines: string[] = ['Database Schema (PostgreSQL):', ''];
 
   for (const table of schema) {
-    const fullName = table.schema === 'public' ? table.name : `${table.schema}.${table.name}`;
+    // Format with double quotes for PostgreSQL identifiers
+    const quotedSchema = `"${table.schema}"`;
+    const quotedTable = `"${table.name}"`;
+    const fullName = table.schema === 'public'
+      ? quotedTable
+      : `${quotedSchema}.${quotedTable}`;
     const typeLabel = table.type === 'view' ? 'VIEW' : 'TABLE';
     lines.push(`${typeLabel}: ${fullName}`);
 
     if (table.columns && table.columns.length > 0) {
       for (const column of table.columns) {
         const pkIndicator = column.isPrimaryKey ? ' (PRIMARY KEY)' : '';
-        lines.push(`  - ${column.name}: ${column.type}${pkIndicator}`);
+        // Show columns with double quotes too
+        lines.push(`  - "${column.name}": ${column.type}${pkIndicator}`);
       }
     }
     lines.push('');
@@ -73,20 +79,31 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `You are a PostgreSQL SQL expert. Generate a SQL query based on the user's request.
+          content: `You are a PostgreSQL SQL expert. Generate a valid PostgreSQL query based on the user's request.
 
 ${schemaContext}
 
 User request: ${prompt.trim()}
 
-Important instructions:
+CRITICAL PostgreSQL syntax requirements:
 1. Return ONLY the SQL query, no explanations or markdown formatting
-2. Use PostgreSQL-specific syntax when appropriate
-3. Use the exact table and column names from the schema above
-4. If the schema doesn't have the requested tables or columns, return a best-effort query with a comment explaining the assumption
-5. Always use table aliases when joining tables
-6. For date operations, use PostgreSQL date functions
-7. Do not include semicolons at the end of the query
+2. ALWAYS wrap table and column names in double quotes (e.g., SELECT "column_name" FROM "table_name")
+3. For schema-qualified tables, use: "schema_name"."table_name"
+4. Use PostgreSQL-specific functions:
+   - NOW() for current timestamp
+   - CURRENT_DATE for current date
+   - EXTRACT(field FROM date) for date parts
+   - COALESCE() for null handling
+   - CONCAT() or || operator for string concatenation
+   - ILIKE for case-insensitive pattern matching
+   - LIMIT and OFFSET for pagination (not TOP)
+5. Use PostgreSQL type casting with :: operator (e.g., value::integer, value::text)
+6. Use PostgreSQL boolean literals: TRUE, FALSE (not 1, 0)
+7. For JSON operations, use PostgreSQL operators: ->, ->>, #>, @>, etc.
+8. Use the exact table and column names from the schema above (with double quotes)
+9. Always use table aliases when joining tables
+10. Do not include semicolons at the end of the query
+11. If the schema doesn't have the requested tables or columns, return a best-effort query with a SQL comment explaining the assumption
 
 SQL query:`,
         },
