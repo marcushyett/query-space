@@ -1,14 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Typography } from 'antd';
+import { Typography, Tag, Alert, Space } from 'antd';
 import {
   UserOutlined,
   RobotOutlined,
   CheckCircleOutlined,
-  CloseCircleOutlined,
   ThunderboltOutlined,
-  WarningOutlined,
 } from '@ant-design/icons';
 import type { ChatMessage as ChatMessageType } from '@/stores/aiChatStore';
 import { computeSqlDiff } from '@/lib/sqlDiff';
@@ -27,23 +25,21 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
     const hasResult = message.queryResult;
 
     return (
-      <div className={`chat-system-message ${isError ? 'chat-system-error' : 'chat-system-success'}`}>
-        {isError ? (
-          <WarningOutlined className="chat-system-icon chat-system-icon-error" />
-        ) : (
-          <CheckCircleOutlined className="chat-system-icon chat-system-icon-success" />
-        )}
-        <div className="chat-system-content">
-          <Text className={isError ? 'chat-system-text-error' : 'chat-system-text-success'}>
-            {message.content}
-          </Text>
-          {hasResult && (
-            <Text type="secondary" className="chat-system-stats">
-              {message.queryResult!.rowCount} rows in {message.queryResult!.executionTime}ms
-            </Text>
-          )}
-        </div>
-      </div>
+      <Alert
+        type={isError ? 'warning' : 'success'}
+        message={
+          <Space direction="vertical" size={0}>
+            <Text>{message.content}</Text>
+            {hasResult && (
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {message.queryResult!.rowCount} rows in {message.queryResult!.executionTime}ms
+              </Text>
+            )}
+          </Space>
+        }
+        showIcon
+        style={{ marginBottom: 8 }}
+      />
     );
   }
 
@@ -55,7 +51,7 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
           <UserOutlined />
         </div>
         <div className="chat-message-content">
-          <Text className="chat-message-text">{message.content}</Text>
+          <Text type="secondary">{message.content}</Text>
         </div>
       </div>
     );
@@ -67,36 +63,30 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
 
   return (
     <div className="chat-message chat-message-assistant">
-      <div className={`chat-message-icon chat-message-icon-assistant ${message.isAutoFix ? 'chat-message-icon-autofix' : ''}`}>
+      <div className="chat-message-icon chat-message-icon-assistant">
         {message.isAutoFix ? <ThunderboltOutlined /> : <RobotOutlined />}
       </div>
       <div className="chat-message-content">
         {message.error ? (
-          <div className="chat-message-error">
-            <CloseCircleOutlined className="chat-error-icon" />
-            <Text type="danger">{message.error}</Text>
-          </div>
+          <Alert type="error" message={message.error} showIcon />
         ) : (
-          <>
+          <Space direction="vertical" size={8} style={{ width: '100%' }}>
             {message.isAutoFix && (
-              <div className="chat-autofix-badge">
-                <ThunderboltOutlined />
-                <Text className="chat-autofix-text">Auto-fix applied</Text>
-              </div>
+              <Tag icon={<ThunderboltOutlined />} color="warning">
+                Auto-fix applied
+              </Tag>
             )}
 
             {message.explanation && (
-              <div className="chat-message-explanation">
-                <Text className="chat-message-text">{message.explanation}</Text>
-              </div>
+              <Text>{message.explanation}</Text>
             )}
 
-            {/* Show changes list if available */}
+            {/* Show diff for modified queries */}
             {message.sql && hasDiff && diff && diff.hasChanges && (
               <div className="chat-changes-summary">
                 <div className="chat-changes-header">
                   <CheckCircleOutlined className="chat-changes-icon" />
-                  <Text strong className="chat-changes-title">Changes made:</Text>
+                  <Text strong style={{ fontSize: 12 }}>Changes made:</Text>
                 </div>
                 <div className="chat-diff-view">
                   {diff.lines.map((line, index) => (
@@ -117,20 +107,20 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
             {/* Show SQL for new queries (no diff) */}
             {message.sql && !hasDiff && (
               <div className="chat-sql-preview">
-                <div className="chat-sql-header">
-                  <Text type="secondary" className="text-xs">Generated SQL:</Text>
-                </div>
+                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+                  Generated SQL:
+                </Text>
                 <pre className="chat-sql-code">{message.sql}</pre>
               </div>
             )}
 
             {isLatest && message.sql && (
-              <div className="chat-message-status">
-                <CheckCircleOutlined className="chat-success-icon" />
-                <Text type="secondary" className="text-xs">Query ready</Text>
-              </div>
+              <Space size={4}>
+                <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 12 }} />
+                <Text type="secondary" style={{ fontSize: 11 }}>Query ready</Text>
+              </Space>
             )}
-          </>
+          </Space>
         )}
       </div>
     </div>

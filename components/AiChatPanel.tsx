@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Input, Typography, Grid } from 'antd';
+import { Button, Input, Typography, Grid, Space, Spin, Empty } from 'antd';
 import {
   SendOutlined,
   CloseOutlined,
@@ -18,7 +18,7 @@ import { useQueryStore } from '@/stores/queryStore';
 import { useAiChat } from '@/hooks/useAiChat';
 import { ChatMessage } from './ChatMessage';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 const { TextArea } = Input;
 const { useBreakpoint } = Grid;
 
@@ -38,12 +38,10 @@ export function AiChatPanel() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Focus input when panel opens
   useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -52,12 +50,9 @@ export function AiChatPanel() {
 
   const handleSend = async () => {
     if (!inputValue.trim() || isGenerating || isExecuting) return;
-
-    // Save API key if needed
     if (apiKeyInput && !apiKey) {
       setApiKey(apiKeyInput);
     }
-
     const prompt = inputValue;
     setInputValue('');
     await sendMessage(prompt);
@@ -68,15 +63,6 @@ export function AiChatPanel() {
       e.preventDefault();
       handleSend();
     }
-  };
-
-  const handleNewConversation = () => {
-    startNewConversation();
-    setInputValue('');
-  };
-
-  const handleClose = () => {
-    setOpen(false);
   };
 
   const handleApiKeySave = () => {
@@ -94,20 +80,18 @@ export function AiChatPanel() {
   return (
     <div className={`ai-chat-panel ${isMobile ? 'ai-chat-panel-mobile' : ''} ${isExpanded ? 'ai-chat-panel-expanded' : ''}`}>
       {/* Header */}
-      <div className="ai-chat-header">
-        <div className="ai-chat-header-left">
-          <RobotOutlined className="ai-chat-header-icon" />
-          <Title level={5} className="ai-chat-title">AI Assistant</Title>
-        </div>
-        <div className="ai-chat-header-actions">
+      <div className="panel-header">
+        <Space>
+          <RobotOutlined />
+          <Text strong>AI Assistant</Text>
+        </Space>
+        <Space size={4}>
           {messages.length > 0 && (
             <Button
               type="text"
               size="small"
               icon={<PlusOutlined />}
-              onClick={handleNewConversation}
-              className="ai-chat-header-btn"
-              aria-label="New conversation"
+              onClick={() => { startNewConversation(); setInputValue(''); }}
             />
           )}
           {!isMobile && (
@@ -116,90 +100,78 @@ export function AiChatPanel() {
               size="small"
               icon={isExpanded ? <CompressOutlined /> : <ExpandOutlined />}
               onClick={() => setIsExpanded(!isExpanded)}
-              className="ai-chat-header-btn"
-              aria-label={isExpanded ? 'Collapse' : 'Expand'}
             />
           )}
           <Button
             type="text"
             size="small"
             icon={<CloseOutlined />}
-            onClick={handleClose}
-            className="ai-chat-header-btn"
-            aria-label="Close"
+            onClick={() => setOpen(false)}
           />
-        </div>
+        </Space>
       </div>
 
       {/* Content */}
       <div className="ai-chat-content">
-        {/* API Key prompt if needed */}
+        {/* API Key prompt */}
         {!apiKey && (
-          <div className="ai-chat-api-key-section">
-            <div className="ai-chat-api-key-header">
-              <KeyOutlined />
-              <Text>Enter your Claude API key to start</Text>
-            </div>
-            <div className="ai-chat-api-key-input">
-              <Input.Password
-                value={apiKeyInput}
-                onChange={(e) => setApiKeyInput(e.target.value)}
-                placeholder="sk-ant-..."
-                onPressEnter={handleApiKeySave}
-                size={isMobile ? 'large' : 'middle'}
-              />
-              <Button
-                type="primary"
-                onClick={handleApiKeySave}
-                disabled={!apiKeyInput}
-                size={isMobile ? 'large' : 'middle'}
-              >
-                Save
-              </Button>
-            </div>
-            <Text type="secondary" className="text-xs">
-              Your API key is stored locally in your browser.
-            </Text>
+          <div className="p-4">
+            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Space>
+                <KeyOutlined />
+                <Text>Enter your Claude API key to start</Text>
+              </Space>
+              <Space.Compact style={{ width: '100%' }}>
+                <Input.Password
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="sk-ant-..."
+                  onPressEnter={handleApiKeySave}
+                  style={{ flex: 1 }}
+                />
+                <Button type="primary" onClick={handleApiKeySave} disabled={!apiKeyInput}>
+                  Save
+                </Button>
+              </Space.Compact>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                Stored locally in your browser
+              </Text>
+            </Space>
           </div>
         )}
 
-        {/* Not connected warning */}
+        {/* Not connected */}
         {!isConnected && (
-          <div className="ai-chat-warning">
-            <Text type="secondary">Connect to a database to start generating queries.</Text>
+          <div className="p-4 text-center">
+            <Text type="secondary">Connect to a database first</Text>
           </div>
         )}
 
         {/* Empty state */}
         {messages.length === 0 && apiKey && isConnected && (
-          <div className="ai-chat-empty">
-            <RobotOutlined className="ai-chat-empty-icon" />
-            <Text type="secondary" className="ai-chat-empty-title">
-              Ask me to create a query
-            </Text>
-            <Text type="secondary" className="text-xs ai-chat-empty-subtitle">
-              I&apos;ll run it automatically and fix any errors
-            </Text>
-            {/* Quick suggestions for mobile */}
+          <Empty
+            image={<RobotOutlined style={{ fontSize: 48, color: '#333' }} />}
+            description={
+              <Space direction="vertical" size={4}>
+                <Text type="secondary">Ask me to create a query</Text>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  I&apos;ll run it automatically and fix errors
+                </Text>
+              </Space>
+            }
+            style={{ padding: '40px 20px' }}
+          >
             {isMobile && (
-              <div className="ai-chat-suggestions">
-                <Button
-                  size="small"
-                  onClick={() => setInputValue('Show me all tables')}
-                  className="ai-chat-suggestion-btn"
-                >
+              <Space wrap>
+                <Button size="small" onClick={() => setInputValue('Show me all tables')}>
                   Show all tables
                 </Button>
-                <Button
-                  size="small"
-                  onClick={() => setInputValue('Count rows in each table')}
-                  className="ai-chat-suggestion-btn"
-                >
+                <Button size="small" onClick={() => setInputValue('Count rows in each table')}>
                   Count rows
                 </Button>
-              </div>
+              </Space>
             )}
-          </div>
+          </Empty>
         )}
 
         {/* Messages */}
@@ -213,14 +185,10 @@ export function AiChatPanel() {
           ))}
 
           {isWorking && (
-            <div className="ai-chat-generating">
-              <div className="ai-chat-generating-dots">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-              <Text type="secondary" className="text-xs">
-                {isExecuting ? 'Running query...' : 'Generating...'}
+            <div className="p-4 text-center">
+              <Spin size="small" />
+              <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+                {isExecuting ? 'Running...' : 'Generating...'}
               </Text>
             </div>
           )}
@@ -229,22 +197,18 @@ export function AiChatPanel() {
         </div>
       </div>
 
-      {/* Footer with input */}
+      {/* Footer */}
       <div className="ai-chat-footer">
-        <div className="ai-chat-input-container">
+        <Space.Compact style={{ width: '100%' }}>
           <TextArea
             ref={inputRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              messages.length === 0
-                ? "What data do you want to see?"
-                : "Refine the query..."
-            }
+            placeholder={messages.length === 0 ? "What data do you want to see?" : "Refine the query..."}
             autoSize={{ minRows: 1, maxRows: isMobile ? 3 : 4 }}
             disabled={!apiKey || !isConnected || isWorking}
-            className="ai-chat-input"
+            style={{ flex: 1 }}
           />
           <Button
             type="primary"
@@ -252,12 +216,11 @@ export function AiChatPanel() {
             onClick={handleSend}
             disabled={!inputValue.trim() || !apiKey || !isConnected || isWorking}
             loading={isWorking}
-            className="ai-chat-send-btn"
           />
-        </div>
+        </Space.Compact>
         {!isMobile && (
-          <Text type="secondary" className="ai-chat-hint text-xs">
-            Press Enter to send
+          <Text type="secondary" style={{ fontSize: 11, textAlign: 'center', display: 'block', marginTop: 8 }}>
+            Enter to send
           </Text>
         )}
       </div>
