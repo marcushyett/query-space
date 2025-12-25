@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Input, Typography, Grid, Tooltip } from 'antd';
+import { Button, Input, Typography, Grid } from 'antd';
 import {
   SendOutlined,
   CloseOutlined,
   PlusOutlined,
-  PlayCircleOutlined,
   RobotOutlined,
   KeyOutlined,
   ExpandOutlined,
@@ -16,7 +15,6 @@ import { useAiChatStore } from '@/stores/aiChatStore';
 import { useAiStore } from '@/stores/aiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useQueryStore } from '@/stores/queryStore';
-import { useQuery } from '@/hooks/useQuery';
 import { useAiChat } from '@/hooks/useAiChat';
 import { ChatMessage } from './ChatMessage';
 
@@ -31,9 +29,8 @@ export function AiChatPanel() {
   const { isOpen, setOpen, messages, isGenerating } = useAiChatStore();
   const { apiKey, setApiKey, setPersistApiKey } = useAiStore();
   const { connectionString } = useConnectionStore();
-  const { currentQuery, isExecuting } = useQueryStore();
-  const { executeQuery } = useQuery();
-  const { sendMessage, startNewConversation, currentSql } = useAiChat();
+  const { isExecuting } = useQueryStore();
+  const { sendMessage, startNewConversation } = useAiChat();
 
   const [inputValue, setInputValue] = useState('');
   const [apiKeyInput, setApiKeyInput] = useState(apiKey || '');
@@ -54,7 +51,7 @@ export function AiChatPanel() {
   }, [isOpen]);
 
   const handleSend = async () => {
-    if (!inputValue.trim() || isGenerating) return;
+    if (!inputValue.trim() || isGenerating || isExecuting) return;
 
     // Save API key if needed
     if (apiKeyInput && !apiKey) {
@@ -70,12 +67,6 @@ export function AiChatPanel() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
-    }
-  };
-
-  const handleRunQuery = () => {
-    if (currentSql || currentQuery) {
-      executeQuery(currentSql || currentQuery);
     }
   };
 
@@ -96,6 +87,7 @@ export function AiChatPanel() {
   };
 
   const isConnected = !!connectionString;
+  const isWorking = isGenerating || isExecuting;
 
   if (!isOpen) return null;
 
@@ -105,40 +97,37 @@ export function AiChatPanel() {
       <div className="ai-chat-header">
         <div className="ai-chat-header-left">
           <RobotOutlined className="ai-chat-header-icon" />
-          <Title level={5} className="ai-chat-title">AI Query Assistant</Title>
+          <Title level={5} className="ai-chat-title">AI Assistant</Title>
         </div>
         <div className="ai-chat-header-actions">
           {messages.length > 0 && (
-            <Tooltip title="New conversation">
-              <Button
-                type="text"
-                size="small"
-                icon={<PlusOutlined />}
-                onClick={handleNewConversation}
-                className="ai-chat-header-btn"
-              />
-            </Tooltip>
-          )}
-          {!isMobile && (
-            <Tooltip title={isExpanded ? 'Collapse' : 'Expand'}>
-              <Button
-                type="text"
-                size="small"
-                icon={isExpanded ? <CompressOutlined /> : <ExpandOutlined />}
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="ai-chat-header-btn"
-              />
-            </Tooltip>
-          )}
-          <Tooltip title="Close">
             <Button
               type="text"
               size="small"
-              icon={<CloseOutlined />}
-              onClick={handleClose}
+              icon={<PlusOutlined />}
+              onClick={handleNewConversation}
               className="ai-chat-header-btn"
+              aria-label="New conversation"
             />
-          </Tooltip>
+          )}
+          {!isMobile && (
+            <Button
+              type="text"
+              size="small"
+              icon={isExpanded ? <CompressOutlined /> : <ExpandOutlined />}
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="ai-chat-header-btn"
+              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+            />
+          )}
+          <Button
+            type="text"
+            size="small"
+            icon={<CloseOutlined />}
+            onClick={handleClose}
+            className="ai-chat-header-btn"
+            aria-label="Close"
+          />
         </div>
       </div>
 
@@ -157,11 +146,13 @@ export function AiChatPanel() {
                 onChange={(e) => setApiKeyInput(e.target.value)}
                 placeholder="sk-ant-..."
                 onPressEnter={handleApiKeySave}
+                size={isMobile ? 'large' : 'middle'}
               />
               <Button
                 type="primary"
                 onClick={handleApiKeySave}
                 disabled={!apiKeyInput}
+                size={isMobile ? 'large' : 'middle'}
               >
                 Save
               </Button>
@@ -179,34 +170,58 @@ export function AiChatPanel() {
           </div>
         )}
 
-        {/* Messages */}
+        {/* Empty state */}
         {messages.length === 0 && apiKey && isConnected && (
           <div className="ai-chat-empty">
             <RobotOutlined className="ai-chat-empty-icon" />
-            <Text type="secondary">Describe the query you want to create</Text>
-            <Text type="secondary" className="text-xs">
-              I&apos;ll help you build and refine SQL queries step by step
+            <Text type="secondary" className="ai-chat-empty-title">
+              Ask me to create a query
             </Text>
+            <Text type="secondary" className="text-xs ai-chat-empty-subtitle">
+              I&apos;ll run it automatically and fix any errors
+            </Text>
+            {/* Quick suggestions for mobile */}
+            {isMobile && (
+              <div className="ai-chat-suggestions">
+                <Button
+                  size="small"
+                  onClick={() => setInputValue('Show me all tables')}
+                  className="ai-chat-suggestion-btn"
+                >
+                  Show all tables
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => setInputValue('Count rows in each table')}
+                  className="ai-chat-suggestion-btn"
+                >
+                  Count rows
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
+        {/* Messages */}
         <div className="ai-chat-messages">
           {messages.map((msg, index) => (
             <ChatMessage
               key={msg.id}
               message={msg}
-              isLatest={index === messages.length - 1}
+              isLatest={index === messages.length - 1 && msg.role === 'assistant'}
             />
           ))}
 
-          {isGenerating && (
+          {isWorking && (
             <div className="ai-chat-generating">
               <div className="ai-chat-generating-dots">
                 <span></span>
                 <span></span>
                 <span></span>
               </div>
-              <Text type="secondary" className="text-xs">Generating...</Text>
+              <Text type="secondary" className="text-xs">
+                {isExecuting ? 'Running query...' : 'Generating...'}
+              </Text>
             </div>
           )}
 
@@ -214,23 +229,8 @@ export function AiChatPanel() {
         </div>
       </div>
 
-      {/* Footer with input and actions */}
+      {/* Footer with input */}
       <div className="ai-chat-footer">
-        {/* Run button when there's a query */}
-        {(currentSql || currentQuery) && messages.length > 0 && (
-          <div className="ai-chat-run-bar">
-            <Button
-              type="primary"
-              icon={<PlayCircleOutlined />}
-              onClick={handleRunQuery}
-              loading={isExecuting}
-              className="ai-chat-run-btn"
-            >
-              Run Query
-            </Button>
-          </div>
-        )}
-
         <div className="ai-chat-input-container">
           <TextArea
             ref={inputRef}
@@ -239,25 +239,25 @@ export function AiChatPanel() {
             onKeyDown={handleKeyDown}
             placeholder={
               messages.length === 0
-                ? "e.g., 'Show all users who signed up this month'"
-                : "e.g., 'Add a filter for active users only'"
+                ? "What data do you want to see?"
+                : "Refine the query..."
             }
-            autoSize={{ minRows: 1, maxRows: 4 }}
-            disabled={!apiKey || !isConnected || isGenerating}
+            autoSize={{ minRows: 1, maxRows: isMobile ? 3 : 4 }}
+            disabled={!apiKey || !isConnected || isWorking}
             className="ai-chat-input"
           />
           <Button
             type="primary"
             icon={<SendOutlined />}
             onClick={handleSend}
-            disabled={!inputValue.trim() || !apiKey || !isConnected || isGenerating}
-            loading={isGenerating}
+            disabled={!inputValue.trim() || !apiKey || !isConnected || isWorking}
+            loading={isWorking}
             className="ai-chat-send-btn"
           />
         </div>
         {!isMobile && (
           <Text type="secondary" className="ai-chat-hint text-xs">
-            Press Enter to send, Shift+Enter for new line
+            Press Enter to send
           </Text>
         )}
       </div>

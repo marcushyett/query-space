@@ -156,6 +156,18 @@ CRITICAL PostgreSQL syntax requirements:
 9. Do not include semicolons at the end of the query
 10. If the schema doesn't have the requested tables or columns, make a best-effort query
 
+PERFORMANCE OPTIMIZATION - Always generate optimal queries:
+1. Only SELECT the columns actually needed, avoid SELECT * unless explicitly requested
+2. Use appropriate JOINs (prefer INNER JOIN over LEFT JOIN when all rows must match)
+3. Add LIMIT clause for exploratory queries (default to LIMIT 100 for broad queries)
+4. Put the most selective WHERE conditions first
+5. Use EXISTS instead of IN for subqueries when checking existence
+6. Use COUNT(*) instead of COUNT(column) when counting all rows
+7. Avoid unnecessary DISTINCT - only use when duplicates are actually possible
+8. Use appropriate index-friendly patterns (avoid functions on indexed columns in WHERE)
+9. For date ranges, use BETWEEN or >= and < patterns
+10. Prefer specific column comparisons over LIKE '%value%' when possible
+
 ${isFollowUp ? `
 When modifying an existing query:
 - Keep the "changes" array concise - list specific modifications made

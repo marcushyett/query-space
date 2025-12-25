@@ -1105,6 +1105,112 @@ body {
   font-size: 15px;
 }
 
+/* System Messages */
+.chat-system-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin: 4px 0;
+}
+
+.chat-system-success {
+  background: rgba(82, 196, 26, 0.1);
+  border: 1px solid rgba(82, 196, 26, 0.2);
+}
+
+.chat-system-error {
+  background: rgba(255, 77, 79, 0.1);
+  border: 1px solid rgba(255, 77, 79, 0.2);
+}
+
+.chat-system-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.chat-system-icon-success {
+  color: #52c41a;
+}
+
+.chat-system-icon-error {
+  color: #faad14;
+}
+
+.chat-system-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chat-system-text-success {
+  color: #95de64 !important;
+  font-size: 12px;
+}
+
+.chat-system-text-error {
+  color: #faad14 !important;
+  font-size: 12px;
+}
+
+.chat-system-stats {
+  font-size: 11px;
+}
+
+/* Auto-fix Badge */
+.chat-autofix-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(250, 173, 20, 0.15);
+  border: 1px solid rgba(250, 173, 20, 0.3);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.chat-autofix-badge .anticon {
+  color: #faad14;
+  font-size: 12px;
+}
+
+.chat-autofix-text {
+  color: #faad14 !important;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.chat-message-icon-autofix {
+  background: rgba(250, 173, 20, 0.2) !important;
+  color: #faad14 !important;
+}
+
+/* Empty State Improvements */
+.ai-chat-empty-title {
+  font-size: 14px;
+}
+
+.ai-chat-empty-subtitle {
+  margin-top: -4px;
+}
+
+/* Quick Suggestions */
+.ai-chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: center;
+}
+
+.ai-chat-suggestion-btn {
+  font-size: 12px !important;
+  height: 32px !important;
+  padding: 0 12px !important;
+}
+
 /* Responsive: Hide chat panel on small screens when closed */
 @media (max-width: 767px) {
   .main-content-area {
@@ -1114,4 +1220,43 @@ body {
   .ai-chat-panel:not(.ai-chat-panel-mobile) {
     display: none;
   }
+}
+
+/* Mobile-specific improvements */
+.ai-chat-panel-mobile .ai-chat-empty {
+  padding: 32px 24px;
+}
+
+.ai-chat-panel-mobile .ai-chat-empty-icon {
+  font-size: 56px;
+}
+
+.ai-chat-panel-mobile .ai-chat-empty-title {
+  font-size: 16px;
+}
+
+.ai-chat-panel-mobile .chat-message-icon {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+}
+
+.ai-chat-panel-mobile .chat-message-text {
+  font-size: 14px;
+}
+
+.ai-chat-panel-mobile .chat-sql-code {
+  font-size: 12px;
+}
+
+.ai-chat-panel-mobile .chat-diff-view {
+  font-size: 12px;
+}
+
+.ai-chat-panel-mobile .ai-chat-api-key-section {
+  padding: 24px 16px;
+}
+
+.ai-chat-panel-mobile .ai-chat-api-key-header {
+  font-size: 15px;
 }
