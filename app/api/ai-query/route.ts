@@ -254,12 +254,12 @@ export async function POST(request: NextRequest) {
     let systemPrompt = '';
 
     if (mode === 'validate') {
-      systemPrompt = `You are a PostgreSQL query validator. Analyze the query results and determine if they are sensible.
+      systemPrompt = `You are a PostgreSQL query validator and fixer. Analyze the query results and determine if they are sensible.
 
 Your response must be valid JSON:
 {
-  "sql": "the original SQL unchanged",
-  "explanation": "Brief analysis of the results",
+  "sql": "THE FIXED SQL QUERY if issues found, or original SQL if valid",
+  "explanation": "Brief analysis of the results and what was fixed (if anything)",
   "validation": {
     "isValid": true/false,
     "issues": ["Issue 1", "Issue 2"], // Only if problems found
@@ -268,14 +268,21 @@ Your response must be valid JSON:
 }
 
 Check for these issues:
-- All columns returning NULL values
-- Unexpected empty result sets
+- All columns returning NULL values (may indicate wrong JSON path or field name)
 - Data that seems malformed or inconsistent
 - Missing expected data patterns
 
-Be helpful but don't be overly critical of valid results. Focus on serious data quality issues, not the values themselves.
+IMPORTANT: If you find issues that can be fixed:
+1. Set isValid to false
+2. List the issues found
+3. Return a CORRECTED SQL query in the "sql" field that fixes these issues
+4. The fixed SQL must be properly formatted with line breaks
 
-IMPORTANT: Return ONLY valid JSON, no markdown.`;
+If results look valid, set isValid to true and return the original SQL unchanged.
+
+Be helpful but don't be overly critical of valid results. Focus on serious data quality issues like empty columns.
+
+IMPORTANT: Return ONLY valid JSON, no markdown. NEVER generate mutation queries.`;
     } else if (mode === 'debug') {
       systemPrompt = `You are a PostgreSQL query debugger. Diagnose why a query returned no rows or unexpected results.
 
