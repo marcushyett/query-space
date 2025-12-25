@@ -16,6 +16,10 @@ vi.mock('@monaco-editor/react', () => ({
     const mockEditor = {
       updateOptions: vi.fn(),
       getValue: vi.fn(() => value || ''),
+      setValue: vi.fn(),
+      getPosition: vi.fn(() => ({ lineNumber: 1, column: 1 })),
+      setPosition: vi.fn(),
+      onKeyDown: vi.fn(),
     }
     const mockMonaco = {
       languages: {
@@ -27,6 +31,9 @@ vi.mock('@monaco-editor/react', () => ({
           Keyword: 4,
           Function: 5,
         },
+      },
+      KeyCode: {
+        Enter: 13,
       },
     }
 

@@ -73,6 +73,27 @@ export function SqlEditor() {
     // Store monaco reference for potential future use
     monacoRef.current = monaco;
 
+    // Auto-format on Enter key
+    editorInstance.onKeyDown((e) => {
+      if (e.keyCode === monaco.KeyCode.Enter) {
+        // Use setTimeout to let the Enter key insert the newline first
+        setTimeout(() => {
+          const currentValue = editorInstance.getValue();
+          if (currentValue) {
+            const formatted = formatSql(currentValue);
+            if (formatted !== currentValue) {
+              const position = editorInstance.getPosition();
+              editorInstance.setValue(formatted);
+              // Restore cursor position approximately
+              if (position) {
+                editorInstance.setPosition(position);
+              }
+            }
+          }
+        }, 0);
+      }
+    });
+
     // Dispose of any existing provider
     if (completionProviderRef.current) {
       completionProviderRef.current.dispose();
@@ -142,15 +163,20 @@ export function SqlEditor() {
         }
 
         // Add table suggestions (higher priority after FROM/JOIN)
+        // Quote table names for PostgreSQL compatibility
         const afterFromOrJoin = /\b(FROM|JOIN)\s+\w*$/i.test(textBeforeCursor);
         currentTables.forEach((table, index) => {
-          const fullName = table.schema === 'public' ? table.name : `${table.schema}.${table.name}`;
+          const displayName = table.schema === 'public' ? table.name : `${table.schema}.${table.name}`;
+          // Quote table names for PostgreSQL - use double quotes
+          const quotedName = table.schema === 'public'
+            ? `"${table.name}"`
+            : `"${table.schema}"."${table.name}"`;
           suggestions.push({
-            label: fullName,
+            label: displayName,
             kind: table.type === 'view'
               ? monaco.languages.CompletionItemKind.Interface
               : monaco.languages.CompletionItemKind.Class,
-            insertText: fullName,
+            insertText: quotedName,
             range,
             detail: `${table.type} (${table.columns.length} columns)`,
             sortText: afterFromOrJoin ? `0${index.toString().padStart(3, '0')}` : `2${index.toString().padStart(3, '0')}`,
@@ -182,15 +208,15 @@ export function SqlEditor() {
         });
 
         // Add column suggestions from all tables if in SELECT context
+        // For PostgreSQL, use just column names (not table.column)
         const afterSelect = /\bSELECT\s+(?:(?!FROM)[^])*$/i.test(textBeforeCursor);
         if (afterSelect && !dotMatch) {
           currentTables.forEach((table) => {
             table.columns.forEach((col, colIndex) => {
-              const label = `${table.name}.${col.name}`;
               suggestions.push({
-                label,
+                label: col.name,
                 kind: monaco.languages.CompletionItemKind.Field,
-                insertText: label,
+                insertText: col.name,
                 range,
                 detail: `${col.type} from ${table.name}`,
                 sortText: `1${colIndex.toString().padStart(3, '0')}`,

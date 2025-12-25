@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { getChartColors, formatNumber, formatDate } from '@/lib/chart-utils';
+import { getChartColors, formatNumber, formatDate, truncateLabel } from '@/lib/chart-utils';
 
 interface LineChartProps {
   data: Record<string, unknown>[];
@@ -44,7 +44,7 @@ export function LineChart({
           angle={-45}
           textAnchor="end"
           height={60}
-          tickFormatter={isDateXAxis ? (value) => formatDate(value) : undefined}
+          tickFormatter={isDateXAxis ? (value) => formatDate(value) : (value) => truncateLabel(value, 15)}
         />
         <YAxis
           stroke="#888"
@@ -57,8 +57,10 @@ export function LineChart({
             backgroundColor: '#1f1f1f',
             border: '1px solid #333',
             borderRadius: 4,
+            maxWidth: 300,
+            wordWrap: 'break-word',
           }}
-          labelStyle={{ color: '#fff' }}
+          labelStyle={{ color: '#fff', wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}
           itemStyle={{ color: '#fff' }}
           formatter={(value) => [typeof value === 'number' ? value.toLocaleString() : String(value ?? ''), '']}
           labelFormatter={isDateXAxis ? (label) => formatDate(label) : undefined}
@@ -66,7 +68,7 @@ export function LineChart({
         {showLegend && (
           <Legend
             wrapperStyle={{ paddingTop: 20 }}
-            formatter={(value) => <span style={{ color: '#888' }}>{value}</span>}
+            formatter={(value) => <span style={{ color: '#888' }} title={value}>{truncateLabel(value, 20)}</span>}
           />
         )}
         {yAxisKeys.map((key, index) => (

@@ -3,21 +3,28 @@ import { renderHook, act } from '@testing-library/react'
 import { useQuery } from '../useQuery'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { useQueryStore } from '@/stores/queryStore'
-import { message } from 'antd'
 
 // Mock fetch
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-// Mock antd message
+// Mock message functions
+const mockMessage = {
+  error: vi.fn(),
+  success: vi.fn(),
+  warning: vi.fn(),
+  info: vi.fn(),
+  loading: vi.fn(),
+}
+
+// Mock antd App.useApp
 vi.mock('antd', async () => {
   const actual = await vi.importActual('antd')
   return {
     ...actual,
-    message: {
-      error: vi.fn(),
-      success: vi.fn(),
-      warning: vi.fn(),
+    App: {
+      ...((actual as Record<string, unknown>).App as Record<string, unknown>),
+      useApp: () => ({ message: mockMessage }),
     },
   }
 })
@@ -46,7 +53,7 @@ describe('useQuery', () => {
           await result.current.executeQuery('SELECT 1')
         })
 
-        expect(message.error).toHaveBeenCalledWith('No database connection. Please connect to a database first.')
+        expect(mockMessage.error).toHaveBeenCalledWith('No database connection. Please connect to a database first.')
         expect(mockFetch).not.toHaveBeenCalled()
       })
     })
@@ -63,7 +70,7 @@ describe('useQuery', () => {
           await result.current.executeQuery('')
         })
 
-        expect(message.warning).toHaveBeenCalledWith('Please enter a SQL query')
+        expect(mockMessage.warning).toHaveBeenCalledWith('Please enter a SQL query')
         expect(mockFetch).not.toHaveBeenCalled()
       })
 
@@ -74,7 +81,7 @@ describe('useQuery', () => {
           await result.current.executeQuery('   ')
         })
 
-        expect(message.warning).toHaveBeenCalledWith('Please enter a SQL query')
+        expect(mockMessage.warning).toHaveBeenCalledWith('Please enter a SQL query')
       })
     })
 
@@ -183,7 +190,7 @@ describe('useQuery', () => {
           await result.current.executeQuery('SELECT 1')
         })
 
-        expect(message.success).toHaveBeenCalledWith('Query executed successfully (25ms)')
+        expect(mockMessage.success).toHaveBeenCalledWith('Query executed successfully (25ms)')
       })
 
       it('should show warning if present in response', async () => {
@@ -204,7 +211,7 @@ describe('useQuery', () => {
           await result.current.executeQuery('SELECT 1')
         })
 
-        expect(message.warning).toHaveBeenCalledWith('This query may be slow')
+        expect(mockMessage.warning).toHaveBeenCalledWith('This query may be slow')
       })
 
       it('should reset isExecuting after success', async () => {
@@ -245,7 +252,7 @@ describe('useQuery', () => {
           await result.current.executeQuery('SELCT 1')
         })
 
-        expect(message.error).toHaveBeenCalledWith('Syntax error in SQL')
+        expect(mockMessage.error).toHaveBeenCalledWith('Syntax error in SQL')
         expect(result.current.error).toBe('Syntax error in SQL')
       })
 
@@ -258,7 +265,7 @@ describe('useQuery', () => {
           await result.current.executeQuery('SELECT 1')
         })
 
-        expect(message.error).toHaveBeenCalledWith('Network error')
+        expect(mockMessage.error).toHaveBeenCalledWith('Network error')
         expect(result.current.error).toBe('Network error')
       })
 
@@ -286,7 +293,7 @@ describe('useQuery', () => {
           await result.current.executeQuery('SELECT 1')
         })
 
-        expect(message.error).toHaveBeenCalledWith('Query execution failed')
+        expect(mockMessage.error).toHaveBeenCalledWith('Query execution failed')
       })
     })
   })

@@ -305,3 +305,12 @@ export function formatDate(value: unknown): string {
     day: 'numeric',
   });
 }
+
+/**
+ * Truncate a label to a maximum length, adding ellipsis if needed
+ */
+export function truncateLabel(value: unknown, maxLength: number = 15): string {
+  const str = String(value ?? '');
+  if (str.length <= maxLength) return str;
+  return str.substring(0, maxLength - 1) + '\u2026';
+}

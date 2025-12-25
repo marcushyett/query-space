@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { getChartColors, formatNumber } from '@/lib/chart-utils';
+import { getChartColors, formatNumber, truncateLabel } from '@/lib/chart-utils';
 
 interface ColumnChartProps {
   data: Record<string, unknown>[];
@@ -44,6 +44,7 @@ export function ColumnChart({
           angle={-45}
           textAnchor="end"
           height={60}
+          tickFormatter={(value) => truncateLabel(value, 15)}
         />
         <YAxis
           stroke="#888"
@@ -56,15 +57,17 @@ export function ColumnChart({
             backgroundColor: '#1f1f1f',
             border: '1px solid #333',
             borderRadius: 4,
+            maxWidth: 300,
+            wordWrap: 'break-word',
           }}
-          labelStyle={{ color: '#fff' }}
+          labelStyle={{ color: '#fff', wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}
           itemStyle={{ color: '#fff' }}
           formatter={(value) => [typeof value === 'number' ? value.toLocaleString() : String(value ?? ''), '']}
         />
         {showLegend && (
           <Legend
             wrapperStyle={{ paddingTop: 20 }}
-            formatter={(value) => <span style={{ color: '#888' }}>{value}</span>}
+            formatter={(value) => <span style={{ color: '#888' }} title={value}>{truncateLabel(value, 20)}</span>}
           />
         )}
         {yAxisKeys.map((key, index) => (
