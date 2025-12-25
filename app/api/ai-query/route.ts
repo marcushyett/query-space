@@ -389,27 +389,34 @@ Your responses must ALWAYS be valid JSON with this exact structure:
   "explanation": "A brief explanation of what the query does or what changes were made",
   "changes": ["Change 1", "Change 2"], // Only include if modifying existing SQL
   "goalSummary": "Internal note of what you understand the user wants (not shown to user)",
-  "clarifyingQuestions": ["Question 1?", "Question 2?"], // ONLY if truly needed - explore data first!
-  "needsClarification": true/false // Set to true ONLY if you cannot proceed even after data exploration
+  "clarifyingQuestions": [], // ALMOST NEVER USE THIS - just generate a query instead!
+  "needsClarification": false // Almost always false - generate a query, don't ask questions
 }
+
+CRITICAL: Your job is to GENERATE QUERIES, not ask questions. Always include a valid SQL query.
+If you're unsure which table to use, PICK ONE and generate the query anyway.
 
 UNDERSTANDING USER INTENT:
 1. Before generating a query, understand what the user is trying to accomplish
 2. For internal tracking, include a "goalSummary" that restates what you understand they want (this is not shown to the user)
-3. EXPLORE DATA FIRST - Do NOT ask for clarification unless absolutely necessary:
-   - If a request mentions data that might exist, TRY to find it first
-   - Generate exploratory queries to discover available columns and JSON keys
-   - If a column isn't found immediately, analyze JSON fields using jsonb_object_keys()
-   - Only ask for clarification if the request is completely incomprehensible OR if you've confirmed the data doesn't exist after exploration
-4. AVOID asking about:
-   - Specific fields/columns - explore the schema and JSON structures instead
+3. YOUR TOP PRIORITY IS GENERATING A QUERY AS FAST AS POSSIBLE - NOT asking questions:
+   - You have the full database schema - USE IT to decide which tables are relevant
+   - NEVER ask which tables or columns to use - that's YOUR job to figure out
+   - Pick the most likely table based on the schema and user's request
+   - If multiple tables could work, just pick the most relevant one and query it
+   - Generate a query immediately, even if imperfect - the user can refine it later
+4. NEVER ask for clarification about:
+   - Which tables to query - YOU decide based on the schema
+   - Which columns/fields to use - YOU pick the relevant ones
    - Time ranges - use reasonable defaults (e.g., last 30 days) or return all data
    - Aggregation preferences - make a sensible choice based on context
    - Specific filter values - either include all or make reasonable assumptions
-5. WHEN TO ASK FOR CLARIFICATION (only these cases):
-   - The request is so vague you cannot determine ANY intent (e.g., just "data" or "stuff")
-   - You've explored the data and confirmed the requested information truly doesn't exist
-   - There are multiple completely different interpretations with no way to choose
+5. ONLY ask for clarification if:
+   - The request is completely incomprehensible (e.g., just "data" or random characters)
+   - You have ALREADY generated queries and need user input on business logic
+
+IMPORTANT: If you find yourself wanting to ask "which table" or "which field" - STOP.
+Look at the schema, make a decision, and generate the query. That is your job.
 
 SQL FORMATTING REQUIREMENTS - CRITICAL:
 The SQL in your response MUST be formatted with proper line breaks for readability:
@@ -564,17 +571,12 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks. The SQ
     // VALIDATION CHECK: Ensure we have a valid SQL query, not just a prompt
     const sqlValidation = isValidSelectQuery(sql);
     if (!sqlValidation.valid && !parsedResponse.needsClarification) {
-      // If the SQL is invalid and we're not asking for clarification,
-      // return an error and ask the user to clarify
+      // If the SQL is invalid, return an error but DON'T ask about tables/columns
+      // The AI should figure out which tables to use by exploring the schema
       return NextResponse.json({
         sql: currentSql || '',
-        explanation: `I couldn't generate a valid SQL query. ${sqlValidation.reason || 'Please provide more details about what data you want to query.'}`,
-        needsClarification: true,
-        clarifyingQuestions: [
-          'What specific data or table are you trying to query?',
-          'What columns or fields would you like to see?',
-          'Are there any specific filters or conditions you want to apply?',
-        ],
+        explanation: `I couldn't generate a valid SQL query. ${sqlValidation.reason || 'Please try rephrasing your request.'}`,
+        needsClarification: false,
       });
     }
 
