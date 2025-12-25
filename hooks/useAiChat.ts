@@ -30,6 +30,10 @@ interface AiQueryResponse {
     suggestedQueries?: string[];
     diagnosis?: string;
   };
+  // For clarification and goal confirmation
+  clarifyingQuestions?: string[];
+  goalSummary?: string;
+  needsClarification?: boolean;
 }
 
 interface ConversationMessage {
@@ -218,10 +222,14 @@ export function useAiChat() {
 
         if (data.validation) {
           if (data.validation.isValid) {
-            // Results look good - add a positive message
+            // Results look good - add a positive message with sample results
             addSystemMessage(
               `${result.rowCount} rows returned. ${data.explanation || 'Results look correct.'}`,
-              { rowCount: result.rowCount, executionTime: result.executionTime }
+              {
+                rowCount: result.rowCount,
+                executionTime: result.executionTime,
+                sampleResults: result.rows.slice(0, 3),
+              }
             );
             return true;
           } else if (data.validation.issues && data.validation.issues.length > 0) {
@@ -251,7 +259,11 @@ export function useAiChat() {
                   if (fixedResult.result.rowCount > 0) {
                     addSystemMessage(
                       `Query fixed! ${fixedResult.result.rowCount} rows returned.`,
-                      { rowCount: fixedResult.result.rowCount, executionTime: fixedResult.result.executionTime }
+                      {
+                        rowCount: fixedResult.result.rowCount,
+                        executionTime: fixedResult.result.executionTime,
+                        sampleResults: fixedResult.result.rows.slice(0, 3),
+                      }
                     );
                     message.success(`Query fixed (${fixedResult.result.executionTime}ms)`);
                     return true;
@@ -602,6 +614,17 @@ export function useAiChat() {
           return false;
         }
 
+        // Handle clarification requests
+        if (data.needsClarification && data.clarifyingQuestions && data.clarifyingQuestions.length > 0) {
+          addAssistantMessage({
+            content: data.explanation || 'I need more information to generate the right query.',
+            clarifyingQuestions: data.clarifyingQuestions,
+            goalSummary: data.goalSummary,
+            needsClarification: true,
+          });
+          return true;
+        }
+
         if (data.sql) {
           const previousSql = currentSql;
           addAssistantMessage({
@@ -609,6 +632,8 @@ export function useAiChat() {
             sql: data.sql,
             previousSql: previousSql || undefined,
             explanation: data.explanation,
+            goalSummary: data.goalSummary,
+            clarifyingQuestions: data.clarifyingQuestions,
           });
 
           setCurrentQuery(data.sql);
@@ -696,7 +721,11 @@ export function useAiChat() {
           } else {
             addSystemMessage(
               `Query executed successfully`,
-              { rowCount: result.result.rowCount, executionTime: result.result.executionTime }
+              {
+                rowCount: result.result.rowCount,
+                executionTime: result.result.executionTime,
+                sampleResults: result.result.rows.slice(0, 3),
+              }
             );
           }
         } else {

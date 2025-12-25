@@ -1,12 +1,14 @@
 'use client';
 
 import React from 'react';
-import { Typography, Tag, Alert, Space } from 'antd';
+import { Typography, Tag, Alert, Space, Table } from 'antd';
 import {
   UserOutlined,
   RobotOutlined,
   CheckCircleOutlined,
   ThunderboltOutlined,
+  QuestionCircleOutlined,
+  AimOutlined,
 } from '@ant-design/icons';
 import type { ChatMessage as ChatMessageType } from '@/stores/aiChatStore';
 import { computeSqlDiff } from '@/lib/sqlDiff';
@@ -23,17 +25,53 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
   if (message.role === 'system') {
     const isError = message.content.toLowerCase().includes('error');
     const hasResult = message.queryResult;
+    const sampleResults = message.queryResult?.sampleResults;
+
+    // Generate columns and data for sample results table
+    const sampleColumns = sampleResults && sampleResults.length > 0
+      ? Object.keys(sampleResults[0]).slice(0, 5).map((key) => ({
+          title: key,
+          dataIndex: key,
+          key,
+          ellipsis: true,
+          width: 120,
+          render: (value: unknown) => {
+            if (value === null) return <Text type="secondary">null</Text>;
+            if (typeof value === 'object') {
+              const str = JSON.stringify(value);
+              return <Text code style={{ fontSize: 10 }}>{str.length > 30 ? str.slice(0, 30) + '...' : str}</Text>;
+            }
+            const str = String(value);
+            return str.length > 25 ? str.slice(0, 25) + '...' : str;
+          },
+        }))
+      : [];
 
     return (
       <Alert
         type={isError ? 'warning' : 'success'}
         message={
-          <Space direction="vertical" size={0}>
+          <Space direction="vertical" size={4} style={{ width: '100%' }}>
             <Text>{message.content}</Text>
             {hasResult && (
               <Text type="secondary" style={{ fontSize: 11 }}>
                 {message.queryResult!.rowCount} rows in {message.queryResult!.executionTime}ms
               </Text>
+            )}
+            {sampleResults && sampleResults.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+                  Sample results:
+                </Text>
+                <Table
+                  dataSource={sampleResults.slice(0, 3).map((row, idx) => ({ ...row, key: idx }))}
+                  columns={sampleColumns}
+                  size="small"
+                  pagination={false}
+                  scroll={{ x: 'max-content' }}
+                  style={{ fontSize: 11 }}
+                />
+              </div>
             )}
           </Space>
         }
@@ -77,7 +115,38 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
               </Tag>
             )}
 
-            {message.explanation && (
+            {/* Goal summary - confirm what the agent understood */}
+            {message.goalSummary && (
+              <div className="chat-goal-summary">
+                <Space size={4} align="start">
+                  <AimOutlined style={{ color: '#1890ff', marginTop: 4 }} />
+                  <div>
+                    <Text strong style={{ fontSize: 12, color: '#1890ff' }}>Goal:</Text>
+                    <Text style={{ display: 'block' }}>{message.goalSummary}</Text>
+                  </div>
+                </Space>
+              </div>
+            )}
+
+            {/* Clarifying questions */}
+            {message.clarifyingQuestions && message.clarifyingQuestions.length > 0 && (
+              <Alert
+                type="info"
+                icon={<QuestionCircleOutlined />}
+                message={
+                  <Space direction="vertical" size={4}>
+                    <Text strong style={{ fontSize: 12 }}>I need some clarification:</Text>
+                    <ul style={{ margin: 0, paddingLeft: 16 }}>
+                      {message.clarifyingQuestions.map((q, idx) => (
+                        <li key={idx}><Text>{q}</Text></li>
+                      ))}
+                    </ul>
+                  </Space>
+                }
+              />
+            )}
+
+            {message.explanation && !message.needsClarification && (
               <Text>{message.explanation}</Text>
             )}
 
