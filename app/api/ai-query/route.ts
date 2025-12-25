@@ -75,6 +75,47 @@ function isMutationQuery(sql: string): boolean {
   return DANGEROUS_PATTERNS.some(pattern => pattern.test(normalizedSql));
 }
 
+// Check if a string looks like a valid SQL query vs a text response/prompt
+function isValidSqlQuery(text: string): boolean {
+  if (!text || text.trim().length === 0) return false;
+
+  const trimmed = text.trim().toUpperCase();
+
+  // Must start with a SQL keyword
+  const validStartKeywords = [
+    'SELECT', 'WITH', 'EXPLAIN', 'SHOW', 'DESCRIBE',
+    '(SELECT', '( SELECT' // Subqueries
+  ];
+
+  const startsWithSql = validStartKeywords.some(kw => trimmed.startsWith(kw));
+  if (!startsWithSql) return false;
+
+  // Check for signs this is actually a prompt/text response, not SQL
+  const promptPatterns = [
+    /^I (need|don't have|cannot|can't|would need|require)/i,
+    /^please provide/i,
+    /^could you/i,
+    /^to (fix|help|assist|generate)/i,
+    /^unfortunately/i,
+    /^I('m| am) (sorry|unable|not able)/i,
+    /^the (query|sql|error|issue|problem)/i,
+    /^based on/i,
+    /^in order to/i,
+    /^without (the|more|additional)/i,
+  ];
+
+  const looksLikePrompt = promptPatterns.some(pattern => pattern.test(text.trim()));
+  if (looksLikePrompt) return false;
+
+  // Should contain FROM for most queries (except SHOW/EXPLAIN of simple things)
+  const hasFrom = /\bFROM\b/i.test(text);
+  const isShowOrExplain = /^(SHOW|EXPLAIN|DESCRIBE)\b/i.test(trimmed);
+
+  if (!hasFrom && !isShowOrExplain) return false;
+
+  return true;
+}
+
 function formatSchemaForPrompt(schema: SchemaTable[]): string {
   if (!schema || schema.length === 0) {
     return 'No schema information available.';
@@ -190,9 +231,9 @@ function buildConversationMessages(
     userMessage = `${schemaContext}${sampleDataContext}\n\n`;
   }
 
-  // Include current SQL if available
-  if (currentSql && conversationHistory.length > 0) {
-    userMessage += `Current SQL query:\n\`\`\`sql\n${currentSql}\n\`\`\`\n\n`;
+  // ALWAYS include current SQL if available - this is critical for debugging/fixing
+  if (currentSql) {
+    userMessage += `Current SQL query to fix/improve:\n\`\`\`sql\n${currentSql}\n\`\`\`\n\n`;
   }
 
   // Include query result context if available
@@ -286,26 +327,31 @@ IMPORTANT: Return ONLY valid JSON, no markdown. NEVER generate mutation queries.
     } else if (mode === 'debug') {
       systemPrompt = `You are a PostgreSQL query debugger. Diagnose why a query returned no rows or unexpected results.
 
+CRITICAL: You will be given the current SQL query that needs fixing. You MUST return a valid SQL query in the "sql" field.
+DO NOT return text asking for more information. DO NOT return prompts or explanations in the sql field.
+The "sql" field MUST contain a valid SELECT query that starts with SELECT or WITH.
+
 Your response must be valid JSON:
 {
-  "sql": "Corrected SQL query or diagnostic query",
-  "explanation": "Explanation of the issue and fix",
+  "sql": "VALID SELECT QUERY HERE - must be actual SQL starting with SELECT or WITH",
+  "explanation": "Explanation of what was wrong and how you fixed it",
   "debugInfo": {
-    "needsMoreData": true/false,
-    "suggestedQueries": ["SELECT ... to check data"], // Diagnostic queries if needed
+    "needsMoreData": false,
     "diagnosis": "Root cause analysis"
   }
 }
 
-Common issues to check:
-1. Wrong field names in WHERE/JOIN conditions
-2. Incorrect JSON path operators (-> vs ->>)
-3. Type mismatches (comparing text to numbers)
-4. Missing data in the source tables
-5. Overly restrictive WHERE conditions
-6. JOIN conditions that don't match any rows
+Common issues to check and fix:
+1. Wrong field names in WHERE/JOIN conditions - check the schema provided
+2. Incorrect JSON path operators (-> vs ->>) - use ->> to get text values for comparison
+3. Type mismatches (comparing text to numbers) - add proper casts
+4. Overly restrictive WHERE conditions - try relaxing them
+5. JOIN conditions that don't match any rows - check join column names
 
-If you need to explore the data to diagnose, set needsMoreData to true and provide diagnostic queries.
+If the original query has issues, FIX THEM and return the corrected query.
+If you're unsure what's wrong, try simplifying the query to return more results.
+
+NEVER ask for more information. ALWAYS return a valid SQL query based on the schema you have.
 
 IMPORTANT: Return ONLY valid JSON, no markdown. NEVER generate INSERT, UPDATE, DELETE, DROP, or any mutation queries.`;
     } else {
@@ -449,6 +495,28 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       sql = sql.slice(0, -3);
     }
     sql = sql.trim();
+
+    // VALIDATION CHECK: Ensure response is actually a SQL query, not a prompt/text
+    if (!isValidSqlQuery(sql)) {
+      // AI returned text instead of SQL - this is an error
+      // If we have the original query, return it with an explanation
+      if (currentSql) {
+        return NextResponse.json({
+          sql: currentSql,
+          explanation: parsedResponse.explanation || 'Unable to generate a valid query. The original query has been preserved.',
+          changes: [],
+          validation: {
+            isValid: false,
+            issues: ['AI was unable to generate a valid SQL query. Please try rephrasing your request.'],
+          },
+        });
+      }
+      // No original query - return error
+      return NextResponse.json(
+        { error: `AI returned an invalid response instead of SQL: "${sql.substring(0, 100)}..."` },
+        { status: 400 }
+      );
+    }
 
     // SAFETY CHECK: Block mutation queries
     if (isMutationQuery(sql)) {
