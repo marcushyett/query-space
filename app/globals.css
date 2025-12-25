@@ -862,6 +862,14 @@ body {
   flex: 1;
 }
 
+/* Goal summary in chat */
+.chat-goal-summary {
+  background: rgba(24, 144, 255, 0.1);
+  border: 1px solid rgba(24, 144, 255, 0.3);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
 /* SQL Preview */
 .chat-sql-preview {
   background: #0a0a0a;

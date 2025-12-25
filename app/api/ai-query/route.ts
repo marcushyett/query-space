@@ -53,6 +53,10 @@ interface AiQueryResponse {
     suggestedQueries?: string[];
     diagnosis?: string;
   };
+  // For clarification and goal confirmation
+  clarifyingQuestions?: string[];
+  goalSummary?: string;
+  needsClarification?: boolean;
 }
 
 // DANGEROUS SQL patterns that should NEVER be allowed
@@ -73,6 +77,40 @@ const DANGEROUS_PATTERNS = [
 function isMutationQuery(sql: string): boolean {
   const normalizedSql = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   return DANGEROUS_PATTERNS.some(pattern => pattern.test(normalizedSql));
+}
+
+function isValidSelectQuery(sql: string): { valid: boolean; reason?: string } {
+  if (!sql || typeof sql !== 'string') {
+    return { valid: false, reason: 'No SQL provided' };
+  }
+
+  const trimmed = sql.trim();
+
+  // Check if it starts with SELECT or WITH (CTE)
+  const upperTrimmed = trimmed.toUpperCase();
+  if (!upperTrimmed.startsWith('SELECT') && !upperTrimmed.startsWith('WITH')) {
+    return { valid: false, reason: 'SQL must start with SELECT or WITH' };
+  }
+
+  // Check for basic SQL structure - must have FROM clause (except for simple expressions)
+  // Allow queries like "SELECT 1" or "SELECT NOW()" without FROM
+  const hasFrom = /\bFROM\b/i.test(trimmed);
+  const isSimpleExpression = /^(SELECT|WITH)\s+[\w\d\s(),*'":.+-]+$/i.test(trimmed);
+
+  if (!hasFrom && !isSimpleExpression) {
+    return { valid: false, reason: 'SQL appears to be malformed - missing FROM clause' };
+  }
+
+  // Check that it's not just the user's prompt repeated back
+  // Natural language typically has more spaces between words and lacks SQL keywords in proper positions
+  const sqlKeywords = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'GROUP BY', 'ORDER BY', 'LIMIT', 'WITH', 'AS'];
+  const keywordCount = sqlKeywords.filter(kw => upperTrimmed.includes(kw)).length;
+
+  if (keywordCount < 2 && !isSimpleExpression) {
+    return { valid: false, reason: 'SQL lacks sufficient SQL keywords' };
+  }
+
+  return { valid: true };
 }
 
 function formatSchemaForPrompt(schema: SchemaTable[]): string {
@@ -288,7 +326,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown. NEVER generate mutation queries.
 
 Your response must be valid JSON:
 {
-  "sql": "Corrected SQL query or diagnostic query",
+  "sql": "Corrected SQL query or diagnostic query - MUST BE VALID SELECT QUERY",
   "explanation": "Explanation of the issue and fix",
   "debugInfo": {
     "needsMoreData": true/false,
@@ -305,9 +343,25 @@ Common issues to check:
 5. Overly restrictive WHERE conditions
 6. JOIN conditions that don't match any rows
 
-If you need to explore the data to diagnose, set needsMoreData to true and provide diagnostic queries.
+JSON FIELD EXPLORATION STRATEGY:
+When dealing with JSON fields that return no results:
+1. First, try to discover what keys actually exist in the JSON:
+   - SELECT DISTINCT jsonb_object_keys("json_column") FROM "table" LIMIT 50
+2. Try similar field name variations:
+   - camelCase vs snake_case (e.g., "userId" vs "user_id")
+   - With/without underscores
+   - Singular vs plural
+   - Different abbreviations (e.g., "desc" vs "description")
+3. Check if the field is nested deeper:
+   - "data"->'nested'->'field' instead of "data"->'field'
+4. Sample rows that have non-null values in the JSON field:
+   - SELECT "json_column" FROM "table" WHERE "json_column" IS NOT NULL LIMIT 5
+5. Use jsonb_path_query or recursive exploration for deep nesting
+6. Use COALESCE to try multiple possible paths
 
-IMPORTANT: Return ONLY valid JSON, no markdown. NEVER generate INSERT, UPDATE, DELETE, DROP, or any mutation queries.`;
+If you need to explore the data to diagnose, set needsMoreData to true and provide diagnostic queries that explore the JSON structure.
+
+IMPORTANT: Return ONLY valid JSON, no markdown. The SQL must be a valid SELECT query. NEVER generate INSERT, UPDATE, DELETE, DROP, or any mutation queries.`;
     } else {
       // Generate mode
       systemPrompt = `You are a PostgreSQL SQL expert assistant helping users build and refine queries through conversation.
@@ -322,12 +376,32 @@ CRITICAL SAFETY RULE: You must NEVER generate queries that modify data. This mea
 
 If a user asks for a mutation query, politely explain that you can only generate read-only SELECT queries for safety.
 
+CRITICAL: ALWAYS GENERATE VALID SQL
+- Your "sql" field MUST contain a valid PostgreSQL SELECT query
+- NEVER output the user's request/prompt as the SQL
+- NEVER output natural language as SQL
+- If you don't understand what the user wants, ask clarifying questions instead of guessing
+- If the data doesn't exist, still generate a valid query that attempts to find similar data
+
 Your responses must ALWAYS be valid JSON with this exact structure:
 {
-  "sql": "THE SQL QUERY HERE - MUST BE PROPERLY FORMATTED WITH LINE BREAKS",
+  "sql": "THE SQL QUERY HERE - MUST BE A VALID SELECT QUERY WITH PROPER FORMATTING",
   "explanation": "A brief explanation of what the query does or what changes were made",
-  "changes": ["Change 1", "Change 2"] // Only include if modifying existing SQL
+  "changes": ["Change 1", "Change 2"], // Only include if modifying existing SQL
+  "goalSummary": "A brief statement of what you understand the user wants to achieve", // Include for new/complex queries
+  "clarifyingQuestions": ["Question 1?", "Question 2?"], // Include if you need more info
+  "needsClarification": true/false // Set to true if you cannot proceed without user input
 }
+
+UNDERSTANDING USER INTENT:
+1. Before generating a query, understand what the user is trying to accomplish
+2. For new queries, include a "goalSummary" that restates what you understand they want
+3. If the request is ambiguous or you need more details, set "needsClarification": true and include "clarifyingQuestions"
+4. Examples of when to ask questions:
+   - Which specific fields/columns they want to see
+   - What time range they're interested in
+   - How they want data aggregated or grouped
+   - What specific values/filters they care about
 
 SQL FORMATTING REQUIREMENTS - CRITICAL:
 The SQL in your response MUST be formatted with proper line breaks for readability:
@@ -357,7 +431,18 @@ CRITICAL PostgreSQL syntax requirements:
 7. Use exact table/column names from schema (with double quotes)
 8. Always use table aliases when joining
 9. No semicolons at end
-10. If requested data doesn't exist, make a best-effort query
+10. If requested data doesn't exist, make a best-effort query with available fields
+
+JSON FIELD HANDLING - IMPORTANT:
+1. JSON fields often have inconsistent schemas - not every row may have the same structure
+2. When looking for a sub-field in JSON, if initial attempts fail:
+   - Try variations of field names (camelCase, snake_case, different spellings)
+   - Use jsonb_object_keys() to discover available keys
+   - Use COALESCE with multiple possible paths
+   - Consider that the field might be nested differently
+3. Always use COALESCE for JSON extractions to handle missing data gracefully
+4. When the exact field path is uncertain, generate a query that samples the JSON structure first
+5. Example for exploring JSON: SELECT DISTINCT jsonb_object_keys("data") FROM "table" LIMIT 50
 
 PERFORMANCE OPTIMIZATION:
 1. Only SELECT needed columns, avoid SELECT *
@@ -376,6 +461,7 @@ When modifying an existing query:
 ` : `
 When creating a new query:
 - Omit the "changes" array
+- Include goalSummary to confirm understanding
 - Explain what the query does
 `}
 
@@ -386,9 +472,10 @@ Consider:
 - Are JOIN conditions correct?
 - For JSON fields, are you using the right operators (-> vs ->>)?
 - Are there type mismatches?
+- For JSON fields that might not exist in every row, try exploring similar field names
 ` : ''}
 
-IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
+IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks. The SQL must start with SELECT or WITH.`;
     }
 
     const messages = buildConversationMessages(
@@ -459,8 +546,27 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       });
     }
 
-    // Format SQL for readable diffs
-    sql = formatSql(sql);
+    // VALIDATION CHECK: Ensure we have a valid SQL query, not just a prompt
+    const sqlValidation = isValidSelectQuery(sql);
+    if (!sqlValidation.valid && !parsedResponse.needsClarification) {
+      // If the SQL is invalid and we're not asking for clarification,
+      // return an error and ask the user to clarify
+      return NextResponse.json({
+        sql: currentSql || '',
+        explanation: `I couldn't generate a valid SQL query. ${sqlValidation.reason || 'Please provide more details about what data you want to query.'}`,
+        needsClarification: true,
+        clarifyingQuestions: [
+          'What specific data or table are you trying to query?',
+          'What columns or fields would you like to see?',
+          'Are there any specific filters or conditions you want to apply?',
+        ],
+      });
+    }
+
+    // Format SQL for readable diffs (only if we have valid SQL)
+    if (sqlValidation.valid) {
+      sql = formatSql(sql);
+    }
 
     return NextResponse.json({
       sql,
@@ -468,6 +574,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       changes: parsedResponse.changes || [],
       validation: parsedResponse.validation,
       debugInfo: parsedResponse.debugInfo,
+      clarifyingQuestions: parsedResponse.clarifyingQuestions,
+      goalSummary: parsedResponse.goalSummary,
+      needsClarification: parsedResponse.needsClarification,
     });
   } catch (error: unknown) {
     console.error('AI query generation error:', error);

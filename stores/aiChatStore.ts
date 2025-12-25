@@ -4,6 +4,7 @@ export interface QueryResultInfo {
   rowCount: number;
   executionTime: number;
   error?: string;
+  sampleResults?: Record<string, unknown>[];
 }
 
 export interface ChatMessage {
@@ -19,6 +20,10 @@ export interface ChatMessage {
   // For query results
   queryResult?: QueryResultInfo;
   isAutoFix?: boolean;
+  // For clarification flow
+  clarifyingQuestions?: string[];
+  goalSummary?: string;
+  needsClarification?: boolean;
 }
 
 interface AiChatStore {
