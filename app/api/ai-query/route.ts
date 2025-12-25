@@ -53,6 +53,9 @@ interface AiQueryResponse {
     suggestedQueries?: string[];
     diagnosis?: string;
   };
+  // For clarifying questions - AI can ask user for more info
+  needsClarification?: boolean;
+  clarificationQuestion?: string;
 }
 
 // DANGEROUS SQL patterns that should NEVER be allowed
@@ -368,12 +371,33 @@ CRITICAL SAFETY RULE: You must NEVER generate queries that modify data. This mea
 
 If a user asks for a mutation query, politely explain that you can only generate read-only SELECT queries for safety.
 
-Your responses must ALWAYS be valid JSON with this exact structure:
+You can respond in TWO ways:
+
+1. QUERY MODE - When you can generate a SQL query:
 {
   "sql": "THE SQL QUERY HERE - MUST BE PROPERLY FORMATTED WITH LINE BREAKS",
   "explanation": "A brief explanation of what the query does or what changes were made",
   "changes": ["Change 1", "Change 2"] // Only include if modifying existing SQL
 }
+
+2. CLARIFICATION MODE - When you need more information from the user:
+{
+  "sql": "",
+  "explanation": "",
+  "needsClarification": true,
+  "clarificationQuestion": "Your question to the user. Be specific about what information you need."
+}
+
+Use CLARIFICATION MODE when:
+- The user's request is ambiguous and could mean multiple things
+- You need to know which specific table/column they want
+- The request could be interpreted in multiple valid ways
+- You need clarification on filters, date ranges, or specific values
+
+Use QUERY MODE when:
+- You have enough information to generate a reasonable query
+- You can make sensible assumptions based on the schema
+- The request is clear enough to proceed
 
 SQL FORMATTING REQUIREMENTS - CRITICAL:
 The SQL in your response MUST be formatted with proper line breaks for readability:
@@ -500,7 +524,18 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
 
     let { sql, parsedResponse } = await callAiAndParse(messages);
 
-    // VALIDATION CHECK: If response is not valid SQL, retry with feedback
+    // CHECK FOR CLARIFICATION MODE - AI is asking a question, not returning SQL
+    if (parsedResponse.needsClarification && parsedResponse.clarificationQuestion) {
+      // This is valid - AI needs more info from user
+      return NextResponse.json({
+        sql: '',
+        explanation: '',
+        needsClarification: true,
+        clarificationQuestion: parsedResponse.clarificationQuestion,
+      });
+    }
+
+    // VALIDATION CHECK: If response is not valid SQL and not a clarification, retry with feedback
     if (!isValidSqlQuery(sql)) {
       console.log('AI returned invalid SQL, retrying with correction feedback:', sql.substring(0, 100));
 
@@ -513,11 +548,13 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
         },
         {
           role: 'user',
-          content: `Your response was NOT a valid SQL query. You returned: "${sql.substring(0, 200)}..."
+          content: `Your response was NOT valid. You returned: "${sql.substring(0, 200)}..."
 
-This is NOT acceptable. You MUST return a valid SELECT query.
+You MUST respond with either:
+1. A valid SQL SELECT query in the "sql" field (starting with SELECT or WITH)
+2. OR set "needsClarification": true with a "clarificationQuestion" if you need more information
 
-${currentSql ? `Here is the original query you need to fix:\n\`\`\`sql\n${currentSql}\n\`\`\`\n\n` : ''}Please return ONLY a valid JSON response with a proper SQL SELECT query in the "sql" field. The query must start with SELECT or WITH. Do not ask for more information - use the schema provided to generate the best query you can.`,
+${currentSql ? `Here is the original query context:\n\`\`\`sql\n${currentSql}\n\`\`\`\n\n` : ''}Please try again with a valid response.`,
         },
       ];
 
@@ -525,6 +562,16 @@ ${currentSql ? `Here is the original query you need to fix:\n\`\`\`sql\n${curren
         const retryResult = await callAiAndParse(retryMessages);
         sql = retryResult.sql;
         parsedResponse = retryResult.parsedResponse;
+
+        // Check if retry returned a clarification
+        if (parsedResponse.needsClarification && parsedResponse.clarificationQuestion) {
+          return NextResponse.json({
+            sql: '',
+            explanation: '',
+            needsClarification: true,
+            clarificationQuestion: parsedResponse.clarificationQuestion,
+          });
+        }
       } catch (retryError) {
         console.error('Retry failed:', retryError);
       }
@@ -538,12 +585,12 @@ ${currentSql ? `Here is the original query you need to fix:\n\`\`\`sql\n${curren
             changes: [],
             validation: {
               isValid: false,
-              issues: ['AI was unable to generate a valid SQL query. Please try rephrasing your request.'],
+              issues: ['AI was unable to generate a valid SQL query. Please try rephrasing your request or provide more details.'],
             },
           });
         }
         return NextResponse.json(
-          { error: `AI was unable to generate a valid SQL query after retry. Response: "${sql.substring(0, 100)}..."` },
+          { error: `AI was unable to generate a valid SQL query. Please try rephrasing your request.` },
           { status: 400 }
         );
       }

@@ -30,6 +30,9 @@ interface AiQueryResponse {
     suggestedQueries?: string[];
     diagnosis?: string;
   };
+  // For clarifying questions
+  needsClarification?: boolean;
+  clarificationQuestion?: string;
 }
 
 interface ConversationMessage {
@@ -600,6 +603,15 @@ export function useAiChat() {
             error: errorMessage,
           });
           return false;
+        }
+
+        // Handle clarification mode - AI is asking a question
+        if (data.needsClarification && data.clarificationQuestion) {
+          addAssistantMessage({
+            content: data.clarificationQuestion,
+            explanation: data.clarificationQuestion,
+          });
+          return true; // Successfully handled, just no query to run
         }
 
         if (data.sql) {
