@@ -9,6 +9,7 @@ import {
   DatabaseOutlined,
   HistoryOutlined,
   PlayCircleOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import { ConnectionDialog } from './ConnectionDialog';
 import { SqlEditor } from './SqlEditor';
@@ -16,6 +17,7 @@ import { QueryResults } from './QueryResults';
 import { TableBrowser } from './TableBrowser';
 import { TableDetailDrawer } from './TableDetailDrawer';
 import { QueryHistoryDrawer } from './QueryHistoryDrawer';
+import { AiQueryModal } from './AiQueryModal';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useQueryStore } from '@/stores/queryStore';
@@ -31,7 +33,7 @@ const TABLE_BROWSER_WIDTH_MOBILE = 200;
 
 export function HomePage() {
   const { connectionString } = useConnectionStore();
-  const { connectionDialogOpen, setConnectionDialogOpen, tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer } = useUiStore();
+  const { connectionDialogOpen, setConnectionDialogOpen, tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer, setAiModalOpen } = useUiStore();
   const { currentQuery, isExecuting } = useQueryStore();
   const { executeQuery } = useQuery();
   const screens = useBreakpoint();
@@ -103,6 +105,14 @@ export function HomePage() {
               Connect
             </Button>
           )}
+          {connectionString && (
+            <Button
+              type="text"
+              icon={<RobotOutlined />}
+              onClick={() => setAiModalOpen(true)}
+              aria-label="Generate SQL with AI"
+            />
+          )}
           {isMobile && connectionString && (
             <Button
               type="primary"
@@ -149,6 +159,7 @@ export function HomePage() {
       <ConnectionDialog />
       <TableDetailDrawer />
       <QueryHistoryDrawer />
+      <AiQueryModal />
     </div>
   );
 }

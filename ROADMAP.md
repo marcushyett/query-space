@@ -4,7 +4,7 @@
 
 Query Space is a PostgreSQL analytics tool built with Next.js that allows you to write SQL queries, visualize data, and explore database schemas. It features a dark, techy interface with keyboard-driven navigation and AI-powered query generation.
 
-## Current Status: Phase 3 Complete
+## Current Status: Phase 5 Complete
 
 ### What's Working Now
 
@@ -44,11 +44,33 @@ Query Space is a PostgreSQL analytics tool built with Next.js that allows you to
 - [x] `POST /api/tables` - List all tables from information_schema
 - [x] `POST /api/table-info` - Get columns, indexes, and sample data
 
+**Phase 4 Features (Complete):**
+- [x] URL-based query sharing
+  - Base64 encode SQL in URL query parameter (`?q=...`)
+  - Load query from URL on page load
+  - Update URL when query changes (debounced)
+- [x] Query history drawer (right sidebar)
+  - List past queries with timestamps
+  - Click to load into editor
+  - Delete individual queries
+  - Clear all history
+- [x] `Cmd+H` keyboard shortcut to toggle history
+
+**Phase 5 Features (Complete):**
+- [x] AI query modal (`Cmd+K` when connected)
+- [x] Natural language prompt input
+- [x] Claude API key input (optional localStorage persistence)
+- [x] Fetch database schema for AI context
+- [x] Generate PostgreSQL-specific SQL
+- [x] Insert generated SQL into editor (not auto-execute)
+- [x] Display generation errors clearly
+
 **Keyboard Shortcuts:**
 - [x] `Cmd+Enter`: Execute SQL query
-- [x] `Cmd+K`: Open connection dialog
+- [x] `Cmd+K`: AI query generator (when connected) / Connection dialog (when not)
 - [x] `Cmd+N`: Clear editor (new query)
 - [x] `Cmd+B`: Toggle table browser
+- [x] `Cmd+H`: Toggle history drawer
 
 **Phase 3 Features (Complete):**
 - [x] Auto-detect chart type from data types (date -> line, text -> column)
@@ -82,66 +104,6 @@ Query Space is a PostgreSQL analytics tool built with Next.js that allows you to
 - `lib/chart-utils.ts` - Data transformation and chart type detection
 
 ## Remaining Phases
-
----
-
-### Phase 4: Query Persistence
-
-**Goal:** Save queries via URL and local history management
-
-**Features to Implement:**
-- [ ] URL-based query sharing
-  - Base64 encode SQL in URL query parameter (`?q=...`)
-  - Load query from URL on page load
-  - Update URL when query changes (debounced)
-- [ ] Query history drawer (right sidebar)
-  - List past queries with timestamps
-  - Click to load into editor
-  - Delete individual queries
-  - Clear all history
-- [ ] `Cmd+H` keyboard shortcut to toggle history
-
-**Libraries:**
-- nuqs (type-safe URL state management)
-
-**Components to Build:**
-- `QueryHistoryDrawer.tsx` - History sidebar component
-
-**Hooks to Create:**
-- `useUrlState.ts` - URL query parameter management
-
----
-
-### Phase 5: AI Query Generation
-
-**Goal:** Generate SQL from natural language using Claude API
-
-**Features to Implement:**
-- [ ] AI query modal (`Cmd+K` when connected)
-- [ ] Natural language prompt input
-- [ ] Claude API key input (optional localStorage persistence)
-- [ ] Fetch database schema for AI context
-- [ ] Generate PostgreSQL-specific SQL
-- [ ] Insert generated SQL into editor (not auto-execute)
-- [ ] Display generation errors clearly
-
-**AI Prompt Strategy:**
-- Fetch full schema (tables + columns + data types)
-- Include sample data for context
-- Specify PostgreSQL syntax
-- Request only SQL (no explanations)
-
-**API Endpoints to Create:**
-- `POST /api/ai-query` - Call Anthropic API with schema context
-
-**Components to Build:**
-- `AiQueryButton.tsx` - Modal for AI query generation
-
-**Hooks to Create:**
-- `useAiQuery.ts` - AI query generation logic
-
-**Libraries:**
-- @anthropic-ai/sdk (Claude API)
 
 ---
 
@@ -254,7 +216,8 @@ query-space/
 │       ├── query/route.ts         # [x] Execute SQL queries
 │       ├── tables/route.ts        # [x] List database tables
 │       ├── table-info/route.ts    # [x] Get table schema + sample data
-│       └── ai-query/route.ts      # TODO: AI SQL generation
+│       ├── schema/route.ts        # [x] Get full database schema for autocomplete/AI
+│       └── ai-query/route.ts      # [x] AI SQL generation with Claude
 │
 ├── components/
 │   ├── Providers.tsx              # [x] Ant Design ConfigProvider wrapper
@@ -268,22 +231,25 @@ query-space/
 │   ├── ColumnChart.tsx            # [x] Recharts bar chart
 │   ├── LineChart.tsx              # [x] Recharts line chart
 │   ├── ChartSelector.tsx          # [x] Chart type/axis selector
-│   ├── AiQueryButton.tsx          # TODO: AI generation modal
-│   ├── QueryHistoryDrawer.tsx     # TODO: Saved query history
+│   ├── AiQueryModal.tsx           # [x] AI query generation modal
+│   ├── QueryHistoryDrawer.tsx     # [x] Saved query history drawer
 │   └── KeyboardShortcutsHelp.tsx  # TODO: Shortcuts reference
 │
 ├── stores/
 │   ├── connectionStore.ts         # [x] Connection state + localStorage
 │   ├── queryStore.ts              # [x] Query state + history
-│   └── uiStore.ts                 # [x] UI state (drawers, modals)
+│   ├── uiStore.ts                 # [x] UI state (drawers, modals)
+│   ├── schemaStore.ts             # [x] Database schema cache
+│   └── aiStore.ts                 # [x] AI API key persistence
 │
 ├── hooks/
 │   ├── useQuery.ts                # [x] Execute SQL queries
 │   ├── useKeyboardShortcuts.ts    # [x] Global keyboard shortcuts
 │   ├── useTables.ts               # [x] Fetch table list
 │   ├── useTableInfo.ts            # [x] Fetch table details
-│   ├── useAiQuery.ts              # TODO: AI query generation
-│   └── useUrlState.ts             # TODO: Query URL persistence
+│   ├── useSchema.ts               # [x] Fetch full schema for autocomplete
+│   ├── useAiQuery.ts              # [x] AI query generation
+│   └── useUrlState.ts             # [x] Query URL persistence
 │
 ├── lib/
 │   ├── sql-validation.ts          # [x] SQL injection prevention
@@ -437,5 +403,5 @@ For issues or questions:
 
 ---
 
-**Last Updated:** Phase 3 Complete (2025-12-24)
-**Next Milestone:** Phase 4 - Query Persistence
+**Last Updated:** Phase 5 Complete (2025-12-25)
+**Next Milestone:** Phase 6 - Polish & Keyboard Shortcuts

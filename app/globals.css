@@ -566,3 +566,100 @@ body {
     width: 100%;
   }
 }
+
+/* AI Query Modal */
+.ai-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ai-modal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-modal-label {
+  font-size: 13px;
+  color: #fff;
+}
+
+.ai-modal-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ai-modal-info {
+  padding: 12px;
+  background: #0a0a0a;
+  border: 1px solid #333333;
+  border-radius: 4px;
+}
+
+.ai-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ai-modal-footer-mobile {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.ai-modal-btn-mobile {
+  flex: 1;
+  height: 44px;
+  font-size: 15px;
+}
+
+/* Mobile-specific AI modal styles */
+.ai-modal-mobile .ant-modal-content {
+  border-radius: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-modal-mobile .ant-modal-header {
+  padding: 16px;
+}
+
+.ai-modal-mobile .ant-modal-body {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.ai-modal-mobile .ant-modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #333333;
+}
+
+.ai-modal-mobile .ai-modal-content {
+  gap: 20px;
+}
+
+.ai-modal-mobile .ai-modal-section {
+  gap: 10px;
+}
+
+.ai-modal-mobile .ai-modal-label {
+  font-size: 14px;
+}
+
+.ai-modal-mobile .ai-modal-checkbox {
+  flex-wrap: wrap;
+}
+
+.ai-modal-mobile .ai-modal-info {
+  margin-top: auto;
+}
+
+.ai-modal-textarea-mobile {
+  font-size: 16px !important;
+}
