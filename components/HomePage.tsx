@@ -2,7 +2,6 @@
 
 import React, { useEffect } from 'react';
 import { Button, Typography, Grid } from 'antd';
-// Tooltips disabled for mobile - using aria-labels instead
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -17,10 +16,11 @@ import { QueryResults } from './QueryResults';
 import { TableBrowser } from './TableBrowser';
 import { TableDetailDrawer } from './TableDetailDrawer';
 import { QueryHistoryDrawer } from './QueryHistoryDrawer';
-import { AiQueryModal } from './AiQueryModal';
+import { AiChatPanel } from './AiChatPanel';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useQueryStore } from '@/stores/queryStore';
+import { useAiChatStore } from '@/stores/aiChatStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useQuery } from '@/hooks/useQuery';
 import { useSchema } from '@/hooks/useSchema';
@@ -33,8 +33,9 @@ const TABLE_BROWSER_WIDTH_MOBILE = 200;
 
 export function HomePage() {
   const { connectionString } = useConnectionStore();
-  const { connectionDialogOpen, setConnectionDialogOpen, tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer, setAiModalOpen } = useUiStore();
+  const { connectionDialogOpen, setConnectionDialogOpen, tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer } = useUiStore();
   const { currentQuery, isExecuting } = useQueryStore();
+  const { isOpen: aiChatOpen, setOpen: setAiChatOpen } = useAiChatStore();
   const { executeQuery } = useQuery();
   const screens = useBreakpoint();
   const hasCheckedConnection = React.useRef(false);
@@ -74,6 +75,10 @@ export function HomePage() {
 
   const sidebarWidth = isMobile ? TABLE_BROWSER_WIDTH_MOBILE : TABLE_BROWSER_WIDTH;
 
+  const handleToggleAiChat = () => {
+    setAiChatOpen(!aiChatOpen);
+  };
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -107,10 +112,10 @@ export function HomePage() {
           )}
           {connectionString && (
             <Button
-              type="text"
+              type={aiChatOpen ? 'primary' : 'text'}
               icon={<RobotOutlined />}
-              onClick={() => setAiModalOpen(true)}
-              aria-label="Generate SQL with AI"
+              onClick={handleToggleAiChat}
+              aria-label="AI Query Assistant"
             />
           )}
           {isMobile && connectionString && (
@@ -146,20 +151,24 @@ export function HomePage() {
           {tableBrowserOpen && <TableBrowser />}
         </aside>
 
-        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-          <div className="editor-pane">
-            <SqlEditor />
+        <div className="main-content-area">
+          <div className="editor-results-container">
+            <div className="editor-pane">
+              <SqlEditor />
+            </div>
+            <div className="results-pane">
+              <QueryResults />
+            </div>
           </div>
-          <div className="results-pane">
-            <QueryResults />
-          </div>
+
+          {/* AI Chat Panel */}
+          <AiChatPanel />
         </div>
       </main>
 
       <ConnectionDialog />
       <TableDetailDrawer />
       <QueryHistoryDrawer />
-      <AiQueryModal />
     </div>
   );
 }

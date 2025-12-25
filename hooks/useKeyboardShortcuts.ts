@@ -5,6 +5,7 @@ import { useQuery } from './useQuery';
 import { useQueryStore } from '@/stores/queryStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
+import { useAiChatStore } from '@/stores/aiChatStore';
 
 export function useKeyboardShortcuts() {
   const { executeQuery } = useQuery();
@@ -15,8 +16,8 @@ export function useKeyboardShortcuts() {
     toggleHistoryDrawer,
     setShortcutsHelpOpen,
     setConnectionDialogOpen,
-    setAiModalOpen,
   } = useUiStore();
+  const { toggleOpen: toggleAiChat } = useAiChatStore();
 
   // Execute query (Cmd+Enter)
   useHotkeys(
@@ -49,12 +50,20 @@ export function useKeyboardShortcuts() {
     useQueryStore.getState().setCurrentQuery('');
   });
 
-  // Cmd+K: AI query generator (when connected) / Connection dialog (when not)
+  // Cmd+K: AI chat panel (when connected) / Connection dialog (when not)
   useHotkeys('mod+k', () => {
     if (connectionString) {
-      setAiModalOpen(true);
+      toggleAiChat();
     } else {
       setConnectionDialogOpen(true);
+    }
+  });
+
+  // Escape: Close AI chat panel
+  useHotkeys('escape', () => {
+    const { isOpen, setOpen } = useAiChatStore.getState();
+    if (isOpen) {
+      setOpen(false);
     }
   });
 }

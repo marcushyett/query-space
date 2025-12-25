@@ -5,10 +5,23 @@ import type { SchemaTable } from '@/app/api/schema/route';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 interface AiQueryRequest {
   prompt: string;
   apiKey: string;
   schema: SchemaTable[];
+  conversationHistory?: ConversationMessage[];
+  currentSql?: string;
+}
+
+interface AiQueryResponse {
+  sql: string;
+  explanation: string;
+  changes?: string[];
 }
 
 function formatSchemaForPrompt(schema: SchemaTable[]): string {
@@ -41,10 +54,49 @@ function formatSchemaForPrompt(schema: SchemaTable[]): string {
   return lines.join('\n');
 }
 
+function buildConversationMessages(
+  conversationHistory: ConversationMessage[],
+  schemaContext: string,
+  currentSql: string | undefined,
+  newPrompt: string
+): Anthropic.MessageParam[] {
+  const messages: Anthropic.MessageParam[] = [];
+
+  // Add conversation history
+  for (const msg of conversationHistory) {
+    messages.push({
+      role: msg.role,
+      content: msg.content,
+    });
+  }
+
+  // Build the new user message with context
+  let userMessage = '';
+
+  // If this is the first message, include schema context
+  if (conversationHistory.length === 0) {
+    userMessage = `${schemaContext}\n\n`;
+  }
+
+  // Include current SQL if it exists and we're in a multi-turn conversation
+  if (currentSql && conversationHistory.length > 0) {
+    userMessage += `Current SQL query:\n\`\`\`sql\n${currentSql}\n\`\`\`\n\n`;
+  }
+
+  userMessage += `User request: ${newPrompt.trim()}`;
+
+  messages.push({
+    role: 'user',
+    content: userMessage,
+  });
+
+  return messages;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: AiQueryRequest = await request.json();
-    const { prompt, apiKey, schema } = body;
+    const { prompt, apiKey, schema, conversationHistory = [], currentSql } = body;
 
     // Validate inputs
     if (!prompt || !prompt.trim()) {
@@ -67,29 +119,28 @@ export async function POST(request: NextRequest) {
     // Format schema for the prompt
     const schemaContext = formatSchemaForPrompt(schema || []);
 
+    // Determine if this is a follow-up message
+    const isFollowUp = conversationHistory.length > 0;
+
     // Create Anthropic client
     const anthropic = new Anthropic({
       apiKey: effectiveApiKey,
     });
 
-    // Generate SQL using Claude
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: `You are a PostgreSQL SQL expert. Generate a valid PostgreSQL query based on the user's request.
+    // Build system prompt
+    const systemPrompt = `You are a PostgreSQL SQL expert assistant helping users build and refine queries through conversation.
 
-${schemaContext}
-
-User request: ${prompt.trim()}
+Your responses must ALWAYS be valid JSON with this exact structure:
+{
+  "sql": "THE SQL QUERY HERE",
+  "explanation": "A brief explanation of what the query does or what changes were made",
+  "changes": ["Change 1", "Change 2"] // Only include if modifying existing SQL
+}
 
 CRITICAL PostgreSQL syntax requirements:
-1. Return ONLY the SQL query, no explanations or markdown formatting
-2. ALWAYS wrap table and column names in double quotes (e.g., SELECT "column_name" FROM "table_name")
-3. For schema-qualified tables, use: "schema_name"."table_name"
-4. Use PostgreSQL-specific functions:
+1. ALWAYS wrap table and column names in double quotes (e.g., SELECT "column_name" FROM "table_name")
+2. For schema-qualified tables, use: "schema_name"."table_name"
+3. Use PostgreSQL-specific functions:
    - NOW() for current timestamp
    - CURRENT_DATE for current date
    - EXTRACT(field FROM date) for date parts
@@ -97,17 +148,53 @@ CRITICAL PostgreSQL syntax requirements:
    - CONCAT() or || operator for string concatenation
    - ILIKE for case-insensitive pattern matching
    - LIMIT and OFFSET for pagination (not TOP)
-5. Use PostgreSQL type casting with :: operator (e.g., value::integer, value::text)
-6. Use PostgreSQL boolean literals: TRUE, FALSE (not 1, 0)
-7. For JSON operations, use PostgreSQL operators: ->, ->>, #>, @>, etc.
-8. Use the exact table and column names from the schema above (with double quotes)
-9. Always use table aliases when joining tables
-10. Do not include semicolons at the end of the query
-11. If the schema doesn't have the requested tables or columns, return a best-effort query with a SQL comment explaining the assumption
+4. Use PostgreSQL type casting with :: operator (e.g., value::integer, value::text)
+5. Use PostgreSQL boolean literals: TRUE, FALSE (not 1, 0)
+6. For JSON operations, use PostgreSQL operators: ->, ->>, #>, @>, etc.
+7. Use the exact table and column names from the schema (with double quotes)
+8. Always use table aliases when joining tables
+9. Do not include semicolons at the end of the query
+10. If the schema doesn't have the requested tables or columns, make a best-effort query
 
-SQL query:`,
-        },
-      ],
+PERFORMANCE OPTIMIZATION - Always generate optimal queries:
+1. Only SELECT the columns actually needed, avoid SELECT * unless explicitly requested
+2. Use appropriate JOINs (prefer INNER JOIN over LEFT JOIN when all rows must match)
+3. Add LIMIT clause for exploratory queries (default to LIMIT 100 for broad queries)
+4. Put the most selective WHERE conditions first
+5. Use EXISTS instead of IN for subqueries when checking existence
+6. Use COUNT(*) instead of COUNT(column) when counting all rows
+7. Avoid unnecessary DISTINCT - only use when duplicates are actually possible
+8. Use appropriate index-friendly patterns (avoid functions on indexed columns in WHERE)
+9. For date ranges, use BETWEEN or >= and < patterns
+10. Prefer specific column comparisons over LIKE '%value%' when possible
+
+${isFollowUp ? `
+When modifying an existing query:
+- Keep the "changes" array concise - list specific modifications made
+- The explanation should focus on what was changed and why
+- Preserve parts of the query that weren't requested to change
+` : `
+When creating a new query:
+- Omit the "changes" array
+- The explanation should describe what the query does
+`}
+
+IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
+
+    // Build conversation messages
+    const messages = buildConversationMessages(
+      conversationHistory,
+      schemaContext,
+      currentSql,
+      prompt
+    );
+
+    // Generate SQL using Claude
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages,
     });
 
     // Extract the text content from the response
@@ -119,10 +206,33 @@ SQL query:`,
       );
     }
 
-    // Clean up the SQL response
-    let sql = textContent.text.trim();
+    // Parse the JSON response
+    let responseText = textContent.text.trim();
 
     // Remove markdown code blocks if present
+    if (responseText.startsWith('```json')) {
+      responseText = responseText.slice(7);
+    } else if (responseText.startsWith('```')) {
+      responseText = responseText.slice(3);
+    }
+    if (responseText.endsWith('```')) {
+      responseText = responseText.slice(0, -3);
+    }
+    responseText = responseText.trim();
+
+    let parsedResponse: AiQueryResponse;
+    try {
+      parsedResponse = JSON.parse(responseText);
+    } catch {
+      // Fallback: treat the entire response as SQL
+      parsedResponse = {
+        sql: responseText,
+        explanation: isFollowUp ? 'Query updated based on your request.' : 'Query generated based on your request.',
+      };
+    }
+
+    // Clean up SQL if needed
+    let sql = parsedResponse.sql || '';
     if (sql.startsWith('```sql')) {
       sql = sql.slice(6);
     } else if (sql.startsWith('```')) {
@@ -133,7 +243,11 @@ SQL query:`,
     }
     sql = sql.trim();
 
-    return NextResponse.json({ sql });
+    return NextResponse.json({
+      sql,
+      explanation: parsedResponse.explanation || '',
+      changes: parsedResponse.changes || [],
+    });
   } catch (error: unknown) {
     console.error('AI query generation error:', error);
 
