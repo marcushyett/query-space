@@ -479,7 +479,45 @@ body {
   background-color: #ffffff !important;
 }
 
-/* Greyscale warning alert for connection dialog */
+/* Dark theme for all Ant Design alerts */
+.ant-alert {
+  background: #1a1a1a !important;
+  border: 1px solid #333333 !important;
+}
+
+.ant-alert .ant-alert-message {
+  color: #ffffff !important;
+}
+
+.ant-alert .ant-alert-description {
+  color: #aaaaaa !important;
+}
+
+.ant-alert .ant-alert-icon {
+  color: #888888 !important;
+}
+
+/* Success alert - subtle green icon */
+.ant-alert-success .ant-alert-icon {
+  color: #52c41a !important;
+}
+
+/* Info alert - subtle blue icon */
+.ant-alert-info .ant-alert-icon {
+  color: #1890ff !important;
+}
+
+/* Warning alert - subtle orange icon */
+.ant-alert-warning .ant-alert-icon {
+  color: #faad14 !important;
+}
+
+/* Error alert - subtle red icon */
+.ant-alert-error .ant-alert-icon {
+  color: #ff4d4f !important;
+}
+
+/* Greyscale warning alert for connection dialog (legacy class) */
 .greyscale-alert {
   background: #1a1a1a !important;
   border: 1px solid #333333 !important;
