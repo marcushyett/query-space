@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { Modal, Input, Button, Checkbox, Space, Typography } from 'antd';
+import { Modal, Input, Button, Checkbox, Space, Typography, Grid } from 'antd';
 import { RobotOutlined } from '@ant-design/icons';
 import { useUiStore } from '@/stores/uiStore';
 import { useAiStore } from '@/stores/aiStore';
@@ -10,12 +10,17 @@ import { useAiQuery } from '@/hooks/useAiQuery';
 
 const { Text } = Typography;
 const { TextArea } = Input;
+const { useBreakpoint } = Grid;
 
 export function AiQueryModal() {
   const { aiModalOpen, setAiModalOpen } = useUiStore();
   const { apiKey: storedApiKey, persistApiKey, setApiKey, setPersistApiKey } = useAiStore();
   const { setCurrentQuery } = useQueryStore();
   const { generateQuery, isGenerating } = useAiQuery();
+  const screens = useBreakpoint();
+
+  // Detect mobile (screens smaller than md breakpoint)
+  const isMobile = !screens.md;
 
   // Initialize with stored values - these will be updated when modal closes and reopens
   const [apiKeyInput, setApiKeyInput] = useState(storedApiKey || '');
@@ -90,21 +95,26 @@ export function AiQueryModal() {
       open={aiModalOpen}
       onCancel={handleClose}
       afterOpenChange={handleAfterOpenChange}
-      footer={[
-        <Button key="cancel" onClick={handleClose}>
-          Cancel
-        </Button>,
-        <Button
-          key="generate"
-          type="primary"
-          onClick={handleGenerate}
-          loading={isGenerating}
-          disabled={!apiKeyInput || !promptInput.trim()}
-        >
-          Generate
-        </Button>,
-      ]}
-      width={560}
+      footer={
+        <div className={isMobile ? 'ai-modal-footer-mobile' : 'ai-modal-footer'}>
+          <Button key="cancel" onClick={handleClose} className={isMobile ? 'ai-modal-btn-mobile' : ''}>
+            Cancel
+          </Button>
+          <Button
+            key="generate"
+            type="primary"
+            onClick={handleGenerate}
+            loading={isGenerating}
+            disabled={!apiKeyInput || !promptInput.trim()}
+            className={isMobile ? 'ai-modal-btn-mobile' : ''}
+          >
+            Generate
+          </Button>
+        </div>
+      }
+      width={isMobile ? '100%' : 560}
+      style={isMobile ? { top: 0, maxWidth: '100%', margin: 0, paddingBottom: 0 } : undefined}
+      className={isMobile ? 'ai-modal-mobile' : ''}
     >
       <div className="ai-modal-content">
         <div className="ai-modal-section">
@@ -133,10 +143,14 @@ export function AiQueryModal() {
           <TextArea
             value={promptInput}
             onChange={(e) => setPromptInput(e.target.value)}
-            placeholder="Describe the query you want to generate, e.g., 'Show all users who signed up in the last 30 days'"
-            rows={4}
+            placeholder={isMobile
+              ? "e.g., 'Show all users who signed up in the last 30 days'"
+              : "Describe the query you want to generate, e.g., 'Show all users who signed up in the last 30 days'"
+            }
+            rows={isMobile ? 5 : 4}
+            className={isMobile ? 'ai-modal-textarea-mobile' : ''}
             onPressEnter={(e) => {
-              // Submit on Cmd+Enter or Ctrl+Enter
+              // Submit on Cmd+Enter or Ctrl+Enter (desktop only)
               if (e.metaKey || e.ctrlKey) {
                 e.preventDefault();
                 if (apiKeyInput && promptInput.trim()) {
@@ -145,9 +159,11 @@ export function AiQueryModal() {
               }
             }}
           />
-          <Text type="secondary" className="text-xs">
-            Press Cmd+Enter to generate
-          </Text>
+          {!isMobile && (
+            <Text type="secondary" className="text-xs">
+              Press Cmd+Enter to generate
+            </Text>
+          )}
         </div>
 
         <div className="ai-modal-info">

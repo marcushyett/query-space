@@ -60,7 +60,8 @@ describe('AiQueryModal', () => {
 
     it('should render prompt input', () => {
       renderWithProviders(<AiQueryModal />)
-      expect(screen.getByPlaceholderText(/Describe the query/i)).toBeInTheDocument()
+      // Matches both desktop and mobile placeholders
+      expect(screen.getByPlaceholderText(/Show all users who signed up/i)).toBeInTheDocument()
     })
 
     it('should render generate and cancel buttons', () => {
@@ -114,7 +115,7 @@ describe('AiQueryModal', () => {
       renderWithProviders(<AiQueryModal />)
 
       const apiKeyInput = screen.getByPlaceholderText(/sk-ant-/)
-      const promptInput = screen.getByPlaceholderText(/Describe the query/i)
+      const promptInput = screen.getByPlaceholderText(/Show all users who signed up/i)
 
       await user.type(apiKeyInput, 'sk-ant-test-key')
       await user.type(promptInput, 'show all users')
@@ -132,7 +133,7 @@ describe('AiQueryModal', () => {
       renderWithProviders(<AiQueryModal />)
 
       const apiKeyInput = screen.getByPlaceholderText(/sk-ant-/)
-      const promptInput = screen.getByPlaceholderText(/Describe the query/i)
+      const promptInput = screen.getByPlaceholderText(/Show all users who signed up/i)
 
       await user.type(apiKeyInput, 'sk-ant-test-key')
       await user.type(promptInput, 'show active users')
@@ -150,7 +151,7 @@ describe('AiQueryModal', () => {
       renderWithProviders(<AiQueryModal />)
 
       const apiKeyInput = screen.getByPlaceholderText(/sk-ant-/)
-      const promptInput = screen.getByPlaceholderText(/Describe the query/i)
+      const promptInput = screen.getByPlaceholderText(/Show all users who signed up/i)
 
       await user.type(apiKeyInput, 'sk-ant-test-key')
       await user.type(promptInput, 'show all users')
@@ -168,7 +169,7 @@ describe('AiQueryModal', () => {
       renderWithProviders(<AiQueryModal />)
 
       const apiKeyInput = screen.getByPlaceholderText(/sk-ant-/)
-      const promptInput = screen.getByPlaceholderText(/Describe the query/i)
+      const promptInput = screen.getByPlaceholderText(/Show all users who signed up/i)
       const checkbox = screen.getByRole('checkbox')
 
       await user.type(apiKeyInput, 'sk-ant-test-key')
@@ -189,7 +190,7 @@ describe('AiQueryModal', () => {
       renderWithProviders(<AiQueryModal />)
 
       const apiKeyInput = screen.getByPlaceholderText(/sk-ant-/)
-      const promptInput = screen.getByPlaceholderText(/Describe the query/i)
+      const promptInput = screen.getByPlaceholderText(/Show all users who signed up/i)
 
       await user.type(apiKeyInput, 'sk-ant-test-key')
       await user.type(promptInput, 'show all users')
@@ -214,7 +215,7 @@ describe('AiQueryModal', () => {
       renderWithProviders(<AiQueryModal />)
 
       const apiKeyInput = screen.getByPlaceholderText(/sk-ant-/)
-      const promptInput = screen.getByPlaceholderText(/Describe the query/i)
+      const promptInput = screen.getByPlaceholderText(/Show all users who signed up/i)
 
       await user.type(apiKeyInput, 'invalid-key')
       await user.type(promptInput, 'show all users')
