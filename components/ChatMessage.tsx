@@ -8,7 +8,6 @@ import {
   CheckCircleOutlined,
   ThunderboltOutlined,
   QuestionCircleOutlined,
-  AimOutlined,
 } from '@ant-design/icons';
 import type { ChatMessage as ChatMessageType } from '@/stores/aiChatStore';
 import { computeSqlDiff } from '@/lib/sqlDiff';
@@ -113,19 +112,6 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
               <Tag icon={<ThunderboltOutlined />} color="warning">
                 Auto-fix applied
               </Tag>
-            )}
-
-            {/* Goal summary - confirm what the agent understood */}
-            {message.goalSummary && (
-              <div className="chat-goal-summary">
-                <Space size={4} align="start">
-                  <AimOutlined style={{ color: '#1890ff', marginTop: 4 }} />
-                  <div>
-                    <Text strong style={{ fontSize: 12, color: '#1890ff' }}>Goal:</Text>
-                    <Text style={{ display: 'block' }}>{message.goalSummary}</Text>
-                  </div>
-                </Space>
-              </div>
             )}
 
             {/* Clarifying questions */}
