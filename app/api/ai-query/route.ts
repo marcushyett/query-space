@@ -500,7 +500,7 @@ Consider:
 IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks. The SQL must start with SELECT or WITH.`;
     }
 
-    const messages = buildConversationMessages(
+    let currentMessages = buildConversationMessages(
       conversationHistory,
       schemaContext,
       sampleDataContext,
@@ -509,80 +509,113 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks. The SQ
       prompt
     );
 
-    const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages,
-    });
+    const MAX_RETRIES = 3;
+    let sql = '';
+    let parsedResponse: AiQueryResponse = { sql: '', explanation: '' };
 
-    const textContent = message.content.find((block) => block.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      return NextResponse.json(
-        { error: 'Failed to generate SQL: No text response from AI' },
-        { status: 500 }
-      );
-    }
-
-    let responseText = textContent.text.trim();
-
-    // Remove markdown code blocks
-    if (responseText.startsWith('```json')) {
-      responseText = responseText.slice(7);
-    } else if (responseText.startsWith('```')) {
-      responseText = responseText.slice(3);
-    }
-    if (responseText.endsWith('```')) {
-      responseText = responseText.slice(0, -3);
-    }
-    responseText = responseText.trim();
-
-    let parsedResponse: AiQueryResponse;
-    try {
-      parsedResponse = JSON.parse(responseText);
-    } catch {
-      parsedResponse = {
-        sql: responseText,
-        explanation: isFollowUp ? 'Query updated based on your request.' : 'Query generated based on your request.',
-      };
-    }
-
-    // Clean up SQL
-    let sql = parsedResponse.sql || '';
-    if (sql.startsWith('```sql')) {
-      sql = sql.slice(6);
-    } else if (sql.startsWith('```')) {
-      sql = sql.slice(3);
-    }
-    if (sql.endsWith('```')) {
-      sql = sql.slice(0, -3);
-    }
-    sql = sql.trim();
-
-    // SAFETY CHECK: Block mutation queries
-    if (isMutationQuery(sql)) {
-      return NextResponse.json({
-        sql: currentSql || '',
-        explanation: 'I can only generate read-only SELECT queries for safety. Mutation queries (INSERT, UPDATE, DELETE, DROP, etc.) are not allowed.',
-        changes: [],
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const message = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: currentMessages,
       });
+
+      const textContent = message.content.find((block) => block.type === 'text');
+      if (!textContent || textContent.type !== 'text') {
+        return NextResponse.json(
+          { error: 'Failed to generate SQL: No text response from AI' },
+          { status: 500 }
+        );
+      }
+
+      let responseText = textContent.text.trim();
+
+      // Remove markdown code blocks
+      if (responseText.startsWith('```json')) {
+        responseText = responseText.slice(7);
+      } else if (responseText.startsWith('```')) {
+        responseText = responseText.slice(3);
+      }
+      if (responseText.endsWith('```')) {
+        responseText = responseText.slice(0, -3);
+      }
+      responseText = responseText.trim();
+
+      try {
+        parsedResponse = JSON.parse(responseText);
+      } catch {
+        parsedResponse = {
+          sql: responseText,
+          explanation: isFollowUp ? 'Query updated based on your request.' : 'Query generated based on your request.',
+        };
+      }
+
+      // Clean up SQL
+      sql = parsedResponse.sql || '';
+      if (sql.startsWith('```sql')) {
+        sql = sql.slice(6);
+      } else if (sql.startsWith('```')) {
+        sql = sql.slice(3);
+      }
+      if (sql.endsWith('```')) {
+        sql = sql.slice(0, -3);
+      }
+      sql = sql.trim();
+
+      // SAFETY CHECK: Block mutation queries
+      if (isMutationQuery(sql)) {
+        return NextResponse.json({
+          sql: currentSql || '',
+          explanation: 'I can only generate read-only SELECT queries for safety. Mutation queries (INSERT, UPDATE, DELETE, DROP, etc.) are not allowed.',
+          changes: [],
+        });
+      }
+
+      // VALIDATION CHECK: Ensure we have a valid SQL query
+      const sqlValidation = isValidSelectQuery(sql);
+
+      if (sqlValidation.valid || parsedResponse.needsClarification) {
+        // Success! Format and break out of retry loop
+        if (sqlValidation.valid) {
+          sql = formatSql(sql);
+        }
+        break;
+      }
+
+      // SQL is invalid - retry by asking the AI to fix it
+      if (attempt < MAX_RETRIES - 1) {
+        // Add the failed response and a fix request to the conversation
+        currentMessages = [
+          ...currentMessages,
+          {
+            role: 'assistant' as const,
+            content: responseText,
+          },
+          {
+            role: 'user' as const,
+            content: `The SQL you generated is invalid: ${sqlValidation.reason || 'Not a valid SELECT query'}.
+
+You generated: "${sql}"
+
+Please generate a valid PostgreSQL SELECT query. Remember:
+- Must start with SELECT or WITH
+- Must include a FROM clause (unless it's a simple expression like SELECT 1)
+- Use the schema provided to pick appropriate tables
+- Do NOT ask which table to use - just pick the most relevant one from the schema`,
+          },
+        ];
+      }
     }
 
-    // VALIDATION CHECK: Ensure we have a valid SQL query, not just a prompt
-    const sqlValidation = isValidSelectQuery(sql);
-    if (!sqlValidation.valid && !parsedResponse.needsClarification) {
-      // If the SQL is invalid, return an error but DON'T ask about tables/columns
-      // The AI should figure out which tables to use by exploring the schema
+    // After all retries, check if we still have invalid SQL
+    const finalValidation = isValidSelectQuery(sql);
+    if (!finalValidation.valid && !parsedResponse.needsClarification) {
       return NextResponse.json({
         sql: currentSql || '',
-        explanation: `I couldn't generate a valid SQL query. ${sqlValidation.reason || 'Please try rephrasing your request.'}`,
+        explanation: 'Failed to generate a valid query after multiple attempts. Please try rephrasing your request.',
         needsClarification: false,
       });
-    }
-
-    // Format SQL for readable diffs (only if we have valid SQL)
-    if (sqlValidation.valid) {
-      sql = formatSql(sql);
     }
 
     return NextResponse.json({
