@@ -437,6 +437,58 @@ Consider:
 IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
     }
 
+    // Helper function to call AI and parse response
+    async function callAiAndParse(msgs: Anthropic.MessageParam[]): Promise<{ sql: string; parsedResponse: AiQueryResponse }> {
+      const aiMessage = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: msgs,
+      });
+
+      const textContent = aiMessage.content.find((block) => block.type === 'text');
+      if (!textContent || textContent.type !== 'text') {
+        throw new Error('No text response from AI');
+      }
+
+      let responseText = textContent.text.trim();
+
+      // Remove markdown code blocks
+      if (responseText.startsWith('```json')) {
+        responseText = responseText.slice(7);
+      } else if (responseText.startsWith('```')) {
+        responseText = responseText.slice(3);
+      }
+      if (responseText.endsWith('```')) {
+        responseText = responseText.slice(0, -3);
+      }
+      responseText = responseText.trim();
+
+      let parsed: AiQueryResponse;
+      try {
+        parsed = JSON.parse(responseText);
+      } catch {
+        parsed = {
+          sql: responseText,
+          explanation: isFollowUp ? 'Query updated based on your request.' : 'Query generated based on your request.',
+        };
+      }
+
+      // Clean up SQL
+      let sql = parsed.sql || '';
+      if (sql.startsWith('```sql')) {
+        sql = sql.slice(6);
+      } else if (sql.startsWith('```')) {
+        sql = sql.slice(3);
+      }
+      if (sql.endsWith('```')) {
+        sql = sql.slice(0, -3);
+      }
+      sql = sql.trim();
+
+      return { sql, parsedResponse: parsed };
+    }
+
     const messages = buildConversationMessages(
       conversationHistory,
       schemaContext,
@@ -446,76 +498,55 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       prompt
     );
 
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages,
-    });
+    let { sql, parsedResponse } = await callAiAndParse(messages);
 
-    const textContent = message.content.find((block) => block.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      return NextResponse.json(
-        { error: 'Failed to generate SQL: No text response from AI' },
-        { status: 500 }
-      );
-    }
-
-    let responseText = textContent.text.trim();
-
-    // Remove markdown code blocks
-    if (responseText.startsWith('```json')) {
-      responseText = responseText.slice(7);
-    } else if (responseText.startsWith('```')) {
-      responseText = responseText.slice(3);
-    }
-    if (responseText.endsWith('```')) {
-      responseText = responseText.slice(0, -3);
-    }
-    responseText = responseText.trim();
-
-    let parsedResponse: AiQueryResponse;
-    try {
-      parsedResponse = JSON.parse(responseText);
-    } catch {
-      parsedResponse = {
-        sql: responseText,
-        explanation: isFollowUp ? 'Query updated based on your request.' : 'Query generated based on your request.',
-      };
-    }
-
-    // Clean up SQL
-    let sql = parsedResponse.sql || '';
-    if (sql.startsWith('```sql')) {
-      sql = sql.slice(6);
-    } else if (sql.startsWith('```')) {
-      sql = sql.slice(3);
-    }
-    if (sql.endsWith('```')) {
-      sql = sql.slice(0, -3);
-    }
-    sql = sql.trim();
-
-    // VALIDATION CHECK: Ensure response is actually a SQL query, not a prompt/text
+    // VALIDATION CHECK: If response is not valid SQL, retry with feedback
     if (!isValidSqlQuery(sql)) {
-      // AI returned text instead of SQL - this is an error
-      // If we have the original query, return it with an explanation
-      if (currentSql) {
-        return NextResponse.json({
-          sql: currentSql,
-          explanation: parsedResponse.explanation || 'Unable to generate a valid query. The original query has been preserved.',
-          changes: [],
-          validation: {
-            isValid: false,
-            issues: ['AI was unable to generate a valid SQL query. Please try rephrasing your request.'],
-          },
-        });
+      console.log('AI returned invalid SQL, retrying with correction feedback:', sql.substring(0, 100));
+
+      // Add the invalid response and a correction request to the conversation
+      const retryMessages: Anthropic.MessageParam[] = [
+        ...messages,
+        {
+          role: 'assistant',
+          content: JSON.stringify(parsedResponse),
+        },
+        {
+          role: 'user',
+          content: `Your response was NOT a valid SQL query. You returned: "${sql.substring(0, 200)}..."
+
+This is NOT acceptable. You MUST return a valid SELECT query.
+
+${currentSql ? `Here is the original query you need to fix:\n\`\`\`sql\n${currentSql}\n\`\`\`\n\n` : ''}Please return ONLY a valid JSON response with a proper SQL SELECT query in the "sql" field. The query must start with SELECT or WITH. Do not ask for more information - use the schema provided to generate the best query you can.`,
+        },
+      ];
+
+      try {
+        const retryResult = await callAiAndParse(retryMessages);
+        sql = retryResult.sql;
+        parsedResponse = retryResult.parsedResponse;
+      } catch (retryError) {
+        console.error('Retry failed:', retryError);
       }
-      // No original query - return error
-      return NextResponse.json(
-        { error: `AI returned an invalid response instead of SQL: "${sql.substring(0, 100)}..."` },
-        { status: 400 }
-      );
+
+      // If still not valid after retry, fall back
+      if (!isValidSqlQuery(sql)) {
+        if (currentSql) {
+          return NextResponse.json({
+            sql: currentSql,
+            explanation: 'Unable to generate a valid query after retry. The original query has been preserved.',
+            changes: [],
+            validation: {
+              isValid: false,
+              issues: ['AI was unable to generate a valid SQL query. Please try rephrasing your request.'],
+            },
+          });
+        }
+        return NextResponse.json(
+          { error: `AI was unable to generate a valid SQL query after retry. Response: "${sql.substring(0, 100)}..."` },
+          { status: 400 }
+        );
+      }
     }
 
     // SAFETY CHECK: Block mutation queries
