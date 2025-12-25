@@ -150,7 +150,7 @@ describe('chart-utils', () => {
       expect(detectChartType(result)).toBe('line');
     });
 
-    it('should return column for text + numeric fields', () => {
+    it('should return pie for small text + numeric dataset', () => {
       const result: QueryResult = {
         rows: [{ category: 'A', value: 100 }],
         fields: [
@@ -160,6 +160,22 @@ describe('chart-utils', () => {
         rowCount: 1,
         executionTime: 10,
       };
+      // Small datasets (<=10 rows) with 1 text + 1 numeric field default to pie
+      expect(detectChartType(result)).toBe('pie');
+    });
+
+    it('should return column for larger text + numeric dataset', () => {
+      const rows = Array.from({ length: 15 }, (_, i) => ({ category: `Cat${i}`, value: i * 100 }));
+      const result: QueryResult = {
+        rows,
+        fields: [
+          { name: 'category', dataTypeID: TEXT_TYPE },
+          { name: 'value', dataTypeID: INT_TYPE },
+        ],
+        rowCount: 15,
+        executionTime: 10,
+      };
+      // Larger datasets (>10 rows) with text + numeric default to column
       expect(detectChartType(result)).toBe('column');
     });
 
@@ -258,6 +274,26 @@ describe('chart-utils', () => {
 
   describe('suggestChartConfig', () => {
     it('should return complete config for chartable data', () => {
+      // Use larger dataset to get column chart (small datasets get pie)
+      const rows = Array.from({ length: 15 }, (_, i) => ({ category: `Cat${i}`, value: i * 100 }));
+      const result: QueryResult = {
+        rows,
+        fields: [
+          { name: 'category', dataTypeID: TEXT_TYPE },
+          { name: 'value', dataTypeID: INT_TYPE },
+        ],
+        rowCount: 15,
+        executionTime: 10,
+      };
+
+      const config = suggestChartConfig(result);
+
+      expect(config.type).toBe('column');
+      expect(config.xAxis).toBe('category');
+      expect(config.yAxes).toEqual(['value']);
+    });
+
+    it('should return pie config for small dataset', () => {
       const result: QueryResult = {
         rows: [{ category: 'A', value: 100 }],
         fields: [
@@ -270,7 +306,7 @@ describe('chart-utils', () => {
 
       const config = suggestChartConfig(result);
 
-      expect(config.type).toBe('column');
+      expect(config.type).toBe('pie');
       expect(config.xAxis).toBe('category');
       expect(config.yAxes).toEqual(['value']);
     });

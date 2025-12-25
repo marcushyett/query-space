@@ -7,15 +7,23 @@ import { useConnectionStore } from '@/stores/connectionStore'
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-// Mock antd message
+// Mock message functions
+const mockMessage = {
+  error: vi.fn(),
+  success: vi.fn(),
+  warning: vi.fn(),
+  info: vi.fn(),
+  loading: vi.fn(),
+}
+
+// Mock antd App.useApp
 vi.mock('antd', async () => {
   const actual = await vi.importActual('antd')
   return {
     ...actual,
-    message: {
-      error: vi.fn(),
-      success: vi.fn(),
-      warning: vi.fn(),
+    App: {
+      ...((actual as Record<string, unknown>).App as Record<string, unknown>),
+      useApp: () => ({ message: mockMessage }),
     },
   }
 })
