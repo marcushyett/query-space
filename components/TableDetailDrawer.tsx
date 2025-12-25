@@ -168,7 +168,7 @@ export function TableDetailDrawer() {
 
   // Column definitions for sample data
   const sampleColumns =
-    tableInfo?.columns.map((col) => ({
+    tableInfo?.columns?.map((col) => ({
       title: col.name,
       dataIndex: col.name,
       key: col.name,
@@ -191,7 +191,7 @@ export function TableDetailDrawer() {
       children: (
         <Table
           columns={columnColumns}
-          dataSource={tableInfo?.columns?.map((col) => ({ ...col, key: col.name })) ?? []}
+          dataSource={tableInfo?.columns?.map((col, i) => ({ ...col, key: col?.name ?? `col-${i}` })) ?? []}
           pagination={false}
           size="small"
           scroll={{ x: 'max-content' }}
@@ -207,7 +207,7 @@ export function TableDetailDrawer() {
         ) : (
           <Table
             columns={indexColumns}
-            dataSource={tableInfo?.indexes?.map((idx) => ({ ...idx, key: idx.name })) ?? []}
+            dataSource={tableInfo?.indexes?.map((idx, i) => ({ ...idx, key: idx?.name ?? `index-${i}` })) ?? []}
             pagination={false}
             size="small"
           />
