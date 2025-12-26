@@ -211,33 +211,13 @@ export async function* streamQueryAgent(
       // Build messages for next iteration
       // Use the SDK's response.messages which are already in the correct ModelMessage format
       if (result.response?.messages && result.response.messages.length > 0) {
-        console.log('[Agent Debug] Using response.messages from SDK');
+        console.log('[Agent Debug] Appending response.messages from SDK:', JSON.stringify(result.response.messages, null, 2));
         messages.push(...result.response.messages);
-      } else if (result.toolCalls && result.toolCalls.length > 0) {
-        // Fallback: manually construct messages (should rarely be needed)
-        console.log('[Agent Debug] Fallback: manually constructing messages');
-        messages.push({
-          role: 'assistant',
-          content: result.toolCalls.map((tc: AnyMessage) => ({
-            type: 'tool-call',
-            toolCallId: tc.toolCallId,
-            toolName: tc.toolName,
-            args: tc.args ?? tc.input ?? {},
-          })),
-        });
-
-        if (result.toolResults && result.toolResults.length > 0) {
-          messages.push({
-            role: 'tool',
-            content: result.toolResults.map((tr: AnyMessage) => ({
-              type: 'tool-result',
-              toolCallId: tr.toolCallId,
-              result: tr.result ?? tr.output ?? null,
-            })),
-          });
-        }
-      } else if (result.text) {
-        messages.push({ role: 'assistant', content: result.text });
+      } else {
+        // This should not happen - log for debugging
+        console.log('[Agent Debug] WARNING: No response.messages from SDK!');
+        console.log('[Agent Debug] result.text:', result.text);
+        console.log('[Agent Debug] result.toolCalls:', JSON.stringify(result.toolCalls, null, 2));
       }
 
       // If model stopped without calling update_query_ui, prompt it
