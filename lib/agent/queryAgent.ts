@@ -138,6 +138,9 @@ export async function* streamQueryAgent(
     yield { type: 'step', step: state.currentStep, maxSteps: state.maxSteps };
 
     try {
+      // DEBUG: Log messages being sent to generateText
+      console.log('[Agent Debug] Sending messages to generateText:', JSON.stringify(messages, null, 2));
+
       // Use stopWhen to control when to stop the agent loop
       const result = await generateText({
         model,
@@ -148,6 +151,13 @@ export async function* streamQueryAgent(
         // Stop after each tool call for fine-grained control
         stopWhen: () => true,
       });
+
+      // DEBUG: Log the result structure to understand the schema
+      console.log('[Agent Debug] Step', state.currentStep);
+      console.log('[Agent Debug] Current messages:', JSON.stringify(messages, null, 2));
+      console.log('[Agent Debug] result.toolCalls:', JSON.stringify(result.toolCalls, null, 2));
+      console.log('[Agent Debug] result.toolResults:', JSON.stringify(result.toolResults, null, 2));
+      console.log('[Agent Debug] result.response?.messages:', JSON.stringify(result.response?.messages, null, 2));
 
       // Emit text if any
       if (result.text) {
@@ -199,41 +209,43 @@ export async function* streamQueryAgent(
       }
 
       // Build messages for next iteration
-      // Manually construct messages with correct AI SDK v6 schema
-      if (result.toolCalls && result.toolCalls.length > 0) {
-        // Add assistant message with tool calls
+      // Use the SDK's response.messages which are already in the correct ModelMessage format
+      if (result.response?.messages && result.response.messages.length > 0) {
+        console.log('[Agent Debug] Using response.messages from SDK');
+        messages.push(...result.response.messages);
+      } else if (result.toolCalls && result.toolCalls.length > 0) {
+        // Fallback: manually construct messages (should rarely be needed)
+        console.log('[Agent Debug] Fallback: manually constructing messages');
         messages.push({
           role: 'assistant',
           content: result.toolCalls.map((tc: AnyMessage) => ({
             type: 'tool-call',
             toolCallId: tc.toolCallId,
             toolName: tc.toolName,
-            input: 'input' in tc ? tc.input : ('args' in tc ? tc.args : {}),
+            args: tc.args ?? tc.input ?? {},
           })),
         });
 
-        // Add tool message with results (uses 'output' not 'result' in SDK v6)
         if (result.toolResults && result.toolResults.length > 0) {
           messages.push({
             role: 'tool',
             content: result.toolResults.map((tr: AnyMessage) => ({
               type: 'tool-result',
               toolCallId: tr.toolCallId,
-              toolName: tr.toolName,
-              output: 'output' in tr ? tr.output : ('result' in tr ? tr.result : null),
+              result: tr.result ?? tr.output ?? null,
             })),
           });
         }
       } else if (result.text) {
         messages.push({ role: 'assistant', content: result.text });
+      }
 
-        // If model stopped without calling update_query_ui, prompt it
-        if (result.finishReason === 'stop' && !state.hasCompletedGoal) {
-          messages.push({
-            role: 'user',
-            content: 'Please use the update_query_ui tool to finalize your query for the user to review.',
-          });
-        }
+      // If model stopped without calling update_query_ui, prompt it
+      if (result.finishReason === 'stop' && !state.hasCompletedGoal && result.text) {
+        messages.push({
+          role: 'user',
+          content: 'Please use the update_query_ui tool to finalize your query for the user to review.',
+        });
       }
 
       // Check if done
