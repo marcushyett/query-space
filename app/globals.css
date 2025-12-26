@@ -949,6 +949,21 @@ body {
   border-bottom: none;
 }
 
+.agent-tool-call.final-query {
+  background: rgba(250, 173, 20, 0.08);
+  border: 1px solid rgba(250, 173, 20, 0.3);
+  border-radius: 4px;
+  padding: 8px;
+  margin: 4px 0;
+}
+
+/* Gold tag for final query */
+.agent-progress .ant-tag-gold {
+  background: rgba(250, 173, 20, 0.15) !important;
+  border-color: rgba(250, 173, 20, 0.4) !important;
+  color: #ffc53d !important;
+}
+
 /* Override collapse styling for agent progress */
 .agent-progress .ant-collapse {
   background: transparent !important;

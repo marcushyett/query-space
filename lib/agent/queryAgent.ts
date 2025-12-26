@@ -3,7 +3,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { createQueryAgentTools, SchemaInfo } from './tools';
 import { formatSql } from '@/lib/sql-formatter';
 
-export const MAX_AGENT_STEPS = 15;
+export const MAX_AGENT_STEPS = 25;
 
 export interface AgentState {
   goal: string;
@@ -29,15 +29,17 @@ export interface AgentConfig {
   connectionString: string;
   schema: SchemaInfo[];
   previousSql?: string;
+  previousContext?: string;  // Summary of previous work for continue functionality
 }
 
-function buildSystemPrompt(goal: string, isFollowUp: boolean): string {
+function buildSystemPrompt(goal: string, isFollowUp: boolean, context?: string): string {
   return `You are an expert PostgreSQL query builder. Help users create and refine SQL queries.
 
 ## YOUR TASK
 ${isFollowUp ? `The user is providing feedback on a previous query: "${goal}"
 
 IMPORTANT: This is a follow-up request. The user wants you to modify or improve the existing query based on their feedback. Acknowledge their request and explain what changes you'll make.` : `Create a query for: "${goal}"`}
+${context ? `\n## PREVIOUS CONTEXT\n${context}` : ''}
 
 ## COMMUNICATION STYLE
 - Be concise and clear in your explanations
@@ -45,12 +47,44 @@ IMPORTANT: This is a follow-up request. The user wants you to modify or improve 
 - Use plain text - avoid markdown formatting like **bold** or \`code\`
 - Keep explanations short (1-2 sentences per point)
 
+## CRITICAL: SEQUENTIAL EXECUTION
+- NEVER run multiple tools in parallel
+- Wait for each tool result before calling the next tool
+- When a tool returns successfully, use that result before trying alternatives
+- If execute_query succeeds, do NOT run more queries - use that result
+
 ## TOOLS
 1. get_table_schema - Get database structure (use first if needed)
 2. get_json_keys - Explore JSON column structure
 3. execute_query - Test queries (use sparingly - only when needed)
 4. validate_query - Check syntax without running
 5. update_query_ui - Finalize and present query to user
+
+## POSTGRESQL SYNTAX RULES (CRITICAL - follow exactly)
+1. ALWAYS quote identifiers with double quotes: "table_name", "column_name"
+2. String literals use single quotes: 'value'
+3. For JSON/JSONB access:
+   - Use -> for JSON object: "column"->'key'
+   - Use ->> for text extraction: "column"->>'key'
+   - Use #> for path: "column"#>'{path,to,key}'
+   - Use #>> for path as text: "column"#>>'{path,to,key}'
+   - Cast when needed: ("column"->>'number')::integer
+4. Array syntax: ARRAY['a','b'] or '{a,b}'::text[]
+5. Date/time: Use INTERVAL '1 day', DATE 'YYYY-MM-DD', TIMESTAMP 'YYYY-MM-DD HH:MI:SS'
+6. Boolean: Use true/false (lowercase, no quotes)
+7. NULL checks: Use IS NULL or IS NOT NULL (never = NULL)
+8. LIMIT goes at the end, after ORDER BY
+9. GROUP BY must include all non-aggregated SELECT columns
+10. For case-insensitive search: use ILIKE or LOWER("column")
+
+## COMMON MISTAKES TO AVOID
+- Don't use backticks \` for identifiers - use double quotes "
+- Don't use TOP N - use LIMIT N
+- Don't use + for string concat - use || or CONCAT()
+- Don't use GETDATE() - use NOW() or CURRENT_TIMESTAMP
+- Don't use LEN() - use LENGTH() or CHAR_LENGTH()
+- Don't use ISNULL() - use COALESCE()
+- Don't forget to cast JSONB text to proper types for comparisons
 
 ## EFFICIENCY GUIDELINES
 - Only call get_table_schema if you don't already know the schema
@@ -120,7 +154,7 @@ export async function* streamQueryAgent(
     // stopWhen conditions: stop when update_query_ui is called OR max steps reached
     const result = streamText({
       model,
-      system: buildSystemPrompt(state.goal, isFollowUp),
+      system: buildSystemPrompt(state.goal, isFollowUp, config.previousContext),
       messages: [{ role: 'user', content: userContent }],
       tools,
       // Stop when the agent calls update_query_ui (goal achieved) or after max steps
