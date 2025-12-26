@@ -200,8 +200,8 @@ export function useAiAgent() {
                       status: (tc.result as { error?: string })?.error ? 'error' : 'success',
                     });
 
-                    // Handle updateQueryUI specially
-                    if (tc.toolName === 'updateQueryUI') {
+                    // Handle update_query_ui specially
+                    if (tc.toolName === 'update_query_ui') {
                       const args = tc.args as {
                         sql: string;
                         explanation: string;
@@ -227,8 +227,8 @@ export function useAiAgent() {
                       setIsAiGenerated(true);
                     }
 
-                    // Handle executeQuery results for display
-                    if (tc.toolName === 'executeQuery') {
+                    // Handle execute_query results for display
+                    if (tc.toolName === 'execute_query') {
                       const result = tc.result as {
                         success: boolean;
                         rowCount?: number;

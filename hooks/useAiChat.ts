@@ -195,12 +195,14 @@ export function useAiChat() {
       const resultInfo = analyzeQueryResult(result);
 
       // Build conversation history for API
-      const conversationHistory: ConversationMessage[] = messages.map((msg) => ({
-        role: msg.role === 'system' ? 'user' : msg.role,
-        content: msg.role === 'assistant'
-          ? JSON.stringify({ sql: msg.sql, explanation: msg.explanation })
-          : msg.content,
-      }));
+      const conversationHistory: ConversationMessage[] = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map((msg) => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.role === 'assistant'
+            ? JSON.stringify({ sql: msg.sql, explanation: msg.explanation })
+            : msg.content,
+        }));
 
       try {
         const response = await fetch('/api/ai-query', {
@@ -321,12 +323,14 @@ export function useAiChat() {
       autoFixAttemptRef.current++;
       addSystemMessage(`No rows returned. Analyzing query to find the issue...`);
 
-      const conversationHistory: ConversationMessage[] = messages.map((msg) => ({
-        role: msg.role === 'system' ? 'user' : msg.role,
-        content: msg.role === 'assistant'
-          ? JSON.stringify({ sql: msg.sql, explanation: msg.explanation })
-          : msg.content,
-      }));
+      const conversationHistory: ConversationMessage[] = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map((msg) => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.role === 'assistant'
+            ? JSON.stringify({ sql: msg.sql, explanation: msg.explanation })
+            : msg.content,
+        }));
 
       setIsGenerating(true);
 
@@ -453,12 +457,14 @@ export function useAiChat() {
 
       autoFixAttemptRef.current++;
 
-      const conversationHistory: ConversationMessage[] = messages.map((msg) => ({
-        role: msg.role === 'system' ? 'user' : msg.role,
-        content: msg.role === 'assistant'
-          ? JSON.stringify({ sql: msg.sql, explanation: msg.explanation })
-          : msg.content,
-      }));
+      const conversationHistory: ConversationMessage[] = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map((msg) => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.role === 'assistant'
+            ? JSON.stringify({ sql: msg.sql, explanation: msg.explanation })
+            : msg.content,
+        }));
 
       const errorPrompt = `The query failed with this error: "${error}". Please fix the SQL query.`;
 
@@ -582,12 +588,14 @@ export function useAiChat() {
         const sampleData = await fetchSampleData();
 
         // Build conversation history
-        const conversationHistory: ConversationMessage[] = messages.map((msg) => ({
-          role: msg.role === 'system' ? 'user' : msg.role,
-          content: msg.role === 'assistant'
-            ? JSON.stringify({ sql: msg.sql, explanation: msg.explanation })
-            : msg.content,
-        }));
+        const conversationHistory: ConversationMessage[] = messages
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .map((msg) => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.role === 'assistant'
+              ? JSON.stringify({ sql: msg.sql, explanation: msg.explanation })
+              : msg.content,
+          }));
 
         const response = await fetch('/api/ai-query', {
           method: 'POST',

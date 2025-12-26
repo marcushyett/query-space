@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { tool } from 'ai';
 import { z } from 'zod';
 import { Client } from 'pg';
@@ -60,11 +59,10 @@ export function createQueryAgentTools(context: ToolContext) {
       description: `Get the complete database schema including all tables, views, and their column definitions.
 Use this tool first to understand the database structure before writing queries.
 Returns a list of tables with their columns, data types, and primary key information.`,
-      parameters: z.object({
+      inputSchema: z.object({
         includeViews: z.boolean().optional().describe('Whether to include views in the result. Defaults to true.'),
       }),
-      execute: async (args: any) => {
-        const { includeViews = true } = args;
+      execute: async ({ includeViews = true }) => {
         const filteredSchema = includeViews
           ? schema
           : schema.filter(t => t.type !== 'view');
@@ -85,21 +83,20 @@ Returns a list of tables with their columns, data types, and primary key informa
           hint: 'Use get_json_keys to explore JSON/JSONB column structures if needed.',
         };
       },
-    }) as any,
+    }),
 
     // Tool 2: Get JSON keys
     get_json_keys: tool({
       description: `Extract the unique keys from a JSON or JSONB column to understand its structure.
 Use this when you need to query a JSON field but don't know what keys it contains.
 This helps you write correct JSON path expressions like data->>'fieldName'.`,
-      parameters: z.object({
+      inputSchema: z.object({
         table: z.string().describe('The table name (e.g., "users" or "schema"."table")'),
         column: z.string().describe('The JSON/JSONB column name to inspect'),
         nestedPath: z.string().optional().describe('Optional nested path to explore (e.g., "data" to get keys from column->\'data\')'),
         sampleValues: z.boolean().optional().describe('Whether to include sample values for each key. Defaults to false.'),
       }),
-      execute: async (args: any) => {
-        const { table, column, nestedPath, sampleValues = false } = args;
+      execute: async ({ table, column, nestedPath, sampleValues = false }) => {
         const client = await createClient(connectionString);
 
         try {
@@ -117,7 +114,7 @@ This helps you write correct JSON path expressions like data->>'fieldName'.`,
           `;
 
           const keysResult = await client.query(keysQuery);
-          const keys = keysResult.rows.map((r: any) => r.key as string);
+          const keys = keysResult.rows.map((r: Record<string, unknown>) => r.key as string);
 
           // Optionally get sample values for each key
           const samples: Record<string, unknown[]> = {};
@@ -130,7 +127,7 @@ This helps you write correct JSON path expressions like data->>'fieldName'.`,
                 LIMIT 3
               `;
               const sampleResult = await client.query(sampleQuery);
-              samples[key] = sampleResult.rows.map((r: any) => r.value);
+              samples[key] = sampleResult.rows.map((r: Record<string, unknown>) => r.value);
             }
           }
 
@@ -154,7 +151,7 @@ This helps you write correct JSON path expressions like data->>'fieldName'.`,
           await client.end();
         }
       },
-    }) as any,
+    }),
 
     // Tool 3: Execute query
     execute_query: tool({
@@ -162,14 +159,12 @@ This helps you write correct JSON path expressions like data->>'fieldName'.`,
 IMPORTANT: Only SELECT queries are allowed. Any INSERT, UPDATE, DELETE, DROP, or other mutation queries will be rejected.
 Use this to test your queries, explore data, or verify your results match the user's goal.
 The query will automatically have a LIMIT applied if none is specified.`,
-      parameters: z.object({
+      inputSchema: z.object({
         sql: z.string().describe('The SQL SELECT query to execute'),
         limit: z.number().optional().describe('Maximum number of rows to return. Defaults to 100. Max is 1000.'),
         purpose: z.string().optional().describe('Brief description of why you are running this query (for logging)'),
       }),
-      execute: async (args: any) => {
-        const { sql, limit = 100, purpose } = args;
-
+      execute: async ({ sql, limit = 100, purpose }) => {
         // Validate it's a read-only query
         if (isMutationQuery(sql)) {
           return {
@@ -210,7 +205,7 @@ The query will automatically have a LIMIT applied if none is specified.`,
           const emptyColumns: string[] = [];
           if (result.rows.length > 0) {
             for (const field of result.fields) {
-              const allNull = result.rows.every((row: any) => row[field.name] === null);
+              const allNull = result.rows.every((row: Record<string, unknown>) => row[field.name] === null);
               if (allNull) {
                 emptyColumns.push(field.name);
               }
@@ -221,7 +216,7 @@ The query will automatically have a LIMIT applied if none is specified.`,
             success: true,
             rowCount: result.rowCount || 0,
             executionTime,
-            columns: result.fields.map((f: any) => ({ name: f.name, dataTypeId: f.dataTypeID })),
+            columns: result.fields.map((f: { name: string; dataTypeID: number }) => ({ name: f.name, dataTypeId: f.dataTypeID })),
             rows: result.rows.slice(0, 10), // Return first 10 rows as sample
             hasMoreRows: (result.rowCount || 0) > 10,
             ...(emptyColumns.length > 0 ? {
@@ -245,19 +240,17 @@ The query will automatically have a LIMIT applied if none is specified.`,
           await client.end();
         }
       },
-    }) as any,
+    }),
 
     // Tool 4: Validate query
     validate_query: tool({
       description: `Validate that a SQL query is syntactically correct PostgreSQL without actually running it.
 Use EXPLAIN to check query validity and get execution plan information.
 This is useful for validating complex queries before proposing them to the user.`,
-      parameters: z.object({
+      inputSchema: z.object({
         sql: z.string().describe('The SQL query to validate'),
       }),
-      execute: async (args: any) => {
-        const { sql } = args;
-
+      execute: async ({ sql }) => {
         // First, basic validation
         const normalizedSql = sql.trim().toUpperCase();
         if (!normalizedSql.startsWith('SELECT') && !normalizedSql.startsWith('WITH')) {
@@ -306,7 +299,7 @@ This is useful for validating complex queries before proposing them to the user.
           await client.end();
         }
       },
-    }) as any,
+    }),
 
     // Tool 5: Update query UI (signals completion)
     update_query_ui: tool({
@@ -315,15 +308,14 @@ Call this when you have a final query that meets the user's goal.
 The user will be able to see the query, review it, modify it, and run it.
 Include a clear explanation of what the query does and why it meets their goal.
 THIS IS THE FINAL STEP - call this when you have a working query.`,
-      parameters: z.object({
+      inputSchema: z.object({
         sql: z.string().describe('The final SQL query to display to the user'),
         explanation: z.string().describe('Clear explanation of what this query does and how it addresses the user\'s goal'),
         changes: z.array(z.string()).optional().describe('List of changes made from the previous query, if this is a modification'),
         confidence: z.enum(['high', 'medium', 'low']).optional().describe('Your confidence that this query meets the user\'s goal'),
         suggestions: z.array(z.string()).optional().describe('Optional suggestions for the user to refine the query further'),
       }),
-      execute: async (args: any) => {
-        const { sql, explanation, changes, confidence = 'high', suggestions } = args;
+      execute: async ({ sql, explanation, changes, confidence = 'high', suggestions }) => {
         // This tool signals completion - the result is used by the agent orchestrator
         return {
           action: 'updateUI',
@@ -335,7 +327,7 @@ THIS IS THE FINAL STEP - call this when you have a working query.`,
           message: 'Query has been updated in the editor for user review.',
         };
       },
-    }) as any,
+    }),
   };
 }
 
