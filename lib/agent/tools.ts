@@ -106,12 +106,12 @@ This helps you write correct JSON path expressions like data->>'fieldName'.`,
             ? `"${column}"->'${nestedPath}'`
             : `"${column}"`;
 
-          // Get unique keys from the JSON field
+          // Get unique keys from the JSON field (limit to 50 for efficiency)
           const keysQuery = `
             SELECT DISTINCT jsonb_object_keys(${jsonExpr}::jsonb) as key
             FROM ${table}
             WHERE ${jsonExpr} IS NOT NULL
-            LIMIT 100
+            LIMIT 50
           `;
 
           const keysResult = await client.query(keysQuery);
@@ -243,9 +243,9 @@ The query will automatically have a LIMIT applied if none is specified.`,
             success: true,
             rowCount: result.rowCount || 0,
             executionTime,
-            columns: result.fields.map((f: { name: string; dataTypeID: number }) => ({ name: f.name, dataTypeId: f.dataTypeID })),
-            rows: result.rows.slice(0, 10), // Return first 10 rows as sample
-            hasMoreRows: (result.rowCount || 0) > 10,
+            columns: result.fields.map((f: { name: string; dataTypeID: number }) => f.name),
+            rows: result.rows.slice(0, 5), // Return first 5 rows as sample
+            hasMoreRows: (result.rowCount || 0) > 5,
             // Use null instead of undefined for optional fields to prevent JSON serialization issues
             warning: emptyColumns.length > 0
               ? `These columns returned all NULL values: ${emptyColumns.join(', ')}. This might indicate wrong field names or JSON paths.`

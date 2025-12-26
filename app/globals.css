@@ -986,3 +986,43 @@ body {
   border-color: rgba(255, 77, 79, 0.3) !important;
   color: #ff7875 !important;
 }
+
+/* Agent streaming text */
+.agent-streaming-text {
+  background: rgba(24, 144, 255, 0.08);
+  border: 1px solid rgba(24, 144, 255, 0.2);
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  color: #d4d4d4;
+  line-height: 1.5;
+}
+
+/* Markdown content styling */
+.markdown-content {
+  color: #d4d4d4;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.markdown-content code {
+  background: #1a1a1a;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.markdown-content pre {
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.markdown-content pre code {
+  background: transparent;
+  padding: 0;
+}

@@ -9,10 +9,46 @@ import {
   ThunderboltOutlined,
   QuestionCircleOutlined,
 } from '@ant-design/icons';
+import ReactMarkdown from 'react-markdown';
 import type { ChatMessage as ChatMessageType } from '@/stores/aiChatStore';
 import { computeSqlDiff } from '@/lib/sqlDiff';
 
 const { Text } = Typography;
+
+// Simple markdown renderer for assistant explanations
+function MarkdownText({ children }: { children: string }) {
+  return (
+    <div className="markdown-content">
+      <ReactMarkdown
+        components={{
+          // Render paragraphs as spans to keep inline
+          p: ({ children }) => <span style={{ display: 'block', marginBottom: 8 }}>{children}</span>,
+          // Simple code styling
+          code: ({ children }) => (
+            <code style={{
+              background: '#1a1a1a',
+              padding: '2px 6px',
+              borderRadius: 4,
+              fontSize: 12,
+              fontFamily: 'JetBrains Mono, monospace'
+            }}>
+              {children}
+            </code>
+          ),
+          // List styling
+          ul: ({ children }) => <ul style={{ margin: '8px 0', paddingLeft: 20 }}>{children}</ul>,
+          ol: ({ children }) => <ol style={{ margin: '8px 0', paddingLeft: 20 }}>{children}</ol>,
+          li: ({ children }) => <li style={{ marginBottom: 4 }}>{children}</li>,
+          // Bold/italic
+          strong: ({ children }) => <strong>{children}</strong>,
+          em: ({ children }) => <em>{children}</em>,
+        }}
+      >
+        {children}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -133,7 +169,7 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
             )}
 
             {message.explanation && !message.needsClarification && (
-              <Text>{message.explanation}</Text>
+              <MarkdownText>{message.explanation}</MarkdownText>
             )}
 
             {/* Show diff for modified queries */}

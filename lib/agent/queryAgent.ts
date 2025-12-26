@@ -3,7 +3,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { createQueryAgentTools, SchemaInfo } from './tools';
 import { formatSql } from '@/lib/sql-formatter';
 
-export const MAX_AGENT_STEPS = 25;
+export const MAX_AGENT_STEPS = 15;
 
 export interface AgentState {
   goal: string;
@@ -31,56 +31,43 @@ export interface AgentConfig {
   previousSql?: string;
 }
 
-function buildSystemPrompt(goal: string): string {
-  return `You are an expert PostgreSQL query builder agent. Your goal is to help users create SQL queries that exactly match their requirements.
+function buildSystemPrompt(goal: string, isFollowUp: boolean): string {
+  return `You are an expert PostgreSQL query builder. Help users create and refine SQL queries.
 
-## YOUR MISSION
-The user wants: "${goal}"
+## YOUR TASK
+${isFollowUp ? `The user is providing feedback on a previous query: "${goal}"
 
-You must create a query that satisfies this goal. Keep working until you have a query that returns the expected data.
+IMPORTANT: This is a follow-up request. The user wants you to modify or improve the existing query based on their feedback. Acknowledge their request and explain what changes you'll make.` : `Create a query for: "${goal}"`}
 
-## AVAILABLE TOOLS
-You have these tools to help you:
+## COMMUNICATION STYLE
+- Be concise and clear in your explanations
+- When modifying a query, briefly explain what you're changing and why
+- Use plain text - avoid markdown formatting like **bold** or \`code\`
+- Keep explanations short (1-2 sentences per point)
 
-1. **get_table_schema** - Get complete database schema with tables and columns. Use this first!
-2. **get_json_keys** - Explore JSON/JSONB column structures to find the right field names
-3. **execute_query** - Run SELECT queries to test your results. Use this to verify your query works!
-4. **validate_query** - Check if a query is syntactically valid PostgreSQL
-5. **update_query_ui** - REQUIRED: Call this when you have a final query for the user
+## TOOLS
+1. get_table_schema - Get database structure (use first if needed)
+2. get_json_keys - Explore JSON column structure
+3. execute_query - Test queries (use sparingly - only when needed)
+4. validate_query - Check syntax without running
+5. update_query_ui - Finalize and present query to user
 
-## WORKFLOW
-1. First, understand the database structure with get_table_schema
-2. If the user's request involves JSON fields, use get_json_keys to explore the structure
-3. Write an initial query and test it with execute_query
-4. If the query returns unexpected results (empty, wrong columns, etc.), iterate:
-   - Analyze what went wrong
-   - Use get_json_keys to find correct field names
-   - Try alternative approaches
-   - Test again with execute_query
-5. When satisfied, call update_query_ui with the final query
+## EFFICIENCY GUIDELINES
+- Only call get_table_schema if you don't already know the schema
+- Don't call execute_query multiple times with the same query
+- For simple modifications, validate_query is often enough
+- Aim to complete in 3-5 tool calls when possible
 
-## CRITICAL RULES
-- ONLY generate SELECT queries. Never INSERT, UPDATE, DELETE, or DROP.
-- Always wrap table and column names in double quotes
-- Always test your query with execute_query before finalizing
-- If execute_query returns all NULL for a column, the field name is probably wrong
-- When JSON fields return NULL, use get_json_keys to find the actual field names
-- If a query returns 0 rows, investigate why - don't just give up
-- Call update_query_ui when you have a working query that meets the goal
+## RULES
+- Only SELECT queries allowed
+- Quote table/column names with double quotes
+- Test complex queries before finalizing
+- If columns return NULL, check field names with get_json_keys
 
-## SQL FORMATTING
-Format your SQL with proper line breaks:
-- Each major clause (SELECT, FROM, WHERE, JOIN, GROUP BY, ORDER BY, LIMIT) on its own line
-- AND/OR conditions on separate lines with indentation
-
-## GOAL VALIDATION
-Before calling update_query_ui, verify:
-1. The query executes successfully (test with execute_query)
-2. The results contain the data the user asked for
-3. No columns are unexpectedly NULL (unless expected)
-4. Row count seems reasonable for the request
-
-If you cannot achieve the goal after multiple attempts, call update_query_ui with your best attempt and explain what you tried.`;
+## FINISHING
+Call update_query_ui with:
+- The final SQL query
+- A brief explanation of what it does${isFollowUp ? '\n- What you changed from the previous query' : ''}`;
 }
 
 export type AgentStreamEvent =
@@ -126,11 +113,14 @@ export async function* streamQueryAgent(
   const model = anthropic('claude-haiku-4-5-20251001');
 
   try {
+    // Detect if this is a follow-up (has previous SQL context)
+    const isFollowUp = !!config.previousSql;
+
     // Use Vercel AI SDK's native agent loop with streamText
     // stopWhen conditions: stop when update_query_ui is called OR max steps reached
     const result = streamText({
       model,
-      system: buildSystemPrompt(state.goal),
+      system: buildSystemPrompt(state.goal, isFollowUp),
       messages: [{ role: 'user', content: userContent }],
       tools,
       // Stop when the agent calls update_query_ui (goal achieved) or after max steps
