@@ -8,10 +8,12 @@ import {
   CheckCircleOutlined,
   ThunderboltOutlined,
   QuestionCircleOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import type { ChatMessage as ChatMessageType } from '@/stores/aiChatStore';
 import { computeSqlDiff } from '@/lib/sqlDiff';
+import { InlineChatChart } from './InlineChatChart';
 
 const { Text } = Typography;
 
@@ -202,6 +204,17 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
                   Generated SQL:
                 </Text>
                 <pre className="chat-sql-code">{message.sql}</pre>
+              </div>
+            )}
+
+            {/* Render inline chart if present */}
+            {message.chartData && (
+              <div className="chat-chart-container">
+                <div className="chat-chart-label">
+                  <BarChartOutlined style={{ marginRight: 4 }} />
+                  <Text type="secondary" style={{ fontSize: 11 }}>Visualization</Text>
+                </div>
+                <InlineChatChart chartData={message.chartData} />
               </div>
             )}
 

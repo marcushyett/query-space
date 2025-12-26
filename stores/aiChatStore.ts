@@ -1,10 +1,18 @@
 import { create } from 'zustand';
+import type { ChartConfig, ChartType } from '@/lib/chart-utils';
 
 export interface QueryResultInfo {
   rowCount: number;
   executionTime: number;
   error?: string;
   sampleResults?: Record<string, unknown>[];
+}
+
+export interface ChatChartData {
+  config: ChartConfig;
+  data: Record<string, unknown>[];
+  xAxisKey: string;
+  yAxisKeys: string[];
 }
 
 export interface ToolCallInfo {
@@ -38,6 +46,8 @@ export interface ChatMessage {
   // For confidence levels
   confidence?: 'high' | 'medium' | 'low';
   suggestions?: string[];
+  // For inline charts
+  chartData?: ChatChartData;
 }
 
 export interface AgentProgress {
@@ -72,6 +82,7 @@ interface AiChatStore {
   addToolMessage: (toolCall: ToolCallInfo) => void;
   updateToolCall: (id: string, update: Partial<ToolCallInfo>) => void;
   updateLastAssistantMessage: (update: Partial<ChatMessage>) => void;
+  addChartMessage: (chartData: ChatChartData, explanation?: string) => void;
   setCurrentSql: (sql: string | null) => void;
   setIsGenerating: (generating: boolean) => void;
   setIsAiGenerated: (isAiGenerated: boolean) => void;
@@ -189,6 +200,19 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
         currentSql: update.sql || state.currentSql,
       };
     });
+  },
+
+  addChartMessage: (chartData: ChatChartData, explanation?: string) => {
+    const chartMessage: ChatMessage = {
+      id: `chart-${Date.now()}`,
+      role: 'assistant',
+      content: explanation || 'Here\'s a visualization of the query results:',
+      timestamp: Date.now(),
+      chartData,
+    };
+    set((state) => ({
+      messages: [...state.messages, chartMessage],
+    }));
   },
 
   setCurrentSql: (sql: string | null) => {

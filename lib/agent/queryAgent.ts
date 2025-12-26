@@ -59,6 +59,7 @@ ${context ? `\n## PREVIOUS CONTEXT\n${context}` : ''}
 3. execute_query - Test queries (use sparingly - only when needed)
 4. validate_query - Check syntax without running
 5. update_query_ui - Finalize and present query to user
+6. generate_chart - Create a visualization for query results
 
 ## POSTGRESQL SYNTAX RULES (CRITICAL - follow exactly)
 1. ALWAYS quote identifiers with double quotes: "table_name", "column_name"
@@ -97,6 +98,23 @@ ${context ? `\n## PREVIOUS CONTEXT\n${context}` : ''}
 - Quote table/column names with double quotes
 - Test complex queries before finalizing
 - If columns return NULL, check field names with get_json_keys
+
+## CHART GENERATION
+After executing a query with execute_query, consider using generate_chart when:
+- The query uses GROUP BY with aggregations (COUNT, SUM, AVG, etc.)
+- The results show trends over time (dates with numeric values)
+- The data compares categories or distributions
+- There are 2-50 data points (good for visualization)
+
+To generate a chart, call generate_chart with:
+- data: The rows from execute_query result
+- columns: Array of {name, type} for each column (type: 'numeric', 'date', 'text', or 'unknown')
+- Optionally specify chartType ('column', 'line', 'area', 'pie') to override auto-detection
+
+IMPORTANT: Only generate charts for aggregated/analytical queries. Skip charts for:
+- Raw data dumps (SELECT * without GROUP BY)
+- Single row results
+- Queries returning only text columns
 
 ## FINISHING
 Call update_query_ui with:
