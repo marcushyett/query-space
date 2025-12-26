@@ -197,31 +197,10 @@ export async function* streamQueryAgent(
         }
       }
 
-      // Build messages for next iteration
-      // Add assistant response
-      if (result.toolCalls && result.toolCalls.length > 0) {
-        messages.push({
-          role: 'assistant',
-          content: result.toolCalls.map((tc: AnyMessage) => ({
-            type: 'tool-call',
-            toolCallId: tc.toolCallId,
-            toolName: tc.toolName,
-            args: 'args' in tc ? tc.args : {},
-          })),
-        });
-
-        // Add tool results
-        if (result.toolResults && result.toolResults.length > 0) {
-          messages.push({
-            role: 'tool',
-            content: result.toolResults.map((tr: AnyMessage) => ({
-              type: 'tool-result',
-              toolCallId: tr.toolCallId,
-              toolName: tr.toolName,
-              result: 'result' in tr ? tr.result : null,
-            })),
-          });
-        }
+      // Build messages for next iteration using response.messages
+      // This provides the properly formatted messages from the SDK
+      if (result.response?.messages && result.response.messages.length > 0) {
+        messages.push(...result.response.messages);
       } else if (result.text) {
         messages.push({ role: 'assistant', content: result.text });
 
