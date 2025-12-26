@@ -158,10 +158,11 @@ export async function* streamQueryAgent(
       for (const step of result.steps) {
         if (step.toolCalls && step.toolCalls.length > 0) {
           for (const toolCall of step.toolCalls) {
+            const tc = toolCall as AnyMessage;
             const record: ToolCallRecord = {
               id: toolCall.toolCallId,
               toolName: toolCall.toolName,
-              args: ('input' in toolCall ? toolCall.input : ('args' in toolCall ? toolCall.args : {})) as Record<string, unknown>,
+              args: (tc.input ?? tc.args ?? {}) as Record<string, unknown>,
               result: null,
               timestamp: Date.now(),
             };
@@ -169,14 +170,14 @@ export async function* streamQueryAgent(
             yield { type: 'tool_call_start', toolName: toolCall.toolName, args: record.args };
 
             // Find the corresponding result (SDK v6 uses 'output', fallback to 'result')
-            const toolResult = step.toolResults?.find((r: AnyMessage) => r.toolCallId === toolCall.toolCallId);
+            const toolResult = step.toolResults?.find((r: AnyMessage) => r.toolCallId === toolCall.toolCallId) as AnyMessage | undefined;
             if (toolResult) {
-              record.result = 'output' in toolResult ? toolResult.output : ('result' in toolResult ? toolResult.result : null);
+              record.result = toolResult.output ?? toolResult.result ?? null;
             }
 
             // Handle special update_query_ui tool (SDK v6 uses 'input', fallback to 'args')
             if (toolCall.toolName === 'update_query_ui') {
-              const toolInput = ('input' in toolCall ? toolCall.input : ('args' in toolCall ? toolCall.args : {})) as { sql: string; explanation: string };
+              const toolInput = (tc.input ?? tc.args ?? {}) as { sql: string; explanation: string };
               state.currentSql = formatSql(toolInput.sql);
               state.hasCompletedGoal = true;
             }
