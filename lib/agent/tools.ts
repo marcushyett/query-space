@@ -134,16 +134,26 @@ This helps you write correct JSON path expressions like data->>'fieldName'.`,
           return {
             table,
             column,
-            nestedPath: nestedPath || null,
+            nestedPath: nestedPath ?? null,
             keys,
             keyCount: keys.length,
-            ...(sampleValues ? { sampleValues: samples } : {}),
+            // Use null instead of undefined to prevent JSON serialization issues
+            sampleValues: sampleValues ? samples : null,
             hint: keys.length === 0
               ? 'No keys found. The column might be empty, an array, or have a different structure.'
               : `Found ${keys.length} unique keys. Use these in your query like: ${column}->>'${keys[0]}'`,
+            error: null,
+            suggestion: null,
           };
         } catch (error) {
           return {
+            table,
+            column,
+            nestedPath: nestedPath ?? null,
+            keys: null,
+            keyCount: null,
+            sampleValues: null,
+            hint: null,
             error: error instanceof Error ? error.message : 'Failed to get JSON keys',
             suggestion: 'Check that the table and column names are correct.',
           };
@@ -219,11 +229,12 @@ The query will automatically have a LIMIT applied if none is specified.`,
             columns: result.fields.map((f: { name: string; dataTypeID: number }) => ({ name: f.name, dataTypeId: f.dataTypeID })),
             rows: result.rows.slice(0, 10), // Return first 10 rows as sample
             hasMoreRows: (result.rowCount || 0) > 10,
-            ...(emptyColumns.length > 0 ? {
-              warning: `These columns returned all NULL values: ${emptyColumns.join(', ')}. This might indicate wrong field names or JSON paths.`,
-              emptyColumns,
-            } : {}),
-            purpose,
+            // Use null instead of undefined for optional fields to prevent JSON serialization issues
+            warning: emptyColumns.length > 0
+              ? `These columns returned all NULL values: ${emptyColumns.join(', ')}. This might indicate wrong field names or JSON paths.`
+              : null,
+            emptyColumns: emptyColumns.length > 0 ? emptyColumns : null,
+            purpose: purpose ?? null,
           };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -235,6 +246,15 @@ The query will automatically have a LIMIT applied if none is specified.`,
               : errorMessage.includes('syntax')
               ? 'There is a syntax error in your SQL. Review the query structure.'
               : 'Review the query and try again.',
+            // Include consistent fields with null to prevent schema issues
+            rowCount: null,
+            executionTime: null,
+            columns: null,
+            rows: null,
+            hasMoreRows: null,
+            warning: null,
+            emptyColumns: null,
+            purpose: purpose ?? null,
           };
         } finally {
           await client.end();
@@ -256,7 +276,9 @@ This is useful for validating complex queries before proposing them to the user.
         if (!normalizedSql.startsWith('SELECT') && !normalizedSql.startsWith('WITH')) {
           return {
             isValid: false,
+            message: null,
             error: 'Query must start with SELECT or WITH',
+            suggestion: null,
           };
         }
 
@@ -264,7 +286,9 @@ This is useful for validating complex queries before proposing them to the user.
         if (isMutationQuery(sql)) {
           return {
             isValid: false,
+            message: null,
             error: 'Query contains disallowed keywords. Only SELECT queries are permitted.',
+            suggestion: null,
           };
         }
 
@@ -281,11 +305,14 @@ This is useful for validating complex queries before proposing them to the user.
           return {
             isValid: true,
             message: 'Query is syntactically valid PostgreSQL',
+            error: null,
+            suggestion: null,
           };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           return {
             isValid: false,
+            message: null,
             error: errorMessage,
             suggestion: errorMessage.includes('column')
               ? 'A referenced column does not exist. Check column names against the schema.'
