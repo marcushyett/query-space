@@ -1,4 +1,4 @@
-import { generateText } from 'ai';
+import { streamText, stepCountIs, hasToolCall } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { createQueryAgentTools, SchemaInfo } from './tools';
 import { formatSql } from '@/lib/sql-formatter';
@@ -91,9 +91,10 @@ export type AgentStreamEvent =
   | { type: 'error'; error: string }
   | { type: 'complete'; state: AgentState };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyMessage = any;
-
+/**
+ * Stream the query agent using Vercel AI SDK's native agent loop.
+ * Uses streamText with stopWhen conditions to let the SDK handle the multi-step agent execution.
+ */
 export async function* streamQueryAgent(
   userMessage: string,
   config: AgentConfig,
@@ -122,78 +123,77 @@ export async function* streamQueryAgent(
     ? `Current SQL query:\n\`\`\`sql\n${config.previousSql}\n\`\`\`\n\nUser request: ${userMessage}`
     : userMessage;
 
-  const messages: AnyMessage[] = [
-    { role: 'user', content: userContent },
-  ];
-
   const model = anthropic('claude-haiku-4-5-20251001');
 
-  // Agent loop - run until goal is completed or max steps reached
-  while (state.currentStep < state.maxSteps && !state.hasCompletedGoal) {
-    if (signal?.aborted) {
-      break;
-    }
+  try {
+    // Use Vercel AI SDK's native agent loop with streamText
+    // stopWhen conditions: stop when update_query_ui is called OR max steps reached
+    const result = streamText({
+      model,
+      system: buildSystemPrompt(state.goal),
+      messages: [{ role: 'user', content: userContent }],
+      tools,
+      // Stop when the agent calls update_query_ui (goal achieved) or after max steps
+      stopWhen: [
+        hasToolCall('update_query_ui'),
+        stepCountIs(MAX_AGENT_STEPS),
+      ],
+      abortSignal: signal,
+    });
 
-    state.currentStep++;
-    yield { type: 'step', step: state.currentStep, maxSteps: state.maxSteps };
+    // Track tool calls by ID for matching results
+    const pendingToolCalls = new Map<string, ToolCallRecord>();
 
-    try {
-      // DEBUG: Log messages being sent to generateText
-      console.log('[Agent Debug] Sending messages to generateText:', JSON.stringify(messages, null, 2));
-
-      // Use stopWhen to control when to stop the agent loop
-      const result = await generateText({
-        model,
-        system: buildSystemPrompt(state.goal),
-        messages,
-        tools,
-        abortSignal: signal,
-        // Stop after each tool call for fine-grained control
-        stopWhen: () => true,
-      });
-
-      // DEBUG: Log the result structure to understand the schema
-      console.log('[Agent Debug] Step', state.currentStep);
-      console.log('[Agent Debug] Current messages:', JSON.stringify(messages, null, 2));
-      console.log('[Agent Debug] result.toolCalls:', JSON.stringify(result.toolCalls, null, 2));
-      console.log('[Agent Debug] result.toolResults:', JSON.stringify(result.toolResults, null, 2));
-      console.log('[Agent Debug] result.response?.messages:', JSON.stringify(result.response?.messages, null, 2));
-
-      // Emit text if any
-      if (result.text) {
-        yield { type: 'text', text: result.text };
+    // Process the full stream from the SDK
+    for await (const part of result.fullStream) {
+      if (signal?.aborted) {
+        break;
       }
 
-      // Process tool calls from all steps
-      for (const step of result.steps) {
-        if (step.toolCalls && step.toolCalls.length > 0) {
-          for (const toolCall of step.toolCalls) {
-            const tc = toolCall as AnyMessage;
-            const record: ToolCallRecord = {
-              id: toolCall.toolCallId,
-              toolName: toolCall.toolName,
-              args: (tc.input ?? tc.args ?? {}) as Record<string, unknown>,
-              result: null,
-              timestamp: Date.now(),
-            };
+      switch (part.type) {
+        case 'start-step':
+          state.currentStep++;
+          yield { type: 'step', step: state.currentStep, maxSteps: state.maxSteps };
+          break;
 
-            yield { type: 'tool_call_start', toolName: toolCall.toolName, args: record.args };
+        case 'text-delta':
+          yield { type: 'text', text: part.text };
+          break;
 
-            // Find the corresponding result (SDK v6 uses 'output', fallback to 'result')
-            const toolResult = step.toolResults?.find((r: AnyMessage) => r.toolCallId === toolCall.toolCallId) as AnyMessage | undefined;
-            if (toolResult) {
-              record.result = toolResult.output ?? toolResult.result ?? null;
-            }
+        case 'tool-call': {
+          const record: ToolCallRecord = {
+            id: part.toolCallId,
+            toolName: part.toolName,
+            args: (part.input ?? {}) as Record<string, unknown>,
+            result: null,
+            timestamp: Date.now(),
+          };
 
-            // Handle special update_query_ui tool (SDK v6 uses 'input', fallback to 'args')
-            if (toolCall.toolName === 'update_query_ui') {
-              const toolInput = (tc.input ?? tc.args ?? {}) as { sql: string; explanation: string };
-              state.currentSql = formatSql(toolInput.sql);
+          pendingToolCalls.set(part.toolCallId, record);
+          yield { type: 'tool_call_start', toolName: part.toolName, args: record.args };
+
+          // Handle update_query_ui tool call to track completion
+          if (part.toolName === 'update_query_ui') {
+            const input = part.input as { sql: string; explanation: string };
+            if (input?.sql) {
+              state.currentSql = formatSql(input.sql);
               state.hasCompletedGoal = true;
             }
+          }
+          break;
+        }
+
+        case 'tool-result': {
+          const record = pendingToolCalls.get(part.toolCallId);
+
+          if (record) {
+            record.result = part.output;
+            state.toolCalls.push(record);
+            yield { type: 'tool_call_result', toolCall: record };
+            pendingToolCalls.delete(part.toolCallId);
 
             // Track errors from execute_query
-            if (toolCall.toolName === 'execute_query' && record.result) {
+            if (record.toolName === 'execute_query' && record.result) {
               const execResult = record.result as { success: boolean; error?: string };
               if (!execResult.success && execResult.error) {
                 state.lastError = execResult.error;
@@ -201,81 +201,31 @@ export async function* streamQueryAgent(
                 state.lastError = null;
               }
             }
-
-            state.toolCalls.push(record);
-            yield { type: 'tool_call_result', toolCall: record };
           }
-        }
-      }
-
-      // Build messages for next iteration
-      // We need to manually construct messages because SDK's response.messages
-      // wraps output in {type: "json", value: ...} which doesn't work for generateText input
-      if (result.toolCalls && result.toolCalls.length > 0) {
-        // Add assistant message with tool calls
-        messages.push({
-          role: 'assistant',
-          content: result.toolCalls.map((tc: AnyMessage) => ({
-            type: 'tool-call',
-            toolCallId: tc.toolCallId,
-            toolName: tc.toolName,
-            args: tc.args ?? {},
-          })),
-        });
-
-        // Add tool results message
-        if (result.toolResults && result.toolResults.length > 0) {
-          messages.push({
-            role: 'tool',
-            content: result.toolResults.map((tr: AnyMessage) => ({
-              type: 'tool-result',
-              toolCallId: tr.toolCallId,
-              // Unwrap the result - SDK may wrap in {type: "json", value: ...}
-              result: tr.result?.value ?? tr.result ?? null,
-            })),
-          });
+          break;
         }
 
-        console.log('[Agent Debug] Built messages manually');
-      } else if (result.text) {
-        messages.push({ role: 'assistant', content: result.text });
+        case 'error':
+          yield { type: 'error', error: part.error instanceof Error ? part.error.message : String(part.error) };
+          state.lastError = part.error instanceof Error ? part.error.message : String(part.error);
+          break;
+
+        case 'finish':
+          // Check if we hit the step limit without completing
+          if (state.currentStep >= MAX_AGENT_STEPS && !state.hasCompletedGoal) {
+            state.reachedStepLimit = true;
+          }
+          break;
       }
-
-      // If model stopped without calling update_query_ui, prompt it
-      if (result.finishReason === 'stop' && !state.hasCompletedGoal && result.text) {
-        messages.push({
-          role: 'user',
-          content: 'Please use the update_query_ui tool to finalize your query for the user to review.',
-        });
-      }
-
-      // Check if done
-      if (result.finishReason === 'stop' && state.hasCompletedGoal) {
-        break;
-      }
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      state.lastError = errorMessage;
-
-      // If aborted, break out
-      if (signal?.aborted || errorMessage.includes('aborted')) {
-        break;
-      }
-
-      yield { type: 'error', error: errorMessage };
-
-      // Add error context and continue
-      messages.push({
-        role: 'user',
-        content: `An error occurred: ${errorMessage}. Please continue and try a different approach.`,
-      });
     }
-  }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    state.lastError = errorMessage;
 
-  // Check if we hit the step limit
-  if (state.currentStep >= state.maxSteps && !state.hasCompletedGoal) {
-    state.reachedStepLimit = true;
+    // Don't yield error if aborted
+    if (!signal?.aborted && !errorMessage.includes('aborted')) {
+      yield { type: 'error', error: errorMessage };
+    }
   }
 
   yield { type: 'complete', state };
