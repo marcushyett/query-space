@@ -13,8 +13,10 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.1",
     "@anthropic-ai/sdk": "^0.71.2",
     "@monaco-editor/react": "^4.7.0",
+    "ai": "^6.0.3",
     "antd": "^6.1.2",
     "next": "16.1.1",
     "nuqs": "^2.8.6",
@@ -23,6 +25,7 @@
     "react-dom": "19.2.3",
     "react-hotkeys-hook": "^5.2.1",
     "recharts": "^3.6.0",
+    "zod": "^4.2.1",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
