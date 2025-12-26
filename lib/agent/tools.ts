@@ -1,6 +1,16 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { Client } from 'pg';
+import {
+  detectChartType,
+  suggestXAxis,
+  suggestYAxes,
+  isNumericType,
+  isDateType,
+  isTextType,
+  type ChartType,
+  type ChartConfig,
+} from '@/lib/chart-utils';
 
 // Dangerous SQL patterns that should NEVER be allowed
 const DANGEROUS_PATTERNS = [
@@ -369,6 +379,133 @@ THIS IS THE FINAL STEP - call this when you have a working query.`,
           confidence,
           suggestions: suggestions || [],
           message: 'Query has been updated in the editor for user review.',
+        };
+      },
+    }),
+
+    // Tool 6: Generate chart visualization
+    generate_chart: tool({
+      description: `Generate a chart visualization for query results.
+Use this after executing a query when the results would benefit from a visual representation.
+Good candidates for charts:
+- Aggregated data with GROUP BY (counts, sums, averages)
+- Time series data (data over time)
+- Comparisons between categories
+- Distribution of values
+
+Do NOT use for:
+- Single row results
+- Raw data without aggregation
+- Results with many columns but few numeric values
+- Text-only results`,
+      inputSchema: z.object({
+        data: z.array(z.record(z.string(), z.unknown())).describe('The query result rows to visualize'),
+        columns: z.array(z.object({
+          name: z.string(),
+          type: z.enum(['numeric', 'date', 'text', 'unknown']),
+        })).describe('Column metadata from the query result'),
+        chartType: z.enum(['column', 'line', 'area', 'pie']).optional().describe('Override automatic chart type detection'),
+        title: z.string().optional().describe('Optional title for the chart'),
+        xAxis: z.string().optional().describe('Override X-axis column selection'),
+        yAxes: z.array(z.string()).optional().describe('Override Y-axis columns selection'),
+        stacked: z.boolean().optional().describe('Whether to stack the chart (for column/area charts)'),
+      }),
+      execute: async ({ data, columns, chartType, title, xAxis, yAxes, stacked = false }) => {
+        if (!data || data.length === 0) {
+          return {
+            success: false,
+            error: 'No data provided for chart generation',
+            chartConfig: null,
+            chartData: null,
+          };
+        }
+
+        // Build a mock result structure for chart utils
+        const mockFields = columns.map(col => ({
+          name: col.name,
+          dataTypeID: col.type === 'numeric' ? 23 : col.type === 'date' ? 1082 : 25,
+        }));
+
+        const mockResult = {
+          rows: data,
+          fields: mockFields,
+          rowCount: data.length,
+          executionTime: 0,
+        };
+
+        // Determine chart type
+        let detectedType: ChartType = chartType || 'column';
+        if (!chartType) {
+          // Auto-detect based on data
+          const hasDate = columns.some(c => c.type === 'date');
+          const numericCount = columns.filter(c => c.type === 'numeric').length;
+          const textCount = columns.filter(c => c.type === 'text').length;
+
+          if (hasDate && numericCount >= 1) {
+            detectedType = 'line';
+          } else if (textCount === 1 && numericCount === 1 && data.length <= 10) {
+            detectedType = 'pie';
+          } else if (textCount >= 1 && numericCount >= 1) {
+            detectedType = 'column';
+          }
+        }
+
+        // Determine axes
+        let finalXAxis = xAxis;
+        let finalYAxes = yAxes || [];
+
+        if (!finalXAxis) {
+          // Prefer date > text > first column
+          const dateCol = columns.find(c => c.type === 'date');
+          const textCol = columns.find(c => c.type === 'text');
+          finalXAxis = dateCol?.name || textCol?.name || columns[0]?.name;
+        }
+
+        if (finalYAxes.length === 0) {
+          // Use all numeric columns not used as X-axis
+          finalYAxes = columns
+            .filter(c => c.type === 'numeric' && c.name !== finalXAxis)
+            .map(c => c.name);
+        }
+
+        if (!finalXAxis || finalYAxes.length === 0) {
+          return {
+            success: false,
+            error: 'Cannot determine chart axes. Need at least one category column and one numeric column.',
+            chartConfig: null,
+            chartData: null,
+            hint: 'Ensure your query returns at least one text/date column for the X-axis and one numeric column for values.',
+          };
+        }
+
+        // Prepare chart data
+        const chartData = data.map(row => {
+          const transformed: Record<string, unknown> = {};
+          transformed[finalXAxis!] = row[finalXAxis!];
+          finalYAxes.forEach(yKey => {
+            const value = row[yKey];
+            transformed[yKey] = typeof value === 'number' ? value : parseFloat(String(value)) || 0;
+          });
+          return transformed;
+        });
+
+        const chartConfig: ChartConfig = {
+          type: detectedType,
+          xAxis: finalXAxis,
+          yAxes: finalYAxes,
+          stacked,
+          title,
+        };
+
+        return {
+          success: true,
+          chartConfig,
+          chartData,
+          xAxisKey: finalXAxis,
+          yAxisKeys: finalYAxes,
+          dataPointCount: data.length,
+          message: `Generated ${detectedType} chart with ${data.length} data points`,
+          error: null,
         };
       },
     }),

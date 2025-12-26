@@ -5,9 +5,10 @@ import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useAiStore } from '@/stores/aiStore';
 import { useSchemaStore } from '@/stores/schemaStore';
-import { useAiChatStore, ToolCallInfo } from '@/stores/aiChatStore';
+import { useAiChatStore, ToolCallInfo, ChatChartData } from '@/stores/aiChatStore';
 import { useQueryStore, QueryResult } from '@/stores/queryStore';
 import type { AgentStreamEvent } from '@/lib/agent';
+import type { ChartConfig } from '@/lib/chart-utils';
 
 const MAX_STEPS = 25;
 
@@ -27,6 +28,7 @@ export function useAiAgent() {
     addUserMessage,
     addAssistantMessage,
     addSystemMessage,
+    addChartMessage,
     setCurrentSql,
     setIsAiGenerated,
     startNewConversation,
@@ -237,6 +239,29 @@ export function useAiAgent() {
                         addSystemMessage(`Query error: ${result.error}`);
                       }
                     }
+
+                    // Handle generate_chart results
+                    if (tc.toolName === 'generate_chart') {
+                      const result = tc.result as {
+                        success: boolean;
+                        chartConfig?: ChartConfig;
+                        chartData?: Record<string, unknown>[];
+                        xAxisKey?: string;
+                        yAxisKeys?: string[];
+                        message?: string;
+                        error?: string;
+                      };
+
+                      if (result.success && result.chartConfig && result.chartData) {
+                        const chartData: ChatChartData = {
+                          config: result.chartConfig,
+                          data: result.chartData,
+                          xAxisKey: result.xAxisKey || '',
+                          yAxisKeys: result.yAxisKeys || [],
+                        };
+                        addChartMessage(chartData, result.message);
+                      }
+                    }
                     break;
                   }
 
@@ -299,6 +324,7 @@ export function useAiAgent() {
       addUserMessage,
       addAssistantMessage,
       addSystemMessage,
+      addChartMessage,
       startAgent,
       updateAgentStep,
       appendStreamingText,
@@ -495,6 +521,29 @@ export function useAiAgent() {
                       addSystemMessage(`Query error: ${result.error}`);
                     }
                   }
+
+                  // Handle generate_chart results
+                  if (tc.toolName === 'generate_chart') {
+                    const result = tc.result as {
+                      success: boolean;
+                      chartConfig?: ChartConfig;
+                      chartData?: Record<string, unknown>[];
+                      xAxisKey?: string;
+                      yAxisKeys?: string[];
+                      message?: string;
+                      error?: string;
+                    };
+
+                    if (result.success && result.chartConfig && result.chartData) {
+                      const chartDataObj: ChatChartData = {
+                        config: result.chartConfig,
+                        data: result.chartData,
+                        xAxisKey: result.xAxisKey || '',
+                        yAxisKeys: result.yAxisKeys || [],
+                      };
+                      addChartMessage(chartDataObj, result.message);
+                    }
+                  }
                   break;
                 }
 
@@ -552,6 +601,7 @@ export function useAiAgent() {
     addUserMessage,
     addAssistantMessage,
     addSystemMessage,
+    addChartMessage,
     startAgent,
     updateAgentStep,
     appendStreamingText,

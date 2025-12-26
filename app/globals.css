@@ -1041,3 +1041,77 @@ body {
   background: transparent;
   padding: 0;
 }
+
+/* Inline Chat Chart Styles */
+.chat-chart-container {
+  margin-top: 8px;
+}
+
+.chat-chart-label {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  color: #888;
+  font-size: 11px;
+}
+
+.inline-chat-chart {
+  background: #0a0a0a;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.inline-chat-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: #0d0d0d;
+}
+
+.inline-chat-chart-header .ant-segmented {
+  background: #1a1a1a !important;
+}
+
+.inline-chat-chart-header .ant-segmented-item {
+  color: #888 !important;
+}
+
+.inline-chat-chart-header .ant-segmented-item-selected {
+  background: #333 !important;
+  color: #fff !important;
+}
+
+.inline-chat-chart-body {
+  padding: 8px;
+  min-height: 180px;
+}
+
+.inline-chat-chart-footer {
+  padding: 6px 12px;
+  border-top: 1px solid var(--border-color);
+  background: #0d0d0d;
+  text-align: right;
+}
+
+/* Recharts tooltip override for inline charts */
+.inline-chat-chart .recharts-tooltip-wrapper {
+  z-index: 1000;
+}
+
+/* Responsive adjustments for inline charts */
+@media (max-width: 767px) {
+  .inline-chat-chart-body {
+    min-height: 150px;
+  }
+
+  .inline-chat-chart-header {
+    padding: 6px 8px;
+  }
+
+  .inline-chat-chart-footer {
+    padding: 4px 8px;
+  }
+}
