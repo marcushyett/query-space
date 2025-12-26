@@ -30,8 +30,15 @@ export function AiChatPanel() {
   const { isOpen, setOpen, messages, isGenerating, agentProgress } = useAiChatStore();
   const { apiKey, setApiKey, setPersistApiKey } = useAiStore();
   const { connectionString } = useConnectionStore();
-  const { isExecuting } = useQueryStore();
-  const { sendMessage, continueAgent, stopAgent, startNewConversation } = useAiAgent();
+  const { isExecuting, setCurrentQuery } = useQueryStore();
+  const { sendMessage, continueAgent, stopAgent, startNewConversation, setCurrentSql, setIsAiGenerated } = useAiAgent();
+
+  // Handler to load a query from agent tool calls into the main query UI
+  const handleLoadQuery = (sql: string) => {
+    setCurrentQuery(sql);
+    setCurrentSql(sql);
+    setIsAiGenerated(true);
+  };
 
   const [inputValue, setInputValue] = useState('');
   const [apiKeyInput, setApiKeyInput] = useState(apiKey || '');
@@ -193,6 +200,7 @@ export function AiChatPanel() {
               toolCalls={agentProgress.toolCalls}
               streamingText={agentProgress.streamingText}
               onStop={stopAgent}
+              onLoadQuery={handleLoadQuery}
             />
           )}
 

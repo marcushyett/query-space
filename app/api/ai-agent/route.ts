@@ -11,6 +11,7 @@ interface AgentRequest {
   connectionString: string;
   schema: SchemaInfo[];
   previousSql?: string;
+  previousContext?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
       connectionString,
       schema,
       previousSql,
+      previousContext,
     } = body;
 
     if (!prompt || !prompt.trim()) {
@@ -64,6 +66,7 @@ export async function POST(request: NextRequest) {
               connectionString,
               schema,
               previousSql,
+              previousContext,
             },
             abortController.signal
           );
