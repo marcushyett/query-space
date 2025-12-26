@@ -209,15 +209,36 @@ export async function* streamQueryAgent(
       }
 
       // Build messages for next iteration
-      // Use the SDK's response.messages which are already in the correct ModelMessage format
-      if (result.response?.messages && result.response.messages.length > 0) {
-        console.log('[Agent Debug] Appending response.messages from SDK:', JSON.stringify(result.response.messages, null, 2));
-        messages.push(...result.response.messages);
-      } else {
-        // This should not happen - log for debugging
-        console.log('[Agent Debug] WARNING: No response.messages from SDK!');
-        console.log('[Agent Debug] result.text:', result.text);
-        console.log('[Agent Debug] result.toolCalls:', JSON.stringify(result.toolCalls, null, 2));
+      // We need to manually construct messages because SDK's response.messages
+      // wraps output in {type: "json", value: ...} which doesn't work for generateText input
+      if (result.toolCalls && result.toolCalls.length > 0) {
+        // Add assistant message with tool calls
+        messages.push({
+          role: 'assistant',
+          content: result.toolCalls.map((tc: AnyMessage) => ({
+            type: 'tool-call',
+            toolCallId: tc.toolCallId,
+            toolName: tc.toolName,
+            args: tc.args ?? {},
+          })),
+        });
+
+        // Add tool results message
+        if (result.toolResults && result.toolResults.length > 0) {
+          messages.push({
+            role: 'tool',
+            content: result.toolResults.map((tr: AnyMessage) => ({
+              type: 'tool-result',
+              toolCallId: tr.toolCallId,
+              // Unwrap the result - SDK may wrap in {type: "json", value: ...}
+              result: tr.result?.value ?? tr.result ?? null,
+            })),
+          });
+        }
+
+        console.log('[Agent Debug] Built messages manually');
+      } else if (result.text) {
+        messages.push({ role: 'assistant', content: result.text });
       }
 
       // If model stopped without calling update_query_ui, prompt it
