@@ -158,26 +158,27 @@ export async function* streamQueryAgent(
       for (const step of result.steps) {
         if (step.toolCalls && step.toolCalls.length > 0) {
           for (const toolCall of step.toolCalls) {
+            const tc = toolCall as AnyMessage;
             const record: ToolCallRecord = {
               id: toolCall.toolCallId,
               toolName: toolCall.toolName,
-              args: 'args' in toolCall ? (toolCall.args as Record<string, unknown>) : {},
+              args: (tc.input ?? tc.args ?? {}) as Record<string, unknown>,
               result: null,
               timestamp: Date.now(),
             };
 
             yield { type: 'tool_call_start', toolName: toolCall.toolName, args: record.args };
 
-            // Find the corresponding result
-            const toolResult = step.toolResults?.find((r: AnyMessage) => r.toolCallId === toolCall.toolCallId);
-            if (toolResult && 'result' in toolResult) {
-              record.result = toolResult.result;
+            // Find the corresponding result (SDK v6 uses 'output', fallback to 'result')
+            const toolResult = step.toolResults?.find((r: AnyMessage) => r.toolCallId === toolCall.toolCallId) as AnyMessage | undefined;
+            if (toolResult) {
+              record.result = toolResult.output ?? toolResult.result ?? null;
             }
 
-            // Handle special update_query_ui tool
-            if (toolCall.toolName === 'update_query_ui' && 'args' in toolCall) {
-              const args = toolCall.args as { sql: string; explanation: string };
-              state.currentSql = formatSql(args.sql);
+            // Handle special update_query_ui tool (SDK v6 uses 'input', fallback to 'args')
+            if (toolCall.toolName === 'update_query_ui') {
+              const toolInput = (tc.input ?? tc.args ?? {}) as { sql: string; explanation: string };
+              state.currentSql = formatSql(toolInput.sql);
               state.hasCompletedGoal = true;
             }
 
@@ -197,10 +198,32 @@ export async function* streamQueryAgent(
         }
       }
 
-      // Build messages for next iteration using response.messages
-      // This provides the properly formatted messages from the SDK
-      if (result.response?.messages && result.response.messages.length > 0) {
-        messages.push(...result.response.messages);
+      // Build messages for next iteration
+      // Manually construct messages with correct AI SDK v6 schema
+      if (result.toolCalls && result.toolCalls.length > 0) {
+        // Add assistant message with tool calls
+        messages.push({
+          role: 'assistant',
+          content: result.toolCalls.map((tc: AnyMessage) => ({
+            type: 'tool-call',
+            toolCallId: tc.toolCallId,
+            toolName: tc.toolName,
+            input: 'input' in tc ? tc.input : ('args' in tc ? tc.args : {}),
+          })),
+        });
+
+        // Add tool message with results (uses 'output' not 'result' in SDK v6)
+        if (result.toolResults && result.toolResults.length > 0) {
+          messages.push({
+            role: 'tool',
+            content: result.toolResults.map((tr: AnyMessage) => ({
+              type: 'tool-result',
+              toolCallId: tr.toolCallId,
+              toolName: tr.toolName,
+              output: 'output' in tr ? tr.output : ('result' in tr ? tr.result : null),
+            })),
+          });
+        }
       } else if (result.text) {
         messages.push({ role: 'assistant', content: result.text });
 
