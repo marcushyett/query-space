@@ -15,8 +15,9 @@ import { useAiChatStore } from '@/stores/aiChatStore';
 import { useAiStore } from '@/stores/aiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useQueryStore } from '@/stores/queryStore';
-import { useAiChat } from '@/hooks/useAiChat';
+import { useAiAgent } from '@/hooks/useAiAgent';
 import { ChatMessage } from './ChatMessage';
+import { AgentProgress } from './AgentProgress';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -26,11 +27,11 @@ export function AiChatPanel() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
 
-  const { isOpen, setOpen, messages, isGenerating } = useAiChatStore();
+  const { isOpen, setOpen, messages, isGenerating, agentProgress } = useAiChatStore();
   const { apiKey, setApiKey, setPersistApiKey } = useAiStore();
   const { connectionString } = useConnectionStore();
   const { isExecuting } = useQueryStore();
-  const { sendMessage, startNewConversation } = useAiChat();
+  const { sendMessage, continueAgent, stopAgent, startNewConversation } = useAiAgent();
 
   const [inputValue, setInputValue] = useState('');
   const [apiKeyInput, setApiKeyInput] = useState(apiKey || '');
@@ -184,7 +185,35 @@ export function AiChatPanel() {
             />
           ))}
 
-          {isWorking && (
+          {/* Agent Progress */}
+          {agentProgress && agentProgress.isRunning && (
+            <AgentProgress
+              currentStep={agentProgress.currentStep}
+              maxSteps={agentProgress.maxSteps}
+              toolCalls={agentProgress.toolCalls}
+              onStop={stopAgent}
+            />
+          )}
+
+          {/* Continue Button when step limit reached */}
+          {agentProgress && agentProgress.canContinue && !agentProgress.isRunning && (
+            <div className="p-4 text-center">
+              <Space direction="vertical" size={8}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Agent reached {agentProgress.maxSteps} step limit
+                </Text>
+                <Button
+                  type="primary"
+                  onClick={continueAgent}
+                  icon={<SendOutlined />}
+                >
+                  Continue
+                </Button>
+              </Space>
+            </div>
+          )}
+
+          {isWorking && !agentProgress?.isRunning && (
             <div className="p-4 text-center">
               <Spin size="small" />
               <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
