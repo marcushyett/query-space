@@ -81,6 +81,7 @@ Returns a list of tables with their columns, data types, and primary key informa
           tableCount: result.length,
           tables: result,
           hint: 'Use get_json_keys to explore JSON/JSONB column structures if needed.',
+          error: null,
         };
       },
     }),
@@ -181,6 +182,14 @@ The query will automatically have a LIMIT applied if none is specified.`,
             success: false,
             error: 'Query rejected: Only SELECT queries are allowed. Mutation queries are blocked for safety.',
             suggestion: 'Rewrite as a SELECT query to read data instead of modifying it.',
+            rowCount: null,
+            executionTime: null,
+            columns: null,
+            rows: null,
+            hasMoreRows: null,
+            warning: null,
+            emptyColumns: null,
+            purpose: purpose ?? null,
           };
         }
 
@@ -190,6 +199,14 @@ The query will automatically have a LIMIT applied if none is specified.`,
             success: false,
             error: 'Query must start with SELECT, WITH, or EXPLAIN.',
             suggestion: 'Start your query with SELECT to read data from the database.',
+            rowCount: null,
+            executionTime: null,
+            columns: null,
+            rows: null,
+            hasMoreRows: null,
+            warning: null,
+            emptyColumns: null,
+            purpose: purpose ?? null,
           };
         }
 
