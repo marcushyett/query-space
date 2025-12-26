@@ -48,6 +48,7 @@ export interface AgentProgress {
   reachedStepLimit: boolean;
   canContinue: boolean;
   toolCalls: ToolCallInfo[];
+  streamingText: string;
 }
 
 interface AiChatStore {
@@ -81,6 +82,7 @@ interface AiChatStore {
   // Agent actions
   startAgent: (goal: string, maxSteps: number) => void;
   updateAgentStep: (step: number) => void;
+  appendStreamingText: (text: string) => void;
   addAgentToolCall: (toolCall: ToolCallInfo) => void;
   updateAgentToolCall: (id: string, update: Partial<ToolCallInfo>) => void;
   completeAgent: (reachedStepLimit: boolean) => void;
@@ -237,6 +239,7 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
         reachedStepLimit: false,
         canContinue: false,
         toolCalls: [],
+        streamingText: '',
       },
       isGenerating: true,
     });
@@ -245,7 +248,15 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
   updateAgentStep: (step: number) => {
     set((state) => ({
       agentProgress: state.agentProgress
-        ? { ...state.agentProgress, currentStep: step }
+        ? { ...state.agentProgress, currentStep: step, streamingText: '' }
+        : null,
+    }));
+  },
+
+  appendStreamingText: (text: string) => {
+    set((state) => ({
+      agentProgress: state.agentProgress
+        ? { ...state.agentProgress, streamingText: state.agentProgress.streamingText + text }
         : null,
     }));
   },

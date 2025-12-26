@@ -20,6 +20,7 @@ interface AgentProgressProps {
   currentStep: number;
   maxSteps: number;
   toolCalls: ToolCallInfo[];
+  streamingText?: string;
   onStop: () => void;
 }
 
@@ -60,7 +61,7 @@ function getStatusIcon(status: ToolCallInfo['status']): React.ReactNode {
   }
 }
 
-export function AgentProgress({ currentStep, maxSteps, toolCalls, onStop }: AgentProgressProps) {
+export function AgentProgress({ currentStep, maxSteps, toolCalls, streamingText, onStop }: AgentProgressProps) {
   const percent = Math.round((currentStep / maxSteps) * 100);
   const recentCalls = toolCalls.slice(-5); // Show last 5 tool calls
 
@@ -93,6 +94,12 @@ export function AgentProgress({ currentStep, maxSteps, toolCalls, onStop }: Agen
         strokeColor="#1890ff"
         style={{ marginBottom: 12 }}
       />
+
+      {streamingText && (
+        <div className="agent-streaming-text">
+          <Text style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{streamingText}</Text>
+        </div>
+      )}
 
       {recentCalls.length > 0 && (
         <Collapse

@@ -9,12 +9,7 @@ import { useAiChatStore, ToolCallInfo } from '@/stores/aiChatStore';
 import { useQueryStore, QueryResult } from '@/stores/queryStore';
 import type { AgentStreamEvent } from '@/lib/agent';
 
-const MAX_STEPS = 25;
-
-interface ConversationMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
+const MAX_STEPS = 15;
 
 export function useAiAgent() {
   const { message } = App.useApp();
@@ -32,12 +27,12 @@ export function useAiAgent() {
     addUserMessage,
     addAssistantMessage,
     addSystemMessage,
-    setIsGenerating,
     setCurrentSql,
     setIsAiGenerated,
     startNewConversation,
     startAgent,
     updateAgentStep,
+    appendStreamingText,
     addAgentToolCall,
     updateAgentToolCall,
     completeAgent,
@@ -114,16 +109,6 @@ export function useAiAgent() {
       addUserMessage(prompt);
       startAgent(prompt, MAX_STEPS);
 
-      // Build conversation history
-      const conversationHistory: ConversationMessage[] = messages
-        .filter(m => m.role === 'user' || m.role === 'assistant')
-        .map((msg) => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.role === 'assistant'
-            ? JSON.stringify({ sql: msg.sql, explanation: msg.explanation })
-            : msg.content,
-        }));
-
       try {
         const response = await fetch('/api/ai-agent', {
           method: 'POST',
@@ -133,7 +118,6 @@ export function useAiAgent() {
             apiKey,
             connectionString,
             schema: tables,
-            conversationHistory,
             previousSql: currentSql,
           }),
           signal: abortControllerRef.current.signal,
@@ -152,7 +136,6 @@ export function useAiAgent() {
         const decoder = new TextDecoder();
         let buffer = '';
         let finalSql: string | null = null;
-        let finalExplanation: string | null = null;
         let reachedLimit = false;
 
         while (true) {
@@ -176,6 +159,10 @@ export function useAiAgent() {
                 switch (event.type) {
                   case 'step':
                     updateAgentStep(event.step);
+                    break;
+
+                  case 'text':
+                    appendStreamingText(event.text);
                     break;
 
                   case 'tool_call_start': {
@@ -210,7 +197,6 @@ export function useAiAgent() {
                         suggestions?: string[];
                       };
                       finalSql = args.sql;
-                      finalExplanation = args.explanation;
 
                       // Add assistant message with the final query
                       addAssistantMessage({
@@ -309,13 +295,13 @@ export function useAiAgent() {
       connectionString,
       apiKey,
       tables,
-      messages,
       currentSql,
       addUserMessage,
       addAssistantMessage,
       addSystemMessage,
       startAgent,
       updateAgentStep,
+      appendStreamingText,
       addAgentToolCall,
       updateAgentToolCall,
       completeAgent,
