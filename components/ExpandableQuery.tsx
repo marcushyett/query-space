@@ -93,20 +93,6 @@ export function ExpandableQuery({ queryMetadata, onLoadQuery, compact = false }:
         </Space>
       </div>
 
-      {/* Description */}
-      {description && (
-        <Paragraph
-          type="secondary"
-          style={{
-            fontSize: 11,
-            margin: '4px 0 8px 0',
-            paddingLeft: 24,
-          }}
-        >
-          {description}
-        </Paragraph>
-      )}
-
       {/* Expandable content */}
       <Collapse
         ghost
@@ -119,6 +105,19 @@ export function ExpandableQuery({ queryMetadata, onLoadQuery, compact = false }:
             label: null,
             children: (
               <div className="expandable-query-content">
+                {/* Description (moved inside expandable section) */}
+                {description && (
+                  <Paragraph
+                    type="secondary"
+                    style={{
+                      fontSize: 11,
+                      margin: '0 0 12px 0',
+                    }}
+                  >
+                    {description}
+                  </Paragraph>
+                )}
+
                 {/* SQL Query */}
                 <div className="expandable-query-sql">
                   <div className="expandable-query-sql-header">
