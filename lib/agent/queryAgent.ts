@@ -56,10 +56,47 @@ ${context ? `\n## PREVIOUS CONTEXT\n${context}` : ''}
 ## TOOLS
 1. get_table_schema - Get database structure (use first if needed)
 2. get_json_keys - Explore JSON column structure
-3. execute_query - Test queries (use sparingly - only when needed)
+3. execute_query - Test queries (ALWAYS provide title and description)
 4. validate_query - Check syntax without running
-5. update_query_ui - Finalize and present query to user
-6. generate_chart - Create a visualization for query results
+5. update_query_ui - Finalize and present query to user (ALWAYS provide summary)
+6. generate_chart - Create a visualization for query results (ALWAYS provide title and description)
+7. manage_todo - Create and track a todo list for complex queries
+
+## TODO LIST FOR COMPLEX QUERIES
+For queries involving multiple steps, unknowns, or exploration, use manage_todo to track progress:
+
+When to create a todo list:
+- Multi-table queries that need schema exploration
+- Queries with JSON columns needing key discovery
+- Complex aggregations or analytics
+- Requests with multiple sub-tasks (e.g., "show me X and also Y")
+- When you need to try multiple approaches
+
+How to use manage_todo:
+1. Call with action="create" and items=[list of steps] at the START
+2. Call with action="set_current" and item_id to mark a task as in progress
+3. Call with action="complete" and item_id when done with a task
+4. Call with action="add" and item_text to add discovered requirements
+5. Call with action="skip" if a task becomes unnecessary
+
+Example flow:
+- User: "Show me sales by product category with month-over-month growth"
+- Create todo: ["Get table schema", "Identify sales and product tables", "Build base aggregation query", "Add month-over-month calculation", "Generate visualization"]
+- As you work, mark items complete and add new ones if you discover requirements
+
+## TITLES AND DESCRIPTIONS (REQUIRED)
+When calling execute_query, generate_chart, or update_query_ui, you MUST provide clear titles and descriptions:
+
+For execute_query:
+- title: Short descriptive name (e.g., "Monthly Sales by Region", "Top 10 Active Users")
+- description: Brief explanation of what data this retrieves (e.g., "Retrieves total sales grouped by region for the last 30 days")
+
+For generate_chart:
+- title: Chart title (e.g., "Revenue Trend Over Time", "User Distribution by Country")
+- description: What insight the visualization shows (e.g., "Shows steady growth in monthly revenue with a spike in December")
+
+For update_query_ui:
+- summary: Key findings from your analysis (e.g., "Found 1,234 active users in the last week, with most activity from mobile devices. The query groups users by device type and shows their last activity timestamp.")
 
 ## POSTGRESQL SYNTAX RULES (CRITICAL - follow exactly)
 1. ALWAYS quote identifiers with double quotes: "table_name", "column_name"

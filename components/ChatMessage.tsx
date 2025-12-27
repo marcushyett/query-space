@@ -14,6 +14,8 @@ import ReactMarkdown from 'react-markdown';
 import type { ChatMessage as ChatMessageType } from '@/stores/aiChatStore';
 import { computeSqlDiff } from '@/lib/sqlDiff';
 import { InlineChatChart } from './InlineChatChart';
+import { ExpandableQuery } from './ExpandableQuery';
+import { AgentSummary } from './AgentSummary';
 
 const { Text } = Typography;
 
@@ -55,14 +57,27 @@ function MarkdownText({ children }: { children: string }) {
 interface ChatMessageProps {
   message: ChatMessageType;
   isLatest?: boolean;
+  onLoadQuery?: (sql: string) => void;
 }
 
-export function ChatMessage({ message, isLatest }: ChatMessageProps) {
+export function ChatMessage({ message, isLatest, onLoadQuery }: ChatMessageProps) {
   // System message (query results, errors)
   if (message.role === 'system') {
     const isError = message.content.toLowerCase().includes('error');
     const hasResult = message.queryResult;
     const sampleResults = message.queryResult?.sampleResults;
+
+    // If we have queryMetadata, use the ExpandableQuery component
+    if (message.queryMetadata) {
+      return (
+        <div style={{ marginBottom: 8 }}>
+          <ExpandableQuery
+            queryMetadata={message.queryMetadata}
+            onLoadQuery={onLoadQuery}
+          />
+        </div>
+      );
+    }
 
     // Generate columns and data for sample results table
     const sampleColumns = sampleResults && sampleResults.length > 0
@@ -170,12 +185,25 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
               />
             )}
 
-            {message.explanation && !message.needsClarification && (
+            {/* Show AgentSummary for final queries with summary */}
+            {message.summary && message.sql && (
+              <AgentSummary
+                summary={message.summary}
+                sql={message.sql}
+                explanation={message.explanation}
+                confidence={message.confidence}
+                suggestions={message.suggestions}
+                onLoadQuery={onLoadQuery}
+              />
+            )}
+
+            {/* Show explanation without summary (for non-final messages) */}
+            {message.explanation && !message.needsClarification && !message.summary && (
               <MarkdownText>{message.explanation}</MarkdownText>
             )}
 
-            {/* Show diff for modified queries */}
-            {message.sql && hasDiff && diff && diff.hasChanges && (
+            {/* Show diff for modified queries (only when no summary) */}
+            {message.sql && hasDiff && diff && diff.hasChanges && !message.summary && (
               <div className="chat-changes-summary">
                 <div className="chat-changes-header">
                   <CheckCircleOutlined className="chat-changes-icon" />
@@ -197,8 +225,8 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
               </div>
             )}
 
-            {/* Show SQL for new queries (no diff) */}
-            {message.sql && !hasDiff && (
+            {/* Show SQL for new queries (no diff, no summary) */}
+            {message.sql && !hasDiff && !message.summary && (
               <div className="chat-sql-preview">
                 <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
                   Generated SQL:
@@ -210,6 +238,16 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
             {/* Render inline chart if present */}
             {message.chartData && (
               <div className="chat-chart-container">
+                {message.chartData.title && (
+                  <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    {message.chartData.title}
+                  </Text>
+                )}
+                {message.chartData.description && (
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
+                    {message.chartData.description}
+                  </Text>
+                )}
                 <div className="chat-chart-label">
                   <BarChartOutlined style={{ marginRight: 4 }} />
                   <Text type="secondary" style={{ fontSize: 11 }}>Visualization</Text>
@@ -218,7 +256,7 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
               </div>
             )}
 
-            {isLatest && message.sql && (
+            {isLatest && message.sql && !message.summary && (
               <Space size={4}>
                 <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 12 }} />
                 <Text type="secondary" style={{ fontSize: 11 }}>Query ready</Text>

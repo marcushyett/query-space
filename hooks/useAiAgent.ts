@@ -5,7 +5,7 @@ import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useAiStore } from '@/stores/aiStore';
 import { useSchemaStore } from '@/stores/schemaStore';
-import { useAiChatStore, ToolCallInfo, ChatChartData } from '@/stores/aiChatStore';
+import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata, AgentTodoItem } from '@/stores/aiChatStore';
 import { useQueryStore, QueryResult } from '@/stores/queryStore';
 import type { AgentStreamEvent } from '@/lib/agent';
 import type { ChartConfig } from '@/lib/chart-utils';
@@ -29,6 +29,7 @@ export function useAiAgent() {
     addAssistantMessage,
     addSystemMessage,
     addChartMessage,
+    addQueryMessage,
     setCurrentSql,
     setIsAiGenerated,
     startNewConversation,
@@ -38,6 +39,9 @@ export function useAiAgent() {
     addAgentToolCall,
     updateAgentToolCall,
     completeAgent,
+    setAgentTodos,
+    updateAgentTodo,
+    addAgentTodo,
   } = useAiChatStore();
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -194,18 +198,20 @@ export function useAiAgent() {
                       const args = tc.args as {
                         sql: string;
                         explanation: string;
+                        summary?: string;
                         changes?: string[];
                         confidence?: string;
                         suggestions?: string[];
                       };
                       finalSql = args.sql;
 
-                      // Add assistant message with the final query
+                      // Add assistant message with the final query and summary
                       addAssistantMessage({
                         content: args.explanation,
                         sql: args.sql,
                         previousSql: currentSql || undefined,
                         explanation: args.explanation,
+                        summary: args.summary,
                         confidence: args.confidence as 'high' | 'medium' | 'low',
                         suggestions: args.suggestions,
                       });
@@ -217,6 +223,11 @@ export function useAiAgent() {
 
                     // Handle execute_query results for display
                     if (tc.toolName === 'execute_query') {
+                      const args = tc.args as {
+                        sql: string;
+                        title?: string;
+                        description?: string;
+                      };
                       const result = tc.result as {
                         success: boolean;
                         rowCount?: number;
@@ -224,17 +235,21 @@ export function useAiAgent() {
                         rows?: Record<string, unknown>[];
                         error?: string;
                         warning?: string;
+                        title?: string;
+                        description?: string;
                       };
 
                       if (result.success) {
-                        addSystemMessage(
-                          `Query executed: ${result.rowCount} rows in ${result.executionTime}ms${result.warning ? ` - ${result.warning}` : ''}`,
-                          {
-                            rowCount: result.rowCount || 0,
-                            executionTime: result.executionTime || 0,
-                            sampleResults: result.rows?.slice(0, 3),
-                          }
-                        );
+                        // Use the new expandable query message format
+                        const queryMetadata: QueryMetadata = {
+                          sql: args.sql,
+                          title: result.title || args.title || 'Query Result',
+                          description: result.description || args.description || '',
+                          rowCount: result.rowCount || 0,
+                          executionTime: result.executionTime || 0,
+                          sampleResults: result.rows?.slice(0, 5),
+                        };
+                        addQueryMessage(queryMetadata);
                       } else if (result.error) {
                         addSystemMessage(`Query error: ${result.error}`);
                       }
@@ -242,6 +257,10 @@ export function useAiAgent() {
 
                     // Handle generate_chart results
                     if (tc.toolName === 'generate_chart') {
+                      const args = tc.args as {
+                        title?: string;
+                        description?: string;
+                      };
                       const result = tc.result as {
                         success: boolean;
                         chartConfig?: ChartConfig;
@@ -250,6 +269,8 @@ export function useAiAgent() {
                         yAxisKeys?: string[];
                         message?: string;
                         error?: string;
+                        title?: string;
+                        description?: string;
                       };
 
                       if (result.success && result.chartConfig && result.chartData) {
@@ -258,8 +279,67 @@ export function useAiAgent() {
                           data: result.chartData,
                           xAxisKey: result.xAxisKey || '',
                           yAxisKeys: result.yAxisKeys || [],
+                          title: result.title || args.title,
+                          description: result.description || args.description,
                         };
                         addChartMessage(chartData, result.message);
+                      }
+                    }
+
+                    // Handle manage_todo results
+                    if (tc.toolName === 'manage_todo') {
+                      const result = tc.result as {
+                        success: boolean;
+                        action: string;
+                        items?: { id: string; text: string; status: string }[];
+                        item_id?: string;
+                        item?: { id: string; text: string; status: string; addedDuringExecution?: boolean };
+                      };
+
+                      if (result.success) {
+                        switch (result.action) {
+                          case 'create':
+                            if (result.items) {
+                              const todos: AgentTodoItem[] = result.items.map((item) => ({
+                                id: item.id,
+                                text: item.text,
+                                status: item.status as AgentTodoItem['status'],
+                                createdAt: Date.now(),
+                              }));
+                              setAgentTodos(todos);
+                            }
+                            break;
+                          case 'set_current':
+                            if (result.item_id) {
+                              // Set all items to pending first, then set the current one to in_progress
+                              const currentTodos = agentProgress?.todos || [];
+                              const updatedTodos = currentTodos.map((t) => ({
+                                ...t,
+                                status: t.id === result.item_id ? 'in_progress' as const : (t.status === 'in_progress' ? 'pending' as const : t.status),
+                              }));
+                              setAgentTodos(updatedTodos);
+                            }
+                            break;
+                          case 'complete':
+                            if (result.item_id) {
+                              updateAgentTodo(result.item_id, { status: 'completed' });
+                            }
+                            break;
+                          case 'skip':
+                            if (result.item_id) {
+                              updateAgentTodo(result.item_id, { status: 'skipped' });
+                            }
+                            break;
+                          case 'add':
+                            if (result.item) {
+                              addAgentTodo({
+                                text: result.item.text,
+                                status: result.item.status as AgentTodoItem['status'],
+                                addedDuringExecution: true,
+                              });
+                            }
+                            break;
+                        }
                       }
                     }
                     break;
@@ -321,10 +401,12 @@ export function useAiAgent() {
       apiKey,
       tables,
       currentSql,
+      agentProgress,
       addUserMessage,
       addAssistantMessage,
       addSystemMessage,
       addChartMessage,
+      addQueryMessage,
       startAgent,
       updateAgentStep,
       appendStreamingText,
@@ -334,6 +416,9 @@ export function useAiAgent() {
       setCurrentQuery,
       setCurrentSql,
       setIsAiGenerated,
+      setAgentTodos,
+      updateAgentTodo,
+      addAgentTodo,
       executeQuery,
       message,
     ]
@@ -478,6 +563,7 @@ export function useAiAgent() {
                     const args = tc.args as {
                       sql: string;
                       explanation: string;
+                      summary?: string;
                       changes?: string[];
                       confidence?: string;
                       suggestions?: string[];
@@ -489,6 +575,7 @@ export function useAiAgent() {
                       sql: args.sql,
                       previousSql: currentSql || undefined,
                       explanation: args.explanation,
+                      summary: args.summary,
                       confidence: args.confidence as 'high' | 'medium' | 'low',
                       suggestions: args.suggestions,
                     });
@@ -499,6 +586,11 @@ export function useAiAgent() {
                   }
 
                   if (tc.toolName === 'execute_query') {
+                    const args = tc.args as {
+                      sql: string;
+                      title?: string;
+                      description?: string;
+                    };
                     const result = tc.result as {
                       success: boolean;
                       rowCount?: number;
@@ -506,17 +598,21 @@ export function useAiAgent() {
                       rows?: Record<string, unknown>[];
                       error?: string;
                       warning?: string;
+                      title?: string;
+                      description?: string;
                     };
 
                     if (result.success) {
-                      addSystemMessage(
-                        `Query executed: ${result.rowCount} rows in ${result.executionTime}ms${result.warning ? ` - ${result.warning}` : ''}`,
-                        {
-                          rowCount: result.rowCount || 0,
-                          executionTime: result.executionTime || 0,
-                          sampleResults: result.rows?.slice(0, 3),
-                        }
-                      );
+                      // Use the new expandable query message format
+                      const queryMetadata: QueryMetadata = {
+                        sql: args.sql,
+                        title: result.title || args.title || 'Query Result',
+                        description: result.description || args.description || '',
+                        rowCount: result.rowCount || 0,
+                        executionTime: result.executionTime || 0,
+                        sampleResults: result.rows?.slice(0, 5),
+                      };
+                      addQueryMessage(queryMetadata);
                     } else if (result.error) {
                       addSystemMessage(`Query error: ${result.error}`);
                     }
@@ -524,6 +620,10 @@ export function useAiAgent() {
 
                   // Handle generate_chart results
                   if (tc.toolName === 'generate_chart') {
+                    const args = tc.args as {
+                      title?: string;
+                      description?: string;
+                    };
                     const result = tc.result as {
                       success: boolean;
                       chartConfig?: ChartConfig;
@@ -532,6 +632,8 @@ export function useAiAgent() {
                       yAxisKeys?: string[];
                       message?: string;
                       error?: string;
+                      title?: string;
+                      description?: string;
                     };
 
                     if (result.success && result.chartConfig && result.chartData) {
@@ -540,8 +642,66 @@ export function useAiAgent() {
                         data: result.chartData,
                         xAxisKey: result.xAxisKey || '',
                         yAxisKeys: result.yAxisKeys || [],
+                        title: result.title || args.title,
+                        description: result.description || args.description,
                       };
                       addChartMessage(chartDataObj, result.message);
+                    }
+                  }
+
+                  // Handle manage_todo results
+                  if (tc.toolName === 'manage_todo') {
+                    const result = tc.result as {
+                      success: boolean;
+                      action: string;
+                      items?: { id: string; text: string; status: string }[];
+                      item_id?: string;
+                      item?: { id: string; text: string; status: string; addedDuringExecution?: boolean };
+                    };
+
+                    if (result.success) {
+                      switch (result.action) {
+                        case 'create':
+                          if (result.items) {
+                            const todos: AgentTodoItem[] = result.items.map((item) => ({
+                              id: item.id,
+                              text: item.text,
+                              status: item.status as AgentTodoItem['status'],
+                              createdAt: Date.now(),
+                            }));
+                            setAgentTodos(todos);
+                          }
+                          break;
+                        case 'set_current':
+                          if (result.item_id) {
+                            const currentTodos = agentProgress?.todos || [];
+                            const updatedTodos = currentTodos.map((t) => ({
+                              ...t,
+                              status: t.id === result.item_id ? 'in_progress' as const : (t.status === 'in_progress' ? 'pending' as const : t.status),
+                            }));
+                            setAgentTodos(updatedTodos);
+                          }
+                          break;
+                        case 'complete':
+                          if (result.item_id) {
+                            updateAgentTodo(result.item_id, { status: 'completed' });
+                          }
+                          break;
+                        case 'skip':
+                          if (result.item_id) {
+                            updateAgentTodo(result.item_id, { status: 'skipped' });
+                          }
+                          break;
+                        case 'add':
+                          if (result.item) {
+                            addAgentTodo({
+                              text: result.item.text,
+                              status: result.item.status as AgentTodoItem['status'],
+                              addedDuringExecution: true,
+                            });
+                          }
+                          break;
+                      }
                     }
                   }
                   break;
@@ -602,6 +762,7 @@ export function useAiAgent() {
     addAssistantMessage,
     addSystemMessage,
     addChartMessage,
+    addQueryMessage,
     startAgent,
     updateAgentStep,
     appendStreamingText,
@@ -611,6 +772,9 @@ export function useAiAgent() {
     setCurrentQuery,
     setCurrentSql,
     setIsAiGenerated,
+    setAgentTodos,
+    updateAgentTodo,
+    addAgentTodo,
     executeQuery,
     message,
   ]);

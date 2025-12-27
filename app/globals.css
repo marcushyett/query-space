@@ -1115,3 +1115,339 @@ body {
     padding: 4px 8px;
   }
 }
+
+/* Expandable Query Component */
+.expandable-query {
+  background: #0a0a0a;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.expandable-query-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.expandable-query-header:hover {
+  background: #0d0d0d;
+}
+
+.expandable-query-content {
+  padding: 0 12px 12px;
+}
+
+.expandable-query-sql {
+  background: #0d0d0d;
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.expandable-query-sql-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: #111;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.expandable-query-code {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #d4d4d4;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.expandable-query-results {
+  margin-top: 12px;
+}
+
+.expandable-query-results .ant-table {
+  font-size: 11px;
+}
+
+/* Override collapse for expandable query */
+.expandable-query .ant-collapse {
+  background: transparent !important;
+  border: none !important;
+}
+
+.expandable-query .ant-collapse-header {
+  display: none !important;
+}
+
+.expandable-query .ant-collapse-content {
+  background: transparent !important;
+  border: none !important;
+}
+
+.expandable-query .ant-collapse-content-box {
+  padding: 12px 0 0 0 !important;
+}
+
+/* Agent Summary Component */
+.agent-summary {
+  margin-top: 8px;
+}
+
+.agent-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.agent-summary-content {
+  line-height: 1.6;
+}
+
+.agent-summary-query {
+  background: #0d0d0d;
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.agent-summary-query-header {
+  padding: 8px 12px;
+  background: #111;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.agent-summary-suggestions {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Override collapse for agent summary */
+.agent-summary .ant-collapse {
+  background: transparent !important;
+  border: none !important;
+}
+
+.agent-summary .ant-collapse-header {
+  display: none !important;
+}
+
+.agent-summary .ant-collapse-content {
+  background: transparent !important;
+  border: none !important;
+}
+
+.agent-summary .ant-collapse-content-box {
+  padding: 0 !important;
+}
+
+/* Tag colors for confidence levels */
+.ant-tag-success {
+  background: rgba(82, 196, 26, 0.15) !important;
+  border-color: rgba(82, 196, 26, 0.3) !important;
+  color: #95de64 !important;
+}
+
+.ant-tag-warning {
+  background: rgba(250, 173, 20, 0.15) !important;
+  border-color: rgba(250, 173, 20, 0.3) !important;
+  color: #ffc53d !important;
+}
+
+/* Mobile adjustments for expandable components */
+@media (max-width: 767px) {
+  .expandable-query-header {
+    padding: 8px 10px;
+  }
+
+  .expandable-query-content {
+    padding: 0 10px 10px;
+  }
+
+  .expandable-query-code {
+    font-size: 10px;
+    max-height: 150px;
+  }
+
+  .agent-summary {
+    padding: 10px;
+  }
+}
+
+/* Agent Todo List Component */
+.agent-todo-list {
+  background: #0d0d0d;
+  border: 1px solid #1a1a1a;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.agent-todo-list-compact {
+  padding: 8px 10px;
+}
+
+.agent-todo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.agent-todo-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: #1a1a1a;
+  border-radius: 2px;
+  margin-left: 12px;
+  overflow: hidden;
+}
+
+.agent-todo-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #52c41a 0%, #73d13d 100%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.agent-todo-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.agent-todo-item-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.todo-icon {
+  font-size: 12px;
+}
+
+.todo-icon-completed {
+  color: #52c41a;
+}
+
+.todo-icon-in-progress {
+  color: #1890ff;
+}
+
+.todo-icon-pending {
+  color: #666;
+}
+
+.todo-icon-skipped {
+  color: #888;
+}
+
+.agent-todo-item-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-todo-item-text {
+  color: #d4d4d4;
+}
+
+.agent-todo-item-text-completed {
+  color: #888;
+  text-decoration: line-through;
+}
+
+.agent-todo-item-text-skipped {
+  color: #666;
+  text-decoration: line-through;
+  font-style: italic;
+}
+
+/* Highlight for items added during execution */
+.agent-todo-item-added {
+  animation: todo-item-added 0.5s ease;
+}
+
+@keyframes todo-item-added {
+  0% {
+    background: rgba(24, 144, 255, 0.2);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* Completion animation */
+.agent-todo-item-completed {
+  animation: todo-item-complete 0.3s ease;
+}
+
+@keyframes todo-item-complete {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* In progress pulse effect */
+.agent-todo-item-in_progress .todo-icon-in-progress {
+  animation: todo-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes todo-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Mobile adjustments for todo list */
+@media (max-width: 767px) {
+  .agent-todo-list {
+    padding: 8px 10px;
+  }
+
+  .agent-todo-header {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .agent-todo-progress-bar {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 4px;
+  }
+
+  .agent-todo-item-text {
+    font-size: 11px !important;
+  }
+}

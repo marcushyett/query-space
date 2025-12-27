@@ -13,6 +13,28 @@ export interface ChatChartData {
   data: Record<string, unknown>[];
   xAxisKey: string;
   yAxisKeys: string[];
+  title?: string;
+  description?: string;
+}
+
+// Metadata for executed queries (from execute_query tool)
+export interface QueryMetadata {
+  sql: string;
+  title: string;
+  description: string;
+  rowCount: number;
+  executionTime: number;
+  sampleResults?: Record<string, unknown>[];
+}
+
+// Agent todo list item
+export interface AgentTodoItem {
+  id: string;
+  text: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  createdAt: number;
+  completedAt?: number;
+  addedDuringExecution?: boolean; // Items discovered during execution
 }
 
 export interface ToolCallInfo {
@@ -48,6 +70,10 @@ export interface ChatMessage {
   suggestions?: string[];
   // For inline charts
   chartData?: ChatChartData;
+  // For expandable query display (from execute_query tool)
+  queryMetadata?: QueryMetadata;
+  // For end-of-flow summary
+  summary?: string;
 }
 
 export interface AgentProgress {
@@ -59,6 +85,7 @@ export interface AgentProgress {
   canContinue: boolean;
   toolCalls: ToolCallInfo[];
   streamingText: string;
+  todos: AgentTodoItem[];
 }
 
 interface AiChatStore {
@@ -83,6 +110,7 @@ interface AiChatStore {
   updateToolCall: (id: string, update: Partial<ToolCallInfo>) => void;
   updateLastAssistantMessage: (update: Partial<ChatMessage>) => void;
   addChartMessage: (chartData: ChatChartData, explanation?: string) => void;
+  addQueryMessage: (queryMetadata: QueryMetadata) => void;
   setCurrentSql: (sql: string | null) => void;
   setIsGenerating: (generating: boolean) => void;
   setIsAiGenerated: (isAiGenerated: boolean) => void;
@@ -98,6 +126,11 @@ interface AiChatStore {
   updateAgentToolCall: (id: string, update: Partial<ToolCallInfo>) => void;
   completeAgent: (reachedStepLimit: boolean) => void;
   resetAgentProgress: () => void;
+
+  // Agent todo actions
+  setAgentTodos: (todos: AgentTodoItem[]) => void;
+  updateAgentTodo: (id: string, update: Partial<AgentTodoItem>) => void;
+  addAgentTodo: (todo: Omit<AgentTodoItem, 'id' | 'createdAt'>) => void;
 }
 
 export const useAiChatStore = create<AiChatStore>((set, get) => ({
@@ -215,6 +248,24 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
     }));
   },
 
+  addQueryMessage: (queryMetadata: QueryMetadata) => {
+    const queryMessage: ChatMessage = {
+      id: `query-${Date.now()}`,
+      role: 'system',
+      content: queryMetadata.title,
+      timestamp: Date.now(),
+      queryMetadata,
+      queryResult: {
+        rowCount: queryMetadata.rowCount,
+        executionTime: queryMetadata.executionTime,
+        sampleResults: queryMetadata.sampleResults,
+      },
+    };
+    set((state) => ({
+      messages: [...state.messages, queryMessage],
+    }));
+  },
+
   setCurrentSql: (sql: string | null) => {
     set({ currentSql: sql });
   },
@@ -264,6 +315,7 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
         canContinue: false,
         toolCalls: [],
         streamingText: '',
+        todos: [],
       },
       isGenerating: true,
     });
@@ -325,5 +377,50 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
 
   resetAgentProgress: () => {
     set({ agentProgress: null });
+  },
+
+  // Agent todo actions
+  setAgentTodos: (todos: AgentTodoItem[]) => {
+    set((state) => ({
+      agentProgress: state.agentProgress
+        ? { ...state.agentProgress, todos }
+        : null,
+    }));
+  },
+
+  updateAgentTodo: (id: string, update: Partial<AgentTodoItem>) => {
+    set((state) => ({
+      agentProgress: state.agentProgress
+        ? {
+            ...state.agentProgress,
+            todos: state.agentProgress.todos.map((todo) =>
+              todo.id === id
+                ? {
+                    ...todo,
+                    ...update,
+                    completedAt: update.status === 'completed' ? Date.now() : todo.completedAt,
+                  }
+                : todo
+            ),
+          }
+        : null,
+    }));
+  },
+
+  addAgentTodo: (todo: Omit<AgentTodoItem, 'id' | 'createdAt'>) => {
+    const newTodo: AgentTodoItem = {
+      ...todo,
+      id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: Date.now(),
+      addedDuringExecution: true,
+    };
+    set((state) => ({
+      agentProgress: state.agentProgress
+        ? {
+            ...state.agentProgress,
+            todos: [...state.agentProgress.todos, newTodo],
+          }
+        : null,
+    }));
   },
 }));

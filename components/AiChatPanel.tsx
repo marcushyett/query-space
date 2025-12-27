@@ -189,6 +189,7 @@ export function AiChatPanel() {
               key={msg.id}
               message={msg}
               isLatest={index === messages.length - 1 && msg.role === 'assistant'}
+              onLoadQuery={handleLoadQuery}
             />
           ))}
 
@@ -199,6 +200,7 @@ export function AiChatPanel() {
               maxSteps={agentProgress.maxSteps}
               toolCalls={agentProgress.toolCalls}
               streamingText={agentProgress.streamingText}
+              todos={agentProgress.todos}
               onStop={stopAgent}
               onLoadQuery={handleLoadQuery}
             />
