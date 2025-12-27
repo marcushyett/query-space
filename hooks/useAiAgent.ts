@@ -5,7 +5,7 @@ import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useAiStore } from '@/stores/aiStore';
 import { useSchemaStore } from '@/stores/schemaStore';
-import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata } from '@/stores/aiChatStore';
+import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata, AgentTodoItem } from '@/stores/aiChatStore';
 import { useQueryStore, QueryResult } from '@/stores/queryStore';
 import type { AgentStreamEvent } from '@/lib/agent';
 import type { ChartConfig } from '@/lib/chart-utils';
@@ -39,6 +39,9 @@ export function useAiAgent() {
     addAgentToolCall,
     updateAgentToolCall,
     completeAgent,
+    setAgentTodos,
+    updateAgentTodo,
+    addAgentTodo,
   } = useAiChatStore();
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -282,6 +285,63 @@ export function useAiAgent() {
                         addChartMessage(chartData, result.message);
                       }
                     }
+
+                    // Handle manage_todo results
+                    if (tc.toolName === 'manage_todo') {
+                      const result = tc.result as {
+                        success: boolean;
+                        action: string;
+                        items?: { id: string; text: string; status: string }[];
+                        item_id?: string;
+                        item?: { id: string; text: string; status: string; addedDuringExecution?: boolean };
+                      };
+
+                      if (result.success) {
+                        switch (result.action) {
+                          case 'create':
+                            if (result.items) {
+                              const todos: AgentTodoItem[] = result.items.map((item) => ({
+                                id: item.id,
+                                text: item.text,
+                                status: item.status as AgentTodoItem['status'],
+                                createdAt: Date.now(),
+                              }));
+                              setAgentTodos(todos);
+                            }
+                            break;
+                          case 'set_current':
+                            if (result.item_id) {
+                              // Set all items to pending first, then set the current one to in_progress
+                              const currentTodos = agentProgress?.todos || [];
+                              const updatedTodos = currentTodos.map((t) => ({
+                                ...t,
+                                status: t.id === result.item_id ? 'in_progress' as const : (t.status === 'in_progress' ? 'pending' as const : t.status),
+                              }));
+                              setAgentTodos(updatedTodos);
+                            }
+                            break;
+                          case 'complete':
+                            if (result.item_id) {
+                              updateAgentTodo(result.item_id, { status: 'completed' });
+                            }
+                            break;
+                          case 'skip':
+                            if (result.item_id) {
+                              updateAgentTodo(result.item_id, { status: 'skipped' });
+                            }
+                            break;
+                          case 'add':
+                            if (result.item) {
+                              addAgentTodo({
+                                text: result.item.text,
+                                status: result.item.status as AgentTodoItem['status'],
+                                addedDuringExecution: true,
+                              });
+                            }
+                            break;
+                        }
+                      }
+                    }
                     break;
                   }
 
@@ -341,6 +401,7 @@ export function useAiAgent() {
       apiKey,
       tables,
       currentSql,
+      agentProgress,
       addUserMessage,
       addAssistantMessage,
       addSystemMessage,
@@ -355,6 +416,9 @@ export function useAiAgent() {
       setCurrentQuery,
       setCurrentSql,
       setIsAiGenerated,
+      setAgentTodos,
+      updateAgentTodo,
+      addAgentTodo,
       executeQuery,
       message,
     ]
@@ -584,6 +648,62 @@ export function useAiAgent() {
                       addChartMessage(chartDataObj, result.message);
                     }
                   }
+
+                  // Handle manage_todo results
+                  if (tc.toolName === 'manage_todo') {
+                    const result = tc.result as {
+                      success: boolean;
+                      action: string;
+                      items?: { id: string; text: string; status: string }[];
+                      item_id?: string;
+                      item?: { id: string; text: string; status: string; addedDuringExecution?: boolean };
+                    };
+
+                    if (result.success) {
+                      switch (result.action) {
+                        case 'create':
+                          if (result.items) {
+                            const todos: AgentTodoItem[] = result.items.map((item) => ({
+                              id: item.id,
+                              text: item.text,
+                              status: item.status as AgentTodoItem['status'],
+                              createdAt: Date.now(),
+                            }));
+                            setAgentTodos(todos);
+                          }
+                          break;
+                        case 'set_current':
+                          if (result.item_id) {
+                            const currentTodos = agentProgress?.todos || [];
+                            const updatedTodos = currentTodos.map((t) => ({
+                              ...t,
+                              status: t.id === result.item_id ? 'in_progress' as const : (t.status === 'in_progress' ? 'pending' as const : t.status),
+                            }));
+                            setAgentTodos(updatedTodos);
+                          }
+                          break;
+                        case 'complete':
+                          if (result.item_id) {
+                            updateAgentTodo(result.item_id, { status: 'completed' });
+                          }
+                          break;
+                        case 'skip':
+                          if (result.item_id) {
+                            updateAgentTodo(result.item_id, { status: 'skipped' });
+                          }
+                          break;
+                        case 'add':
+                          if (result.item) {
+                            addAgentTodo({
+                              text: result.item.text,
+                              status: result.item.status as AgentTodoItem['status'],
+                              addedDuringExecution: true,
+                            });
+                          }
+                          break;
+                      }
+                    }
+                  }
                   break;
                 }
 
@@ -652,6 +772,9 @@ export function useAiAgent() {
     setCurrentQuery,
     setCurrentSql,
     setIsAiGenerated,
+    setAgentTodos,
+    updateAgentTodo,
+    addAgentTodo,
     executeQuery,
     message,
   ]);

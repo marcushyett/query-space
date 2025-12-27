@@ -13,8 +13,11 @@ import {
   EditOutlined,
   PlayCircleOutlined,
   TrophyOutlined,
+  UnorderedListOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
-import type { ToolCallInfo } from '@/stores/aiChatStore';
+import type { ToolCallInfo, AgentTodoItem } from '@/stores/aiChatStore';
+import { AgentTodoList } from './AgentTodoList';
 
 const { Text } = Typography;
 
@@ -23,6 +26,7 @@ interface AgentProgressProps {
   maxSteps: number;
   toolCalls: ToolCallInfo[];
   streamingText?: string;
+  todos?: AgentTodoItem[];
   onStop: () => void;
   onLoadQuery?: (sql: string) => void;
 }
@@ -33,6 +37,8 @@ const TOOL_ICONS: Record<string, React.ReactNode> = {
   execute_query: <CodeOutlined />,
   validate_query: <CheckCircleOutlined />,
   update_query_ui: <EditOutlined />,
+  generate_chart: <BarChartOutlined />,
+  manage_todo: <UnorderedListOutlined />,
 };
 
 const TOOL_LABELS: Record<string, string> = {
@@ -41,6 +47,8 @@ const TOOL_LABELS: Record<string, string> = {
   execute_query: 'Running query',
   validate_query: 'Validating query',
   update_query_ui: 'Updating query',
+  generate_chart: 'Generating chart',
+  manage_todo: 'Planning',
 };
 
 function getToolIcon(toolName: string): React.ReactNode {
@@ -64,9 +72,11 @@ function getStatusIcon(status: ToolCallInfo['status']): React.ReactNode {
   }
 }
 
-export function AgentProgress({ currentStep, maxSteps, toolCalls, streamingText, onStop, onLoadQuery }: AgentProgressProps) {
+export function AgentProgress({ currentStep, maxSteps, toolCalls, streamingText, todos = [], onStop, onLoadQuery }: AgentProgressProps) {
   const percent = Math.round((currentStep / maxSteps) * 100);
-  const recentCalls = toolCalls.slice(-8); // Show last 8 tool calls
+  // Filter out manage_todo calls from display (they're shown in the todo list instead)
+  const displayCalls = toolCalls.filter(tc => tc.toolName !== 'manage_todo');
+  const recentCalls = displayCalls.slice(-8); // Show last 8 tool calls
 
   // Check if there's a final query (update_query_ui was called)
   const finalQueryCall = toolCalls.find(tc => tc.toolName === 'update_query_ui' && tc.status === 'success');
@@ -100,6 +110,11 @@ export function AgentProgress({ currentStep, maxSteps, toolCalls, streamingText,
         strokeColor="#1890ff"
         style={{ marginBottom: 12 }}
       />
+
+      {/* Todo List */}
+      {todos.length > 0 && (
+        <AgentTodoList todos={todos} compact />
+      )}
 
       {streamingText && (
         <div className="agent-streaming-text">

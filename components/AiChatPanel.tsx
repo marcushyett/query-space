@@ -200,6 +200,7 @@ export function AiChatPanel() {
               maxSteps={agentProgress.maxSteps}
               toolCalls={agentProgress.toolCalls}
               streamingText={agentProgress.streamingText}
+              todos={agentProgress.todos}
               onStop={stopAgent}
               onLoadQuery={handleLoadQuery}
             />

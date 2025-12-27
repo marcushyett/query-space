@@ -529,6 +529,138 @@ REQUIRED: Always provide a title and description so users understand the visuali
         };
       },
     }),
+
+    // Tool 7: Manage todo list for complex queries
+    manage_todo: tool({
+      description: `Manage a todo list to track progress on complex queries.
+Use this tool to create a plan at the start of complex queries, and update progress as you work.
+
+WHEN TO USE:
+- At the START of complex queries requiring multiple steps (3+ steps)
+- When you need to explore unknown schema
+- When the user's request involves multiple tables or aggregations
+- When you discover new requirements during execution
+
+ACTIONS:
+- "create": Initialize the todo list with planned steps (call once at start)
+- "set_current": Mark which item you're currently working on
+- "complete": Mark an item as done
+- "skip": Skip an item that's no longer needed
+- "add": Add a new item discovered during execution
+
+GOOD TODO ITEMS (specific and actionable):
+- "Get schema for users table"
+- "Find date column for time filtering"
+- "Test query with sample data"
+- "Add GROUP BY for aggregation"
+
+BAD TODO ITEMS (too vague):
+- "Understand the data"
+- "Build the query"
+- "Fix issues"`,
+      inputSchema: z.object({
+        action: z.enum(['create', 'set_current', 'complete', 'skip', 'add']).describe('The action to perform'),
+        items: z.array(z.string()).optional().describe('For "create": List of todo items to initialize'),
+        item_id: z.string().optional().describe('For "set_current", "complete", "skip": The ID of the item to update'),
+        item_text: z.string().optional().describe('For "add": The text for the new todo item'),
+      }),
+      execute: async ({ action, items, item_id, item_text }) => {
+        // This tool doesn't execute anything - it signals to the orchestrator to update UI state
+        // The actual state update happens in the hook that handles tool results
+        switch (action) {
+          case 'create':
+            if (!items || items.length === 0) {
+              return {
+                success: false,
+                error: 'Must provide items array for create action',
+                action,
+              };
+            }
+            return {
+              success: true,
+              action: 'create',
+              items: items.map((text, index) => ({
+                id: `todo-${Date.now()}-${index}`,
+                text,
+                status: index === 0 ? 'in_progress' : 'pending',
+              })),
+              message: `Created todo list with ${items.length} items`,
+            };
+
+          case 'set_current':
+            if (!item_id) {
+              return {
+                success: false,
+                error: 'Must provide item_id for set_current action',
+                action,
+              };
+            }
+            return {
+              success: true,
+              action: 'set_current',
+              item_id,
+              message: `Set current item to ${item_id}`,
+            };
+
+          case 'complete':
+            if (!item_id) {
+              return {
+                success: false,
+                error: 'Must provide item_id for complete action',
+                action,
+              };
+            }
+            return {
+              success: true,
+              action: 'complete',
+              item_id,
+              message: `Marked ${item_id} as completed`,
+            };
+
+          case 'skip':
+            if (!item_id) {
+              return {
+                success: false,
+                error: 'Must provide item_id for skip action',
+                action,
+              };
+            }
+            return {
+              success: true,
+              action: 'skip',
+              item_id,
+              message: `Skipped ${item_id}`,
+            };
+
+          case 'add':
+            if (!item_text) {
+              return {
+                success: false,
+                error: 'Must provide item_text for add action',
+                action,
+              };
+            }
+            return {
+              success: true,
+              action: 'add',
+              item: {
+                id: `todo-${Date.now()}-new`,
+                text: item_text,
+                status: 'pending',
+                addedDuringExecution: true,
+              },
+              message: `Added new todo: ${item_text}`,
+            };
+
+          default:
+            return {
+              success: false,
+              error: `Unknown action: ${action}`,
+              action,
+            };
+        }
+      },
+    }),
   };
 }
 

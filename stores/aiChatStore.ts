@@ -27,6 +27,16 @@ export interface QueryMetadata {
   sampleResults?: Record<string, unknown>[];
 }
 
+// Agent todo list item
+export interface AgentTodoItem {
+  id: string;
+  text: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  createdAt: number;
+  completedAt?: number;
+  addedDuringExecution?: boolean; // Items discovered during execution
+}
+
 export interface ToolCallInfo {
   id: string;
   toolName: string;
@@ -75,6 +85,7 @@ export interface AgentProgress {
   canContinue: boolean;
   toolCalls: ToolCallInfo[];
   streamingText: string;
+  todos: AgentTodoItem[];
 }
 
 interface AiChatStore {
@@ -115,6 +126,11 @@ interface AiChatStore {
   updateAgentToolCall: (id: string, update: Partial<ToolCallInfo>) => void;
   completeAgent: (reachedStepLimit: boolean) => void;
   resetAgentProgress: () => void;
+
+  // Agent todo actions
+  setAgentTodos: (todos: AgentTodoItem[]) => void;
+  updateAgentTodo: (id: string, update: Partial<AgentTodoItem>) => void;
+  addAgentTodo: (todo: Omit<AgentTodoItem, 'id' | 'createdAt'>) => void;
 }
 
 export const useAiChatStore = create<AiChatStore>((set, get) => ({
@@ -299,6 +315,7 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
         canContinue: false,
         toolCalls: [],
         streamingText: '',
+        todos: [],
       },
       isGenerating: true,
     });
@@ -360,5 +377,50 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
 
   resetAgentProgress: () => {
     set({ agentProgress: null });
+  },
+
+  // Agent todo actions
+  setAgentTodos: (todos: AgentTodoItem[]) => {
+    set((state) => ({
+      agentProgress: state.agentProgress
+        ? { ...state.agentProgress, todos }
+        : null,
+    }));
+  },
+
+  updateAgentTodo: (id: string, update: Partial<AgentTodoItem>) => {
+    set((state) => ({
+      agentProgress: state.agentProgress
+        ? {
+            ...state.agentProgress,
+            todos: state.agentProgress.todos.map((todo) =>
+              todo.id === id
+                ? {
+                    ...todo,
+                    ...update,
+                    completedAt: update.status === 'completed' ? Date.now() : todo.completedAt,
+                  }
+                : todo
+            ),
+          }
+        : null,
+    }));
+  },
+
+  addAgentTodo: (todo: Omit<AgentTodoItem, 'id' | 'createdAt'>) => {
+    const newTodo: AgentTodoItem = {
+      ...todo,
+      id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: Date.now(),
+      addedDuringExecution: true,
+    };
+    set((state) => ({
+      agentProgress: state.agentProgress
+        ? {
+            ...state.agentProgress,
+            todos: [...state.agentProgress.todos, newTodo],
+          }
+        : null,
+    }));
   },
 }));
