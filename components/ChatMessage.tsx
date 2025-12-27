@@ -16,6 +16,7 @@ import { computeSqlDiff } from '@/lib/sqlDiff';
 import { InlineChatChart } from './InlineChatChart';
 import { ExpandableQuery } from './ExpandableQuery';
 import { AgentSummary } from './AgentSummary';
+import { AgentTodoList } from './AgentTodoList';
 
 const { Text } = Typography;
 
@@ -75,6 +76,15 @@ export function ChatMessage({ message, isLatest, onLoadQuery }: ChatMessageProps
             queryMetadata={message.queryMetadata}
             onLoadQuery={onLoadQuery}
           />
+        </div>
+      );
+    }
+
+    // If we have todos, render the todo list
+    if (message.todos && message.todos.length > 0) {
+      return (
+        <div style={{ marginBottom: 8 }}>
+          <AgentTodoList todos={message.todos} compact />
         </div>
       );
     }
