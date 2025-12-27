@@ -1115,3 +1115,170 @@ body {
     padding: 4px 8px;
   }
 }
+
+/* Expandable Query Component */
+.expandable-query {
+  background: #0a0a0a;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.expandable-query-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.expandable-query-header:hover {
+  background: #0d0d0d;
+}
+
+.expandable-query-content {
+  padding: 0 12px 12px;
+}
+
+.expandable-query-sql {
+  background: #0d0d0d;
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.expandable-query-sql-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: #111;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.expandable-query-code {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #d4d4d4;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.expandable-query-results {
+  margin-top: 12px;
+}
+
+.expandable-query-results .ant-table {
+  font-size: 11px;
+}
+
+/* Override collapse for expandable query */
+.expandable-query .ant-collapse {
+  background: transparent !important;
+  border: none !important;
+}
+
+.expandable-query .ant-collapse-header {
+  display: none !important;
+}
+
+.expandable-query .ant-collapse-content {
+  background: transparent !important;
+  border: none !important;
+}
+
+.expandable-query .ant-collapse-content-box {
+  padding: 12px 0 0 0 !important;
+}
+
+/* Agent Summary Component */
+.agent-summary {
+  margin-top: 8px;
+}
+
+.agent-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.agent-summary-content {
+  line-height: 1.6;
+}
+
+.agent-summary-query {
+  background: #0d0d0d;
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.agent-summary-query-header {
+  padding: 8px 12px;
+  background: #111;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.agent-summary-suggestions {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Override collapse for agent summary */
+.agent-summary .ant-collapse {
+  background: transparent !important;
+  border: none !important;
+}
+
+.agent-summary .ant-collapse-header {
+  display: none !important;
+}
+
+.agent-summary .ant-collapse-content {
+  background: transparent !important;
+  border: none !important;
+}
+
+.agent-summary .ant-collapse-content-box {
+  padding: 0 !important;
+}
+
+/* Tag colors for confidence levels */
+.ant-tag-success {
+  background: rgba(82, 196, 26, 0.15) !important;
+  border-color: rgba(82, 196, 26, 0.3) !important;
+  color: #95de64 !important;
+}
+
+.ant-tag-warning {
+  background: rgba(250, 173, 20, 0.15) !important;
+  border-color: rgba(250, 173, 20, 0.3) !important;
+  color: #ffc53d !important;
+}
+
+/* Mobile adjustments for expandable components */
+@media (max-width: 767px) {
+  .expandable-query-header {
+    padding: 8px 10px;
+  }
+
+  .expandable-query-content {
+    padding: 0 10px 10px;
+  }
+
+  .expandable-query-code {
+    font-size: 10px;
+    max-height: 150px;
+  }
+
+  .agent-summary {
+    padding: 10px;
+  }
+}

@@ -13,6 +13,18 @@ export interface ChatChartData {
   data: Record<string, unknown>[];
   xAxisKey: string;
   yAxisKeys: string[];
+  title?: string;
+  description?: string;
+}
+
+// Metadata for executed queries (from execute_query tool)
+export interface QueryMetadata {
+  sql: string;
+  title: string;
+  description: string;
+  rowCount: number;
+  executionTime: number;
+  sampleResults?: Record<string, unknown>[];
 }
 
 export interface ToolCallInfo {
@@ -48,6 +60,10 @@ export interface ChatMessage {
   suggestions?: string[];
   // For inline charts
   chartData?: ChatChartData;
+  // For expandable query display (from execute_query tool)
+  queryMetadata?: QueryMetadata;
+  // For end-of-flow summary
+  summary?: string;
 }
 
 export interface AgentProgress {
@@ -83,6 +99,7 @@ interface AiChatStore {
   updateToolCall: (id: string, update: Partial<ToolCallInfo>) => void;
   updateLastAssistantMessage: (update: Partial<ChatMessage>) => void;
   addChartMessage: (chartData: ChatChartData, explanation?: string) => void;
+  addQueryMessage: (queryMetadata: QueryMetadata) => void;
   setCurrentSql: (sql: string | null) => void;
   setIsGenerating: (generating: boolean) => void;
   setIsAiGenerated: (isAiGenerated: boolean) => void;
@@ -212,6 +229,24 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
     };
     set((state) => ({
       messages: [...state.messages, chartMessage],
+    }));
+  },
+
+  addQueryMessage: (queryMetadata: QueryMetadata) => {
+    const queryMessage: ChatMessage = {
+      id: `query-${Date.now()}`,
+      role: 'system',
+      content: queryMetadata.title,
+      timestamp: Date.now(),
+      queryMetadata,
+      queryResult: {
+        rowCount: queryMetadata.rowCount,
+        executionTime: queryMetadata.executionTime,
+        sampleResults: queryMetadata.sampleResults,
+      },
+    };
+    set((state) => ({
+      messages: [...state.messages, queryMessage],
     }));
   },
 

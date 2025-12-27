@@ -179,13 +179,16 @@ This helps you write correct JSON path expressions like data->>'fieldName'.`,
       description: `Execute a read-only SQL query against the database and return results.
 IMPORTANT: Only SELECT queries are allowed. Any INSERT, UPDATE, DELETE, DROP, or other mutation queries will be rejected.
 Use this to test your queries, explore data, or verify your results match the user's goal.
-The query will automatically have a LIMIT applied if none is specified.`,
+The query will automatically have a LIMIT applied if none is specified.
+
+REQUIRED: Always provide a title and description for the query so users understand what it does.`,
       inputSchema: z.object({
         sql: z.string().describe('The SQL SELECT query to execute'),
+        title: z.string().describe('Short title describing what this query does (e.g., "Sales by Region", "Active Users Count")'),
+        description: z.string().describe('Brief explanation of what this query retrieves and why (1-2 sentences)'),
         limit: z.number().optional().describe('Maximum number of rows to return. Defaults to 100. Max is 1000.'),
-        purpose: z.string().optional().describe('Brief description of why you are running this query (for logging)'),
       }),
-      execute: async ({ sql, limit = 100, purpose }) => {
+      execute: async ({ sql, title, description, limit = 100 }) => {
         // Validate it's a read-only query
         if (isMutationQuery(sql)) {
           return {
@@ -199,7 +202,8 @@ The query will automatically have a LIMIT applied if none is specified.`,
             hasMoreRows: null,
             warning: null,
             emptyColumns: null,
-            purpose: purpose ?? null,
+            title: title ?? null,
+            description: description ?? null,
           };
         }
 
@@ -216,7 +220,8 @@ The query will automatically have a LIMIT applied if none is specified.`,
             hasMoreRows: null,
             warning: null,
             emptyColumns: null,
-            purpose: purpose ?? null,
+            title: title ?? null,
+            description: description ?? null,
           };
         }
 
@@ -261,7 +266,8 @@ The query will automatically have a LIMIT applied if none is specified.`,
               ? `These columns returned all NULL values: ${emptyColumns.join(', ')}. This might indicate wrong field names or JSON paths.`
               : null,
             emptyColumns: emptyColumns.length > 0 ? emptyColumns : null,
-            purpose: purpose ?? null,
+            title: title ?? null,
+            description: description ?? null,
           };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -281,7 +287,8 @@ The query will automatically have a LIMIT applied if none is specified.`,
             hasMoreRows: null,
             warning: null,
             emptyColumns: null,
-            purpose: purpose ?? null,
+            title: title ?? null,
+            description: description ?? null,
           };
         } finally {
           await client.end();
@@ -361,20 +368,24 @@ This is useful for validating complex queries before proposing them to the user.
 Call this when you have a final query that meets the user's goal.
 The user will be able to see the query, review it, modify it, and run it.
 Include a clear explanation of what the query does and why it meets their goal.
-THIS IS THE FINAL STEP - call this when you have a working query.`,
+THIS IS THE FINAL STEP - call this when you have a working query.
+
+REQUIRED: Provide a brief summary of key findings from your analysis.`,
       inputSchema: z.object({
         sql: z.string().describe('The final SQL query to display to the user'),
         explanation: z.string().describe('Clear explanation of what this query does and how it addresses the user\'s goal'),
+        summary: z.string().describe('Brief summary of findings from the analysis (2-3 sentences highlighting key insights or what the data shows)'),
         changes: z.array(z.string()).optional().describe('List of changes made from the previous query, if this is a modification'),
         confidence: z.enum(['high', 'medium', 'low']).optional().describe('Your confidence that this query meets the user\'s goal'),
         suggestions: z.array(z.string()).optional().describe('Optional suggestions for the user to refine the query further'),
       }),
-      execute: async ({ sql, explanation, changes, confidence = 'high', suggestions }) => {
+      execute: async ({ sql, explanation, summary, changes, confidence = 'high', suggestions }) => {
         // This tool signals completion - the result is used by the agent orchestrator
         return {
           action: 'updateUI',
           sql,
           explanation,
+          summary: summary || '',
           changes: changes || [],
           confidence,
           suggestions: suggestions || [],
@@ -397,26 +408,31 @@ Do NOT use for:
 - Single row results
 - Raw data without aggregation
 - Results with many columns but few numeric values
-- Text-only results`,
+- Text-only results
+
+REQUIRED: Always provide a title and description so users understand the visualization.`,
       inputSchema: z.object({
         data: z.array(z.record(z.string(), z.unknown())).describe('The query result rows to visualize'),
         columns: z.array(z.object({
           name: z.string(),
           type: z.enum(['numeric', 'date', 'text', 'unknown']),
         })).describe('Column metadata from the query result'),
+        title: z.string().describe('Short title for the chart (e.g., "Monthly Revenue Trend", "Users by Country")'),
+        description: z.string().describe('Brief explanation of what the visualization shows and key insights (1-2 sentences)'),
         chartType: z.enum(['column', 'line', 'area', 'pie']).optional().describe('Override automatic chart type detection'),
-        title: z.string().optional().describe('Optional title for the chart'),
         xAxis: z.string().optional().describe('Override X-axis column selection'),
         yAxes: z.array(z.string()).optional().describe('Override Y-axis columns selection'),
         stacked: z.boolean().optional().describe('Whether to stack the chart (for column/area charts)'),
       }),
-      execute: async ({ data, columns, chartType, title, xAxis, yAxes, stacked = false }) => {
+      execute: async ({ data, columns, title, description, chartType, xAxis, yAxes, stacked = false }) => {
         if (!data || data.length === 0) {
           return {
             success: false,
             error: 'No data provided for chart generation',
             chartConfig: null,
             chartData: null,
+            title: title ?? null,
+            description: description ?? null,
           };
         }
 
@@ -475,6 +491,8 @@ Do NOT use for:
             chartConfig: null,
             chartData: null,
             hint: 'Ensure your query returns at least one text/date column for the X-axis and one numeric column for values.',
+            title: title ?? null,
+            description: description ?? null,
           };
         }
 
@@ -506,6 +524,8 @@ Do NOT use for:
           dataPointCount: data.length,
           message: `Generated ${detectedType} chart with ${data.length} data points`,
           error: null,
+          title: title ?? null,
+          description: description ?? null,
         };
       },
     }),
