@@ -15,6 +15,10 @@ export interface AgentState {
   lastError: string | null;
   toolCalls: ToolCallRecord[];
   reachedStepLimit: boolean;
+  // New fields for improved agent transparency
+  assumptions: string[];
+  dataQualityNotes: string | null;
+  alternativeApproaches: { approach: string; reason: string }[];
 }
 
 export interface ToolCallRecord {
@@ -77,6 +81,54 @@ Example - User asks "Show me sales by product category with growth":
 1. FIRST call: manage_todo(action="create", items=["Get table schema", "Find sales and product tables", "Build aggregation query", "Add growth calculation"])
 2. THEN proceed with get_table_schema, marking items complete as you go
 
+## MULTI-APPROACH STRATEGY (IMPORTANT)
+For non-trivial queries, consider multiple approaches before committing to one:
+
+1. **Identify alternatives early** - After examining the schema, briefly consider 2-3 ways to achieve the goal
+2. **Evaluate based on data** - Use quick exploratory queries to assess which approach fits the data best
+3. **Choose efficiently** - Don't exhaustively test all approaches; identify the most promising one based on:
+   - Data availability (which tables have the needed columns?)
+   - Data quality (which columns have fewer NULLs/issues?)
+   - Query simplicity (simpler is better when results are equivalent)
+4. **Document your choice** - When calling update_query_ui, include alternativeApproaches to explain what else you considered
+
+Example thought process:
+- "I could join orders->products or use a denormalized sales_summary table"
+- "Quick check: sales_summary has the aggregations ready, orders table would need GROUP BY"
+- "sales_summary is simpler and has good data quality, using that approach"
+
+## DATA QUALITY AWARENESS
+Pay attention to data quality throughout your analysis:
+
+1. **Check execute_query results** - Look at the dataQuality field for issues
+2. **Handle problematic data**:
+   - Filter NULL values when they would corrupt aggregations
+   - Exclude infinite values from calculations
+   - Consider using COALESCE for missing data
+3. **Use analyze_data_quality** - For deeper analysis when you see warnings
+4. **Document assumptions** - Always record what filtering or data handling you applied
+
+When data quality is poor:
+- Add WHERE clauses to filter bad data
+- Use COALESCE, NULLIF, or CASE to handle edge cases
+- Note all data handling decisions in assumptions
+
+## ASSUMPTIONS TRACKING (REQUIRED)
+You MUST track and report all assumptions made during analysis. When calling update_query_ui:
+
+1. **Always provide assumptions array** with items like:
+   - "Filtered out 15% of rows with NULL values in 'amount' column"
+   - "Used 'created_at' as the date column (other option was 'updated_at')"
+   - "Applied 30-day default window as no date range was specified"
+   - "Assumed 'status' = 'completed' means successful transactions"
+   - "Excluded test accounts (emails containing 'test')"
+
+2. **Include dataQualityNotes** if you encountered and handled data issues
+
+3. **List alternativeApproaches** you considered with reasons for your choice
+
+This transparency helps users understand and trust the results.
+
 ## HANDLING AMBIGUITY AND CLARIFICATION
 When facing ambiguity, follow this priority:
 1. **First, try to find the answer yourself** - Use get_table_schema, execute exploratory queries, check column names
@@ -97,10 +149,11 @@ Do NOT ask for clarification about:
 1. **manage_todo** - REQUIRED FIRST for non-trivial queries (see above)
 2. get_table_schema - Get database structure (use first if needed)
 3. get_json_keys - Explore JSON column structure
-4. execute_query - Test queries (ALWAYS provide title and description)
+4. execute_query - Test queries (ALWAYS provide title and description) - includes data quality analysis
 5. validate_query - Check syntax without running
-6. update_query_ui - Finalize and present query to user (ALWAYS provide summary)
+6. update_query_ui - Finalize and present query to user (ALWAYS provide summary AND assumptions)
 7. generate_chart - Create a visualization for query results (ALWAYS provide title and description)
+8. analyze_data_quality - Deep analysis of data quality issues when needed
 
 ## TODO LIST WORKFLOW
 1. Call manage_todo(action="create", items=[...]) at the START
@@ -210,6 +263,9 @@ export async function* streamQueryAgent(
     lastError: null,
     toolCalls: [],
     reachedStepLimit: false,
+    assumptions: [],
+    dataQualityNotes: null,
+    alternativeApproaches: [],
   };
 
   // Create tools with context
@@ -275,12 +331,28 @@ export async function* streamQueryAgent(
           pendingToolCalls.set(part.toolCallId, record);
           yield { type: 'tool_call_start', toolName: part.toolName, args: record.args };
 
-          // Handle update_query_ui tool call to track completion
+          // Handle update_query_ui tool call to track completion and extract metadata
           if (part.toolName === 'update_query_ui') {
-            const input = part.input as { sql: string; explanation: string };
+            const input = part.input as {
+              sql: string;
+              explanation: string;
+              assumptions?: string[];
+              dataQualityNotes?: string;
+              alternativeApproaches?: { approach: string; reason: string }[];
+            };
             if (input?.sql) {
               state.currentSql = formatSql(input.sql);
               state.hasCompletedGoal = true;
+              // Extract transparency metadata
+              if (input.assumptions) {
+                state.assumptions = input.assumptions;
+              }
+              if (input.dataQualityNotes) {
+                state.dataQualityNotes = input.dataQualityNotes;
+              }
+              if (input.alternativeApproaches) {
+                state.alternativeApproaches = input.alternativeApproaches;
+              }
             }
           }
           break;

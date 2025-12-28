@@ -11,6 +11,13 @@ import {
   type ChartType,
   type ChartConfig,
 } from '@/lib/chart-utils';
+import {
+  analyzeDataQuality,
+  filterGarbageData,
+  summarizeDataQuality,
+  type DataQualityReport,
+  type DataQualityIssue,
+} from './dataQuality';
 
 // Dangerous SQL patterns that should NEVER be allowed
 const DANGEROUS_PATTERNS = [
@@ -243,31 +250,52 @@ REQUIRED: Always provide a title and description for the query so users understa
           const result = await client.query(queryToRun);
           const executionTime = Date.now() - startTime;
 
-          // Analyze results for potential issues
-          const emptyColumns: string[] = [];
-          if (result.rows.length > 0) {
-            for (const field of result.fields) {
-              const allNull = result.rows.every((row: Record<string, unknown>) => row[field.name] === null);
-              if (allNull) {
-                emptyColumns.push(field.name);
-              }
-            }
+          // Perform comprehensive data quality analysis
+          const columnNames = result.fields.map((f: { name: string; dataTypeID: number }) => f.name);
+          const dataQualityReport = analyzeDataQuality(result.rows, columnNames);
+
+          // Legacy: maintain emptyColumns for backwards compatibility
+          const emptyColumns = dataQualityReport.issues
+            .filter(i => i.issueType === 'all_null')
+            .map(i => i.column);
+
+          // Build warnings from data quality issues
+          const warnings: string[] = [];
+          const criticalIssues = dataQualityReport.issues.filter(i => i.severity === 'critical');
+          const warningIssues = dataQualityReport.issues.filter(i => i.severity === 'warning');
+
+          if (criticalIssues.length > 0) {
+            warnings.push(`Critical data quality issues: ${criticalIssues.map(i => i.description).join('; ')}`);
+          }
+          if (warningIssues.length > 0) {
+            warnings.push(`Data quality warnings: ${warningIssues.map(i => i.description).join('; ')}`);
           }
 
           return {
             success: true,
             rowCount: result.rowCount || 0,
             executionTime,
-            columns: result.fields.map((f: { name: string; dataTypeID: number }) => f.name),
+            columns: columnNames,
             rows: result.rows.slice(0, 5), // Return first 5 rows as sample
             hasMoreRows: (result.rowCount || 0) > 5,
             // Use null instead of undefined for optional fields to prevent JSON serialization issues
-            warning: emptyColumns.length > 0
-              ? `These columns returned all NULL values: ${emptyColumns.join(', ')}. This might indicate wrong field names or JSON paths.`
-              : null,
+            warning: warnings.length > 0 ? warnings.join(' ') : null,
             emptyColumns: emptyColumns.length > 0 ? emptyColumns : null,
             title: title ?? null,
             description: description ?? null,
+            // Enhanced data quality information
+            dataQuality: {
+              score: dataQualityReport.qualityScore,
+              overallQuality: dataQualityReport.overallQuality,
+              issueCount: dataQualityReport.issues.length,
+              issues: dataQualityReport.issues.slice(0, 5), // Limit to top 5 issues
+              columnStats: dataQualityReport.columnStats.map(cs => ({
+                name: cs.name,
+                type: cs.inferredType,
+                nullPercentage: cs.nullPercentage,
+                uniqueCount: cs.uniqueCount,
+              })),
+            },
           };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -370,22 +398,36 @@ The user will be able to see the query, review it, modify it, and run it.
 Include a clear explanation of what the query does and why it meets their goal.
 THIS IS THE FINAL STEP - call this when you have a working query.
 
-REQUIRED: Provide a brief summary of key findings from your analysis.`,
+REQUIRED: Provide a brief summary of key findings AND list any assumptions made.
+IMPORTANT: Always document assumptions made during analysis, especially:
+- Data filtering decisions (e.g., excluded NULL values, filtered outliers)
+- Interpretation choices (e.g., assumed 'date' meant 'created_at' column)
+- Default values used (e.g., used 30-day window when no date range specified)
+- Ambiguity resolutions (e.g., chose specific table when multiple options existed)`,
       inputSchema: z.object({
         sql: z.string().describe('The final SQL query to display to the user'),
         explanation: z.string().describe('Clear explanation of what this query does and how it addresses the user\'s goal'),
         summary: z.string().describe('Brief summary of findings from the analysis (2-3 sentences highlighting key insights or what the data shows)'),
+        assumptions: z.array(z.string()).describe('List of assumptions made during analysis, especially those affecting data quality or interpretation. Include filtering decisions, column choices, and default values used.'),
+        dataQualityNotes: z.string().optional().describe('Notes about data quality issues found and how they were handled'),
+        alternativeApproaches: z.array(z.object({
+          approach: z.string().describe('Brief description of the alternative approach'),
+          reason: z.string().describe('Why this approach was not chosen'),
+        })).optional().describe('Other approaches considered and why the chosen approach was preferred'),
         changes: z.array(z.string()).optional().describe('List of changes made from the previous query, if this is a modification'),
         confidence: z.enum(['high', 'medium', 'low']).optional().describe('Your confidence that this query meets the user\'s goal'),
         suggestions: z.array(z.string()).optional().describe('Optional suggestions for the user to refine the query further'),
       }),
-      execute: async ({ sql, explanation, summary, changes, confidence = 'high', suggestions }) => {
+      execute: async ({ sql, explanation, summary, assumptions, dataQualityNotes, alternativeApproaches, changes, confidence = 'high', suggestions }) => {
         // This tool signals completion - the result is used by the agent orchestrator
         return {
           action: 'updateUI',
           sql,
           explanation,
           summary: summary || '',
+          assumptions: assumptions || [],
+          dataQualityNotes: dataQualityNotes || null,
+          alternativeApproaches: alternativeApproaches || [],
           changes: changes || [],
           confidence,
           suggestions: suggestions || [],
@@ -659,6 +701,98 @@ BAD TODO ITEMS (too vague):
               action,
             };
         }
+      },
+    }),
+
+    // Tool 8: Analyze data quality
+    analyze_data_quality: tool({
+      description: `Analyze data quality for a query's results to detect issues like NULL values, zeros, infinite values, type mismatches, and outliers.
+Use this tool after executing a query to understand data quality before finalizing.
+This helps you make informed decisions about filtering and alerts you to potential data issues.
+
+When to use:
+- After execute_query to assess result quality
+- When you notice many NULL values or suspicious patterns
+- Before finalizing a query to check for data issues
+- When aggregation results seem unexpected
+
+The tool provides a quality score (0-100) and specific issues to address.`,
+      inputSchema: z.object({
+        rows: z.array(z.record(z.string(), z.unknown())).describe('The query result rows to analyze'),
+        columns: z.array(z.string()).describe('Column names from the query result'),
+        applyFiltering: z.boolean().optional().describe('Whether to filter out garbage data and return cleaned results'),
+        filterOptions: z.object({
+          removeNulls: z.union([z.boolean(), z.array(z.string())]).optional().describe('Remove rows with NULL values (true for all columns, or array of specific column names)'),
+          removeZeros: z.union([z.boolean(), z.array(z.string())]).optional().describe('Remove rows with zero values'),
+          removeInfinites: z.union([z.boolean(), z.array(z.string())]).optional().describe('Remove rows with infinite values'),
+          removeEmptyStrings: z.union([z.boolean(), z.array(z.string())]).optional().describe('Remove rows with empty strings'),
+        }).optional().describe('Options for filtering garbage data'),
+      }),
+      execute: async ({ rows, columns, applyFiltering = false, filterOptions = {} }) => {
+        if (!rows || rows.length === 0) {
+          return {
+            success: true,
+            report: {
+              totalRows: 0,
+              totalColumns: columns.length,
+              issues: [],
+              qualityScore: 100,
+              overallQuality: 'good',
+              summary: 'No data to analyze.',
+            },
+            filteredData: null,
+            filteringApplied: false,
+          };
+        }
+
+        // Perform data quality analysis
+        const report = analyzeDataQuality(rows, columns);
+
+        let filteredResult = null;
+        if (applyFiltering && Object.keys(filterOptions).length > 0) {
+          filteredResult = filterGarbageData(rows, columns, filterOptions);
+          report.filteringApplied = true;
+          report.filteredRowCount = filteredResult.filteredRows.length;
+        }
+
+        return {
+          success: true,
+          report: {
+            totalRows: report.totalRows,
+            totalColumns: report.totalColumns,
+            issues: report.issues.map(issue => ({
+              column: issue.column,
+              type: issue.issueType,
+              severity: issue.severity,
+              description: issue.description,
+              percentage: issue.percentage,
+              suggestion: issue.suggestion,
+            })),
+            columnStats: report.columnStats.map(cs => ({
+              name: cs.name,
+              inferredType: cs.inferredType,
+              nullPercentage: cs.nullPercentage,
+              uniqueCount: cs.uniqueCount,
+              zeroCount: cs.zeroCount ?? null,
+              infiniteCount: cs.infiniteCount ?? null,
+            })),
+            qualityScore: report.qualityScore,
+            overallQuality: report.overallQuality,
+            summary: summarizeDataQuality(report),
+          },
+          filteredData: filteredResult ? {
+            rows: filteredResult.filteredRows.slice(0, 5), // Sample of filtered data
+            totalFilteredRows: filteredResult.filteredRows.length,
+            removedCount: filteredResult.removedCount,
+            removedReasons: filteredResult.removedReasons,
+          } : null,
+          filteringApplied: applyFiltering,
+          hint: report.qualityScore < 50
+            ? 'Data quality is poor. Consider filtering out problematic rows or verifying column names.'
+            : report.qualityScore < 80
+            ? 'Some data quality issues detected. Review the issues and consider filtering if needed.'
+            : 'Data quality is good.',
+        };
       },
     }),
   };

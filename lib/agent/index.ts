@@ -8,3 +8,11 @@ export {
   type AgentStreamEvent,
   type ToolCallRecord,
 } from './queryAgent';
+export {
+  analyzeDataQuality,
+  filterGarbageData,
+  summarizeDataQuality,
+  type DataQualityReport,
+  type DataQualityIssue,
+  type ColumnStats,
+} from './dataQuality';
