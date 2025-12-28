@@ -1,15 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
-import { Button, Form, Input, Divider, Alert, Typography } from 'antd'
+import { Button, Form, Input, Divider, Alert, Typography, Spin } from 'antd'
 import { GithubOutlined, MailOutlined, LockOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 
 const { Title, Text } = Typography
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/'
@@ -149,5 +149,13 @@ export default function LoginPage() {
         </Text>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="auth-form"><Spin size="large" /></div>}>
+      <LoginForm />
+    </Suspense>
   )
 }
