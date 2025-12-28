@@ -61,11 +61,16 @@ export async function POST(request: NextRequest) {
     // Hash new password
     const hashedPassword = await hash(password, 12)
 
-    // Update password and delete token in a transaction
+    // Update password, verify email if needed, and delete token in a transaction
+    // If the user can click a password reset link, they've proven they own the email
     await prisma.$transaction([
       prisma.user.update({
         where: { id: user.id },
-        data: { password: hashedPassword },
+        data: {
+          password: hashedPassword,
+          // Also verify email if not already verified
+          emailVerified: user.emailVerified ?? new Date(),
+        },
       }),
       prisma.verificationToken.delete({
         where: {
@@ -77,8 +82,12 @@ export async function POST(request: NextRequest) {
       }),
     ])
 
+    const emailWasVerified = !user.emailVerified
     return NextResponse.json({
-      message: 'Password reset successfully. You can now sign in with your new password.',
+      message: emailWasVerified
+        ? 'Password reset and email verified successfully. You can now sign in with your new password.'
+        : 'Password reset successfully. You can now sign in with your new password.',
+      emailVerified: emailWasVerified,
     })
   } catch (error) {
     console.error('Reset password error:', error)

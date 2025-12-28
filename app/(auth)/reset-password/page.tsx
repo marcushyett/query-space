@@ -16,6 +16,7 @@ function ResetPasswordForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [emailVerified, setEmailVerified] = useState(false)
 
   if (!token) {
     return (
@@ -56,6 +57,7 @@ function ResetPasswordForm() {
       }
 
       setSuccess(true)
+      setEmailVerified(data.emailVerified || false)
     } catch {
       setError('An error occurred. Please try again.')
     } finally {
@@ -68,10 +70,12 @@ function ResetPasswordForm() {
       <div className="auth-form">
         <div className="auth-header">
           <Title level={2} style={{ margin: 0, color: '#fff' }}>
-            Password reset!
+            {emailVerified ? 'Password reset & email verified!' : 'Password reset!'}
           </Title>
           <Text type="secondary" style={{ display: 'block', marginTop: 16 }}>
-            Your password has been successfully reset. You can now sign in with your new password.
+            {emailVerified
+              ? 'Your password has been reset and your email has been verified. You can now sign in.'
+              : 'Your password has been successfully reset. You can now sign in with your new password.'}
           </Text>
         </div>
 
