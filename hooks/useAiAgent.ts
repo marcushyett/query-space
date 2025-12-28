@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useAiStore } from '@/stores/aiStore';
 import { useSchemaStore } from '@/stores/schemaStore';
 import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata, AgentTodoItem } from '@/stores/aiChatStore';
 import { useQueryStore, QueryResult } from '@/stores/queryStore';
+import { useAgentSessionStore, AgentSession } from '@/stores/agentSessionStore';
 import type { AgentStreamEvent } from '@/lib/agent';
 import type { ChartConfig } from '@/lib/chart-utils';
 
@@ -18,6 +19,18 @@ export function useAiAgent() {
   const apiKey = useAiStore((state) => state.apiKey);
   const tables = useSchemaStore((state) => state.tables);
   const { setCurrentQuery, setQueryResults, addToHistory, setIsExecuting } = useQueryStore();
+
+  // Session persistence
+  const {
+    currentSessionId,
+    createSession,
+    updateSession,
+    pauseSession,
+    completeSession: completeSessionStore,
+    getResumableSessions,
+    getCurrentSession,
+    cleanupOldSessions,
+  } = useAgentSessionStore();
 
   const {
     messages,
@@ -44,6 +57,29 @@ export function useAiAgent() {
   } = useAiChatStore();
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+
+  // Cleanup old sessions on mount
+  useEffect(() => {
+    cleanupOldSessions();
+  }, [cleanupOldSessions]);
+
+  // Handle page unload - pause current session
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (sessionIdRef.current && agentProgress?.isRunning) {
+        const session = getCurrentSession();
+        if (session) {
+          pauseSession(sessionIdRef.current, '');
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [agentProgress?.isRunning, getCurrentSession, pauseSession]);
 
   // Execute a query (for when agent finalizes)
   const executeQuery = useCallback(
@@ -114,6 +150,10 @@ export function useAiAgent() {
       addUserMessage(prompt);
       startAgent(prompt, MAX_STEPS);
 
+      // Create a new session for tracking
+      const sessionId = createSession(prompt, currentSql || undefined);
+      sessionIdRef.current = sessionId;
+
       try {
         const response = await fetch('/api/ai-agent', {
           method: 'POST',
@@ -164,6 +204,10 @@ export function useAiAgent() {
                 switch (event.type) {
                   case 'step':
                     updateAgentStep(event.step);
+                    // Update session
+                    if (sessionIdRef.current) {
+                      updateSession(sessionIdRef.current, { currentStep: event.step });
+                    }
                     break;
 
                   case 'text':
@@ -191,6 +235,17 @@ export function useAiAgent() {
                       result: tc.result,
                       status: (tc.result as { error?: string })?.error ? 'error' : 'success',
                     });
+
+                    // Update session with tool call
+                    if (sessionIdRef.current) {
+                      const currentTodos = useAiChatStore.getState().agentProgress?.todos || [];
+                      const currentToolCalls = useAiChatStore.getState().agentProgress?.toolCalls || [];
+                      updateSession(sessionIdRef.current, {
+                        toolCalls: currentToolCalls,
+                        todos: currentTodos,
+                        lastError: (tc.result as { error?: string })?.error || null,
+                      });
+                    }
 
                     // Handle update_query_ui specially
                     if (tc.toolName === 'update_query_ui') {
@@ -384,6 +439,17 @@ export function useAiAgent() {
 
         completeAgent(reachedLimit);
 
+        // Complete the session
+        if (sessionIdRef.current) {
+          if (reachedLimit) {
+            // Pause the session so it can be resumed
+            pauseSession(sessionIdRef.current, '');
+          } else {
+            completeSessionStore(sessionIdRef.current, true);
+          }
+          sessionIdRef.current = null;
+        }
+
         // If we got a final SQL, execute it
         if (finalSql) {
           const result = await executeQuery(finalSql);
@@ -403,6 +469,12 @@ export function useAiAgent() {
         if (err instanceof Error && err.name === 'AbortError') {
           addSystemMessage('Agent stopped.');
           completeAgent(false);
+
+          // Pause the session on abort (disconnect scenario)
+          if (sessionIdRef.current) {
+            pauseSession(sessionIdRef.current, '');
+            sessionIdRef.current = null;
+          }
           return false;
         }
 
@@ -412,6 +484,13 @@ export function useAiAgent() {
           error: errorMessage,
         });
         completeAgent(false);
+
+        // Pause the session on error
+        if (sessionIdRef.current) {
+          updateSession(sessionIdRef.current, { lastError: errorMessage });
+          pauseSession(sessionIdRef.current, '');
+          sessionIdRef.current = null;
+        }
         return false;
       }
     },
@@ -438,6 +517,10 @@ export function useAiAgent() {
       setAgentTodos,
       executeQuery,
       message,
+      createSession,
+      updateSession,
+      pauseSession,
+      completeSessionStore,
     ]
   );
 
@@ -822,7 +905,397 @@ export function useAiAgent() {
       abortControllerRef.current = null;
     }
     completeAgent(false);
-  }, [completeAgent]);
+
+    // Pause current session
+    if (sessionIdRef.current) {
+      pauseSession(sessionIdRef.current, '');
+      sessionIdRef.current = null;
+    }
+  }, [completeAgent, pauseSession]);
+
+  // Resume a paused session
+  const resumeSession = useCallback(
+    async (session: AgentSession): Promise<boolean> => {
+      if (!connectionString) {
+        message.error('No database connection. Please connect to a database first.');
+        return false;
+      }
+
+      if (!apiKey || apiKey.length === 0) {
+        message.error('Please enter your Claude API key');
+        return false;
+      }
+
+      // Cancel any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+
+      // Restore todos from session
+      if (session.todos.length > 0) {
+        setAgentTodos(session.todos);
+        addTodoMessage(session.todos);
+      }
+
+      // Build resume prompt with context
+      const resumePrompt = `Resume working on the goal: ${session.goal}
+
+${session.resumptionContext}
+
+IMPORTANT: You are resuming a previous session. Review the todo list and continue from where you left off.
+- Check which items are pending or in_progress
+- Do NOT recreate the todo list - it already exists
+- Mark the current task as in_progress with set_current and continue working on it
+- If you need clarification from the user, ask a specific question`;
+
+      addUserMessage('Resume session');
+      startAgent(session.goal, MAX_STEPS);
+
+      // Use the existing session ID
+      sessionIdRef.current = session.id;
+      updateSession(session.id, { status: 'running' });
+
+      try {
+        const response = await fetch('/api/ai-agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: resumePrompt,
+            apiKey,
+            connectionString,
+            schema: tables,
+            previousSql: session.currentSql,
+            previousContext: session.resumptionContext,
+          }),
+          signal: abortControllerRef.current.signal,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to resume session');
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error('No response stream');
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let finalSql: string | null = null;
+        let reachedLimit = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6).trim();
+              if (data === '[DONE]') continue;
+
+              try {
+                const event: AgentStreamEvent = JSON.parse(data);
+
+                switch (event.type) {
+                  case 'step':
+                    updateAgentStep(event.step);
+                    if (sessionIdRef.current) {
+                      updateSession(sessionIdRef.current, { currentStep: event.step });
+                    }
+                    break;
+
+                  case 'text':
+                    appendStreamingText(event.text);
+                    break;
+
+                  case 'tool_call_start': {
+                    const toolCall: ToolCallInfo = {
+                      id: `tc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                      toolName: event.toolName,
+                      args: event.args,
+                      result: null,
+                      timestamp: Date.now(),
+                      status: 'running',
+                    };
+                    addAgentToolCall(toolCall);
+                    break;
+                  }
+
+                  case 'tool_call_result': {
+                    const tc = event.toolCall;
+                    updateAgentToolCall(tc.id, {
+                      result: tc.result,
+                      status: (tc.result as { error?: string })?.error ? 'error' : 'success',
+                    });
+
+                    // Update session
+                    if (sessionIdRef.current) {
+                      const currentTodos = useAiChatStore.getState().agentProgress?.todos || [];
+                      const currentToolCalls = useAiChatStore.getState().agentProgress?.toolCalls || [];
+                      updateSession(sessionIdRef.current, {
+                        toolCalls: [...session.toolCalls, ...currentToolCalls],
+                        todos: currentTodos.length > 0 ? currentTodos : session.todos,
+                        lastError: (tc.result as { error?: string })?.error || null,
+                      });
+                    }
+
+                    // Handle update_query_ui
+                    if (tc.toolName === 'update_query_ui') {
+                      const args = tc.args as {
+                        sql: string;
+                        explanation: string;
+                        summary?: string;
+                        confidence?: string;
+                        suggestions?: string[];
+                      };
+                      finalSql = args.sql;
+
+                      addAssistantMessage({
+                        content: args.explanation,
+                        sql: args.sql,
+                        previousSql: session.currentSql || undefined,
+                        explanation: args.explanation,
+                        summary: args.summary,
+                        confidence: args.confidence as 'high' | 'medium' | 'low',
+                        suggestions: args.suggestions,
+                      });
+
+                      setCurrentQuery(args.sql);
+                      setCurrentSql(args.sql);
+                      setIsAiGenerated(true);
+                    }
+
+                    // Handle execute_query
+                    if (tc.toolName === 'execute_query') {
+                      const args = tc.args as { sql: string; title?: string; description?: string };
+                      const result = tc.result as {
+                        success: boolean;
+                        rowCount?: number;
+                        executionTime?: number;
+                        rows?: Record<string, unknown>[];
+                        error?: string;
+                        title?: string;
+                        description?: string;
+                      };
+
+                      if (result.success) {
+                        const queryMetadata: QueryMetadata = {
+                          sql: args.sql,
+                          title: result.title || args.title || 'Query Result',
+                          description: result.description || args.description || '',
+                          rowCount: result.rowCount || 0,
+                          executionTime: result.executionTime || 0,
+                          sampleResults: result.rows?.slice(0, 5),
+                        };
+                        addQueryMessage(queryMetadata);
+                      } else if (result.error) {
+                        addSystemMessage(`Query error: ${result.error}`);
+                      }
+                    }
+
+                    // Handle generate_chart
+                    if (tc.toolName === 'generate_chart') {
+                      const args = tc.args as { title?: string; description?: string };
+                      const result = tc.result as {
+                        success: boolean;
+                        chartConfig?: ChartConfig;
+                        chartData?: Record<string, unknown>[];
+                        xAxisKey?: string;
+                        yAxisKeys?: string[];
+                        message?: string;
+                        title?: string;
+                        description?: string;
+                      };
+
+                      if (result.success && result.chartConfig && result.chartData) {
+                        const chartDataObj: ChatChartData = {
+                          config: result.chartConfig,
+                          data: result.chartData,
+                          xAxisKey: result.xAxisKey || '',
+                          yAxisKeys: result.yAxisKeys || [],
+                          title: result.title || args.title,
+                          description: result.description || args.description,
+                        };
+                        addChartMessage(chartDataObj, result.message);
+                      }
+                    }
+
+                    // Handle manage_todo
+                    if (tc.toolName === 'manage_todo') {
+                      const result = tc.result as {
+                        success: boolean;
+                        action: string;
+                        items?: { id: string; text: string; status: string }[];
+                        item_id?: string;
+                        item?: { id: string; text: string; status: string };
+                      };
+
+                      if (result.success) {
+                        const currentTodos = useAiChatStore.getState().agentProgress?.todos || [];
+                        let updatedTodos: AgentTodoItem[] = currentTodos;
+
+                        switch (result.action) {
+                          case 'create':
+                            if (result.items) {
+                              updatedTodos = result.items.map((item) => ({
+                                id: item.id,
+                                text: item.text,
+                                status: item.status as AgentTodoItem['status'],
+                                createdAt: Date.now(),
+                              }));
+                              setAgentTodos(updatedTodos);
+                              addTodoMessage(updatedTodos);
+                            }
+                            break;
+                          case 'set_current':
+                            if (result.item_id) {
+                              updatedTodos = currentTodos.map((t) => ({
+                                ...t,
+                                status: t.id === result.item_id ? 'in_progress' as const : (t.status === 'in_progress' ? 'pending' as const : t.status),
+                              }));
+                              setAgentTodos(updatedTodos);
+                              addTodoMessage(updatedTodos);
+                            }
+                            break;
+                          case 'complete':
+                            if (result.item_id) {
+                              updatedTodos = currentTodos.map((t) => ({
+                                ...t,
+                                status: t.id === result.item_id ? 'completed' as const : t.status,
+                                completedAt: t.id === result.item_id ? Date.now() : t.completedAt,
+                              }));
+                              setAgentTodos(updatedTodos);
+                              addTodoMessage(updatedTodos);
+                            }
+                            break;
+                          case 'skip':
+                            if (result.item_id) {
+                              updatedTodos = currentTodos.map((t) => ({
+                                ...t,
+                                status: t.id === result.item_id ? 'skipped' as const : t.status,
+                              }));
+                              setAgentTodos(updatedTodos);
+                              addTodoMessage(updatedTodos);
+                            }
+                            break;
+                          case 'add':
+                            if (result.item) {
+                              const newTodo: AgentTodoItem = {
+                                id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                                text: result.item.text,
+                                status: result.item.status as AgentTodoItem['status'],
+                                createdAt: Date.now(),
+                                addedDuringExecution: true,
+                              };
+                              updatedTodos = [...currentTodos, newTodo];
+                              setAgentTodos(updatedTodos);
+                              addTodoMessage(updatedTodos);
+                            }
+                            break;
+                        }
+                      }
+                    }
+                    break;
+                  }
+
+                  case 'error':
+                    addSystemMessage(`Error: ${event.error}`);
+                    break;
+
+                  case 'complete':
+                    reachedLimit = event.state.reachedStepLimit;
+                    if (!finalSql && event.state.currentSql) {
+                      finalSql = event.state.currentSql;
+                    }
+                    break;
+                }
+              } catch {
+                // Ignore parse errors
+              }
+            }
+          }
+        }
+
+        completeAgent(reachedLimit);
+
+        if (sessionIdRef.current) {
+          if (reachedLimit) {
+            pauseSession(sessionIdRef.current, '');
+          } else {
+            completeSessionStore(sessionIdRef.current, true);
+          }
+          sessionIdRef.current = null;
+        }
+
+        if (finalSql) {
+          const result = await executeQuery(finalSql);
+          if (result.success && result.result) {
+            message.success(`Query ready (${result.result.executionTime}ms)`);
+          }
+        }
+
+        if (reachedLimit) {
+          addSystemMessage(`Agent reached ${MAX_STEPS} step limit. Click "Continue" to let it keep trying.`);
+        }
+
+        return true;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          addSystemMessage('Agent stopped.');
+          completeAgent(false);
+
+          if (sessionIdRef.current) {
+            pauseSession(sessionIdRef.current, '');
+            sessionIdRef.current = null;
+          }
+          return false;
+        }
+
+        const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+        addAssistantMessage({ content: '', error: errorMessage });
+        completeAgent(false);
+
+        if (sessionIdRef.current) {
+          updateSession(sessionIdRef.current, { lastError: errorMessage });
+          pauseSession(sessionIdRef.current, '');
+          sessionIdRef.current = null;
+        }
+        return false;
+      }
+    },
+    [
+      connectionString,
+      apiKey,
+      tables,
+      addUserMessage,
+      addAssistantMessage,
+      addSystemMessage,
+      addChartMessage,
+      addQueryMessage,
+      addTodoMessage,
+      startAgent,
+      updateAgentStep,
+      appendStreamingText,
+      addAgentToolCall,
+      updateAgentToolCall,
+      completeAgent,
+      setCurrentQuery,
+      setCurrentSql,
+      setIsAiGenerated,
+      setAgentTodos,
+      executeQuery,
+      message,
+      updateSession,
+      pauseSession,
+      completeSessionStore,
+    ]
+  );
 
   // Manual query execution
   const runQuery = useCallback(
@@ -879,5 +1352,8 @@ export function useAiAgent() {
     startNewConversation: startNew,
     setCurrentSql,
     setIsAiGenerated,
+    // Session resumption
+    resumeSession,
+    resumableSessions: getResumableSessions(),
   };
 }
