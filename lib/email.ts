@@ -2,7 +2,7 @@ import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@queryspace.app'
+const FROM_EMAIL = process.env.EMAIL_FROM || 'Query Space <support@mail.queryspace.dev>'
 const APP_NAME = 'Query Space'
 const APP_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000'
 
