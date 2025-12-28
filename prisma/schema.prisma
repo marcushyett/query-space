@@ -1,0 +1,417 @@
+// Prisma schema for Query Space - Multi-tenant PostgreSQL query tool
+// Using PostgreSQL with NextAuth for authentication
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// AUTHENTICATION (NextAuth.js)
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?   // Hashed password for credentials auth
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts              Account[]
+  sessions              Session[]
+  organizationMembers   OrganizationMember[]
+  projectAccess         ProjectAccess[]
+  createdQueries        Query[]              @relation("QueryCreator")
+  createdCharts         Chart[]              @relation("ChartCreator")
+  createdAIChats        AIChat[]             @relation("AIChatCreator")
+  createdAIChatMessages AIChatMessage[]      @relation("MessageCreator")
+  sentInvites           OrganizationInvite[] @relation("InviteSender")
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================================================
+// ORGANIZATION & ACCESS CONTROL
+// ============================================================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String?  // Optional - many accounts are single user
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  members    OrganizationMember[]
+  settings   OrganizationSettings?
+  projects   Project[]
+  dashboards Dashboard[]
+  invites    OrganizationInvite[]
+  auditLogs  AuditLog[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String     @id @default(cuid())
+  organizationId String
+  userId         String
+  role           MemberRole @default(MEMBER)
+  accessType     AccessType @default(READ_WRITE)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+enum MemberRole {
+  ADMIN  // Can manage org, invite users, access all settings
+  MEMBER // Regular member with access based on accessType and projectAccess
+}
+
+enum AccessType {
+  READ_ONLY  // Can only view queries, charts, dashboards
+  READ_WRITE // Can create and modify queries, charts, dashboards
+}
+
+model OrganizationInvite {
+  id             String     @id @default(cuid())
+  organizationId String
+  email          String
+  role           MemberRole @default(MEMBER)
+  accessType     AccessType @default(READ_WRITE)
+  token          String     @unique @default(cuid())
+  expiresAt      DateTime
+  createdAt      DateTime   @default(now())
+  invitedById    String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User?        @relation("InviteSender", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, email])
+  @@map("organization_invites")
+}
+
+model OrganizationSettings {
+  id                         String   @id @default(cuid())
+  organizationId             String   @unique
+
+  // Encrypted database connection string (PostgreSQL only, read-only)
+  encryptedDatabaseUrl       String?  @db.Text
+  databaseUrlIv              String?  // IV for AES-GCM decryption
+
+  // Encrypted Claude API key
+  encryptedClaudeApiKey      String?  @db.Text
+  claudeApiKeyIv             String?  // IV for AES-GCM decryption
+
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_settings")
+}
+
+// ============================================================================
+// PROJECTS
+// ============================================================================
+
+model Project {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  queries           Query[]
+  aiChats           AIChat[]
+  projectAccess     ProjectAccess[]
+  dashboardProjects DashboardProject[]
+
+  @@index([organizationId])
+  @@map("projects")
+}
+
+// Optional access restriction for specific users to specific projects
+// If no ProjectAccess record exists for a user, they have access to all projects
+// If ProjectAccess records exist, they only have access to those projects
+model ProjectAccess {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  canWrite  Boolean  @default(true) // Within this project, can they write?
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_access")
+}
+
+// ============================================================================
+// QUERIES & CHARTS
+// ============================================================================
+
+model Query {
+  id            String   @id @default(cuid())
+  projectId     String
+  name          String?  // Optional friendly name
+  description   String?  @db.Text
+  sql           String   @db.Text
+
+  // Cached execution results for quick preview
+  sampleResults Json?    // Limited sample of results (e.g., first 10 rows)
+  rowCount      Int?     // Total row count from last execution
+  executionTime Int?     // Execution time in milliseconds
+
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("QueryCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  charts    Chart[]
+  dashboardWidgets DashboardWidget[]
+
+  @@index([projectId])
+  @@map("queries")
+}
+
+model Chart {
+  id          String    @id @default(cuid())
+  queryId     String
+  title       String?
+  type        ChartType
+
+  // Chart configuration (xAxis, yAxes, breakdownBy, stacked, etc.)
+  config      Json
+
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  query     Query  @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("ChartCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  dashboardWidgets DashboardWidget[]
+
+  @@index([queryId])
+  @@map("charts")
+}
+
+enum ChartType {
+  LINE
+  COLUMN
+  AREA
+  PIE
+}
+
+// ============================================================================
+// DASHBOARDS
+// ============================================================================
+
+model Dashboard {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projects     DashboardProject[]
+  widgets      DashboardWidget[]
+
+  @@index([organizationId])
+  @@map("dashboards")
+}
+
+// Many-to-many: dashboards can span multiple projects
+model DashboardProject {
+  dashboardId String
+  projectId   String
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([dashboardId, projectId])
+  @@map("dashboard_projects")
+}
+
+model DashboardWidget {
+  id          String     @id @default(cuid())
+  dashboardId String
+  type        WidgetType
+
+  // Reference to either a chart or a query (for table display)
+  chartId     String?
+  queryId     String?
+
+  // Position and size on the dashboard grid
+  positionX   Int        @default(0)
+  positionY   Int        @default(0)
+  width       Int        @default(6)  // Grid units (out of 12)
+  height      Int        @default(4)  // Grid units
+
+  // Optional custom title override
+  title       String?
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  chart     Chart?    @relation(fields: [chartId], references: [id], onDelete: Cascade)
+  query     Query?    @relation(fields: [queryId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId])
+  @@map("dashboard_widgets")
+}
+
+enum WidgetType {
+  CHART
+  TABLE
+}
+
+// ============================================================================
+// AI CHATS
+// ============================================================================
+
+model AIChat {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String?  // Auto-generated or user-set
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?           @relation("AIChatCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  messages  AIChatMessage[]
+
+  @@index([projectId])
+  @@map("ai_chats")
+}
+
+model AIChatMessage {
+  id          String      @id @default(cuid())
+  chatId      String
+  role        MessageRole
+  content     String      @db.Text
+
+  // Optional SQL and related metadata
+  sql         String?     @db.Text
+  explanation String?     @db.Text
+  error       String?     @db.Text
+
+  // Query result sample (limited for storage efficiency)
+  queryResultSample Json?
+
+  // Chart data if visualization was generated
+  chartData   Json?
+
+  // Tool calls for agent messages
+  toolCalls   Json?
+
+  // Agent todo list state
+  todos       Json?
+
+  createdById String?
+  createdAt   DateTime    @default(now())
+
+  // Relations
+  chat      AIChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("MessageCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([chatId])
+  @@map("ai_chat_messages")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+// ============================================================================
+// AUDIT LOG
+// ============================================================================
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?  // Null if action was by system
+  action         String   // e.g., "query.execute", "settings.update", "member.invite"
+  resourceType   String?  // e.g., "Query", "Chart", "Dashboard"
+  resourceId     String?
+  metadata       Json?    // Additional context
+  ipAddress      String?
+  userAgent      String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
