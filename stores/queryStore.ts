@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 export interface QueryResult {
   rows: Record<string, unknown>[];
@@ -20,68 +19,68 @@ interface QueryStore {
   currentQuery: string;
   setCurrentQuery: (q: string) => void;
   queryResults: QueryResult | null;
-  setQueryResults: (r: QueryResult) => void;
-  queryHistory: SavedQuery[];
-  addToHistory: (sql: string, rowCount: number | null, executionTime: number | null) => void;
-  removeFromHistory: (id: string) => void;
-  clearHistory: () => void;
+  setQueryResults: (r: QueryResult | null) => void;
+  clearResults: () => void;
+  // Query history is now stored in database per project
+  // Keep local session history for quick access
+  sessionHistory: SavedQuery[];
+  addToSessionHistory: (sql: string, rowCount: number | null, executionTime: number | null) => void;
+  clearSessionHistory: () => void;
   isExecuting: boolean;
   setIsExecuting: (val: boolean) => void;
+  // Error state
+  lastError: string | null;
+  setLastError: (error: string | null) => void;
 }
 
-const MAX_HISTORY_SIZE = 50;
+const MAX_SESSION_HISTORY = 20;
 
-export const useQueryStore = create<QueryStore>()(
-  persist(
-    (set) => ({
-      currentQuery: '',
-      queryResults: null,
-      queryHistory: [],
-      isExecuting: false,
+export const useQueryStore = create<QueryStore>((set) => ({
+  currentQuery: '',
+  queryResults: null,
+  sessionHistory: [],
+  isExecuting: false,
+  lastError: null,
 
-      setCurrentQuery: (q: string) => {
-        set({ currentQuery: q });
-      },
+  setCurrentQuery: (q: string) => {
+    set({ currentQuery: q });
+  },
 
-      setQueryResults: (r: QueryResult) => {
-        set({ queryResults: r });
-      },
+  setQueryResults: (r: QueryResult | null) => {
+    set({ queryResults: r, lastError: null });
+  },
 
-      addToHistory: (sql: string, rowCount: number | null, executionTime: number | null) => {
-        const newQuery: SavedQuery = {
-          id: Date.now().toString(),
-          sql,
-          timestamp: Date.now(),
-          rowCount,
-          executionTime,
-        };
+  clearResults: () => {
+    set({ queryResults: null, lastError: null });
+  },
 
-        set((state) => {
-          const newHistory = [newQuery, ...state.queryHistory].slice(0, MAX_HISTORY_SIZE);
-          return { queryHistory: newHistory };
-        });
-      },
+  addToSessionHistory: (sql: string, rowCount: number | null, executionTime: number | null) => {
+    const newQuery: SavedQuery = {
+      id: Date.now().toString(),
+      sql,
+      timestamp: Date.now(),
+      rowCount,
+      executionTime,
+    };
 
-      removeFromHistory: (id: string) => {
-        set((state) => ({
-          queryHistory: state.queryHistory.filter((q) => q.id !== id),
-        }));
-      },
+    set((state) => {
+      const newHistory = [newQuery, ...state.sessionHistory].slice(0, MAX_SESSION_HISTORY);
+      return { sessionHistory: newHistory };
+    });
+  },
 
-      clearHistory: () => {
-        set({ queryHistory: [] });
-      },
+  clearSessionHistory: () => {
+    set({ sessionHistory: [] });
+  },
 
-      setIsExecuting: (val: boolean) => {
-        set({ isExecuting: val });
-      },
-    }),
-    {
-      name: 'query-space-query',
-      partialize: (state) => ({
-        queryHistory: state.queryHistory,
-        // Don't persist currentQuery, queryResults, or isExecuting
-      }),
-    }
-  )
-);
+  setIsExecuting: (val: boolean) => {
+    set({ isExecuting: val });
+  },
+
+  setLastError: (error: string | null) => {
+    set({ lastError: error });
+  },
+}));
+
+// Export deprecated names for backwards compatibility
+export const useQueryStore_deprecated = useQueryStore;
