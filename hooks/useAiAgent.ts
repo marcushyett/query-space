@@ -41,8 +41,6 @@ export function useAiAgent() {
     updateAgentToolCall,
     completeAgent,
     setAgentTodos,
-    updateAgentTodo,
-    addAgentTodo,
   } = useAiChatStore();
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -298,7 +296,8 @@ export function useAiAgent() {
                       };
 
                       if (result.success) {
-                        const currentTodos = agentProgress?.todos || [];
+                        // Get current todos from store state directly to avoid stale closure
+                        const currentTodos = useAiChatStore.getState().agentProgress?.todos || [];
                         let updatedTodos: AgentTodoItem[] = currentTodos;
 
                         switch (result.action) {
@@ -421,7 +420,6 @@ export function useAiAgent() {
       apiKey,
       tables,
       currentSql,
-      agentProgress,
       addUserMessage,
       addAssistantMessage,
       addSystemMessage,
@@ -438,8 +436,6 @@ export function useAiAgent() {
       setCurrentSql,
       setIsAiGenerated,
       setAgentTodos,
-      updateAgentTodo,
-      addAgentTodo,
       executeQuery,
       message,
     ]
@@ -681,7 +677,8 @@ export function useAiAgent() {
                     };
 
                     if (result.success) {
-                      const currentTodos = agentProgress?.todos || [];
+                      // Get current todos from store state directly to avoid stale closure
+                      const currentTodos = useAiChatStore.getState().agentProgress?.todos || [];
                       let updatedTodos: AgentTodoItem[] = currentTodos;
 
                       switch (result.action) {
@@ -793,7 +790,6 @@ export function useAiAgent() {
       return false;
     }
   }, [
-    agentProgress,
     buildContextSummary,
     apiKey,
     connectionString,
@@ -815,8 +811,6 @@ export function useAiAgent() {
     setCurrentSql,
     setIsAiGenerated,
     setAgentTodos,
-    updateAgentTodo,
-    addAgentTodo,
     executeQuery,
     message,
   ]);

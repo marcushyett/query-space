@@ -270,16 +270,31 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
   },
 
   addTodoMessage: (todos: AgentTodoItem[]) => {
-    const todoMessage: ChatMessage = {
-      id: `todo-${Date.now()}`,
-      role: 'system',
-      content: '',
-      timestamp: Date.now(),
-      todos: todos.map(t => ({ ...t })), // Deep copy to preserve snapshot
-    };
-    set((state) => ({
-      messages: [...state.messages, todoMessage],
-    }));
+    set((state) => {
+      // Find existing todo message to update
+      const existingTodoIndex = state.messages.findIndex(m => m.role === 'system' && m.todos);
+
+      if (existingTodoIndex !== -1) {
+        // Update existing todo message in place
+        const updatedMessages = [...state.messages];
+        updatedMessages[existingTodoIndex] = {
+          ...updatedMessages[existingTodoIndex],
+          todos: todos.map(t => ({ ...t })),
+          timestamp: Date.now(),
+        };
+        return { messages: updatedMessages };
+      } else {
+        // Create new todo message only if none exists
+        const todoMessage: ChatMessage = {
+          id: `todo-${Date.now()}`,
+          role: 'system',
+          content: '',
+          timestamp: Date.now(),
+          todos: todos.map(t => ({ ...t })),
+        };
+        return { messages: [...state.messages, todoMessage] };
+      }
+    });
   },
 
   setCurrentSql: (sql: string | null) => {
