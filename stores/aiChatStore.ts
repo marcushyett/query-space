@@ -74,6 +74,8 @@ export interface ChatMessage {
   queryMetadata?: QueryMetadata;
   // For end-of-flow summary
   summary?: string;
+  // For todo list snapshots
+  todos?: AgentTodoItem[];
 }
 
 export interface AgentProgress {
@@ -111,6 +113,7 @@ interface AiChatStore {
   updateLastAssistantMessage: (update: Partial<ChatMessage>) => void;
   addChartMessage: (chartData: ChatChartData, explanation?: string) => void;
   addQueryMessage: (queryMetadata: QueryMetadata) => void;
+  addTodoMessage: (todos: AgentTodoItem[]) => void;
   setCurrentSql: (sql: string | null) => void;
   setIsGenerating: (generating: boolean) => void;
   setIsAiGenerated: (isAiGenerated: boolean) => void;
@@ -263,6 +266,19 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
     };
     set((state) => ({
       messages: [...state.messages, queryMessage],
+    }));
+  },
+
+  addTodoMessage: (todos: AgentTodoItem[]) => {
+    const todoMessage: ChatMessage = {
+      id: `todo-${Date.now()}`,
+      role: 'system',
+      content: '',
+      timestamp: Date.now(),
+      todos: todos.map(t => ({ ...t })), // Deep copy to preserve snapshot
+    };
+    set((state) => ({
+      messages: [...state.messages, todoMessage],
     }));
   },
 

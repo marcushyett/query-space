@@ -30,6 +30,7 @@ export function useAiAgent() {
     addSystemMessage,
     addChartMessage,
     addQueryMessage,
+    addTodoMessage,
     setCurrentSql,
     setIsAiGenerated,
     startNewConversation,
@@ -297,46 +298,65 @@ export function useAiAgent() {
                       };
 
                       if (result.success) {
+                        const currentTodos = agentProgress?.todos || [];
+                        let updatedTodos: AgentTodoItem[] = currentTodos;
+
                         switch (result.action) {
                           case 'create':
                             if (result.items) {
-                              const todos: AgentTodoItem[] = result.items.map((item) => ({
+                              updatedTodos = result.items.map((item) => ({
                                 id: item.id,
                                 text: item.text,
                                 status: item.status as AgentTodoItem['status'],
                                 createdAt: Date.now(),
                               }));
-                              setAgentTodos(todos);
+                              setAgentTodos(updatedTodos);
+                              addTodoMessage(updatedTodos);
                             }
                             break;
                           case 'set_current':
                             if (result.item_id) {
-                              // Set all items to pending first, then set the current one to in_progress
-                              const currentTodos = agentProgress?.todos || [];
-                              const updatedTodos = currentTodos.map((t) => ({
+                              updatedTodos = currentTodos.map((t) => ({
                                 ...t,
                                 status: t.id === result.item_id ? 'in_progress' as const : (t.status === 'in_progress' ? 'pending' as const : t.status),
                               }));
                               setAgentTodos(updatedTodos);
+                              addTodoMessage(updatedTodos);
                             }
                             break;
                           case 'complete':
                             if (result.item_id) {
-                              updateAgentTodo(result.item_id, { status: 'completed' });
+                              updatedTodos = currentTodos.map((t) => ({
+                                ...t,
+                                status: t.id === result.item_id ? 'completed' as const : t.status,
+                                completedAt: t.id === result.item_id ? Date.now() : t.completedAt,
+                              }));
+                              setAgentTodos(updatedTodos);
+                              addTodoMessage(updatedTodos);
                             }
                             break;
                           case 'skip':
                             if (result.item_id) {
-                              updateAgentTodo(result.item_id, { status: 'skipped' });
+                              updatedTodos = currentTodos.map((t) => ({
+                                ...t,
+                                status: t.id === result.item_id ? 'skipped' as const : t.status,
+                              }));
+                              setAgentTodos(updatedTodos);
+                              addTodoMessage(updatedTodos);
                             }
                             break;
                           case 'add':
                             if (result.item) {
-                              addAgentTodo({
+                              const newTodo: AgentTodoItem = {
+                                id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                                 text: result.item.text,
                                 status: result.item.status as AgentTodoItem['status'],
+                                createdAt: Date.now(),
                                 addedDuringExecution: true,
-                              });
+                              };
+                              updatedTodos = [...currentTodos, newTodo];
+                              setAgentTodos(updatedTodos);
+                              addTodoMessage(updatedTodos);
                             }
                             break;
                         }
@@ -407,6 +427,7 @@ export function useAiAgent() {
       addSystemMessage,
       addChartMessage,
       addQueryMessage,
+      addTodoMessage,
       startAgent,
       updateAgentStep,
       appendStreamingText,
@@ -660,45 +681,65 @@ export function useAiAgent() {
                     };
 
                     if (result.success) {
+                      const currentTodos = agentProgress?.todos || [];
+                      let updatedTodos: AgentTodoItem[] = currentTodos;
+
                       switch (result.action) {
                         case 'create':
                           if (result.items) {
-                            const todos: AgentTodoItem[] = result.items.map((item) => ({
+                            updatedTodos = result.items.map((item) => ({
                               id: item.id,
                               text: item.text,
                               status: item.status as AgentTodoItem['status'],
                               createdAt: Date.now(),
                             }));
-                            setAgentTodos(todos);
+                            setAgentTodos(updatedTodos);
+                            addTodoMessage(updatedTodos);
                           }
                           break;
                         case 'set_current':
                           if (result.item_id) {
-                            const currentTodos = agentProgress?.todos || [];
-                            const updatedTodos = currentTodos.map((t) => ({
+                            updatedTodos = currentTodos.map((t) => ({
                               ...t,
                               status: t.id === result.item_id ? 'in_progress' as const : (t.status === 'in_progress' ? 'pending' as const : t.status),
                             }));
                             setAgentTodos(updatedTodos);
+                            addTodoMessage(updatedTodos);
                           }
                           break;
                         case 'complete':
                           if (result.item_id) {
-                            updateAgentTodo(result.item_id, { status: 'completed' });
+                            updatedTodos = currentTodos.map((t) => ({
+                              ...t,
+                              status: t.id === result.item_id ? 'completed' as const : t.status,
+                              completedAt: t.id === result.item_id ? Date.now() : t.completedAt,
+                            }));
+                            setAgentTodos(updatedTodos);
+                            addTodoMessage(updatedTodos);
                           }
                           break;
                         case 'skip':
                           if (result.item_id) {
-                            updateAgentTodo(result.item_id, { status: 'skipped' });
+                            updatedTodos = currentTodos.map((t) => ({
+                              ...t,
+                              status: t.id === result.item_id ? 'skipped' as const : t.status,
+                            }));
+                            setAgentTodos(updatedTodos);
+                            addTodoMessage(updatedTodos);
                           }
                           break;
                         case 'add':
                           if (result.item) {
-                            addAgentTodo({
+                            const newTodo: AgentTodoItem = {
+                              id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                               text: result.item.text,
                               status: result.item.status as AgentTodoItem['status'],
+                              createdAt: Date.now(),
                               addedDuringExecution: true,
-                            });
+                            };
+                            updatedTodos = [...currentTodos, newTodo];
+                            setAgentTodos(updatedTodos);
+                            addTodoMessage(updatedTodos);
                           }
                           break;
                       }
@@ -763,6 +804,7 @@ export function useAiAgent() {
     addSystemMessage,
     addChartMessage,
     addQueryMessage,
+    addTodoMessage,
     startAgent,
     updateAgentStep,
     appendStreamingText,
