@@ -10,6 +10,8 @@ import {
   KeyOutlined,
   ExpandOutlined,
   CompressOutlined,
+  HistoryOutlined,
+  PlayCircleOutlined,
 } from '@ant-design/icons';
 import { useAiChatStore } from '@/stores/aiChatStore';
 import { useAiStore } from '@/stores/aiStore';
@@ -23,6 +25,16 @@ const { Text } = Typography;
 const { TextArea } = Input;
 const { useBreakpoint } = Grid;
 
+// Helper to format time ago
+function formatTimeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
 export function AiChatPanel() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -31,7 +43,7 @@ export function AiChatPanel() {
   const { apiKey, setApiKey, setPersistApiKey } = useAiStore();
   const { connectionString } = useConnectionStore();
   const { isExecuting, setCurrentQuery } = useQueryStore();
-  const { sendMessage, continueAgent, stopAgent, startNewConversation, setCurrentSql, setIsAiGenerated } = useAiAgent();
+  const { sendMessage, continueAgent, stopAgent, startNewConversation, setCurrentSql, setIsAiGenerated, resumeSession, resumableSessions } = useAiAgent();
 
   // Handler to load a query from agent tool calls into the main query UI
   const handleLoadQuery = (sql: string) => {
@@ -155,8 +167,56 @@ export function AiChatPanel() {
           </div>
         )}
 
+        {/* Resumable sessions banner */}
+        {resumableSessions.length > 0 && messages.length === 0 && apiKey && isConnected && !isWorking && (
+          <div className="resumable-sessions-banner">
+            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Space>
+                <HistoryOutlined />
+                <Text strong style={{ fontSize: 13 }}>Resume Previous Session</Text>
+              </Space>
+              {resumableSessions.slice(0, 3).map((session) => {
+                const completedTodos = session.todos.filter(t => t.status === 'completed').length;
+                const totalTodos = session.todos.length;
+                const timeAgo = formatTimeAgo(session.updatedAt);
+
+                return (
+                  <div
+                    key={session.id}
+                    className="resumable-session-item"
+                    onClick={() => resumeSession(session)}
+                  >
+                    <div className="session-content">
+                      <Text ellipsis style={{ maxWidth: '100%', fontSize: 12 }}>
+                        {session.goal}
+                      </Text>
+                      <Space size={8}>
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          {completedTodos}/{totalTodos} tasks
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          {timeAgo}
+                        </Text>
+                      </Space>
+                    </div>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<PlayCircleOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        resumeSession(session);
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </Space>
+          </div>
+        )}
+
         {/* Empty state */}
-        {messages.length === 0 && apiKey && isConnected && (
+        {messages.length === 0 && apiKey && isConnected && resumableSessions.length === 0 && (
           <Empty
             image={<RobotOutlined style={{ fontSize: 48, color: '#333' }} />}
             description={
