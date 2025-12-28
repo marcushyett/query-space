@@ -260,6 +260,7 @@ export function AiChatPanel() {
               message={msg}
               isLatest={index === messages.length - 1 && msg.role === 'assistant'}
               onLoadQuery={handleLoadQuery}
+              onResume={resumableSessions.length > 0 ? () => resumeSession(resumableSessions[0]) : undefined}
             />
           ))}
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Typography, Tag, Alert, Space, Table } from 'antd';
+import { Typography, Tag, Alert, Space, Table, Button } from 'antd';
 import {
   UserOutlined,
   RobotOutlined,
@@ -9,6 +9,7 @@ import {
   ThunderboltOutlined,
   QuestionCircleOutlined,
   BarChartOutlined,
+  PlayCircleOutlined,
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import type { ChatMessage as ChatMessageType } from '@/stores/aiChatStore';
@@ -59,9 +60,10 @@ interface ChatMessageProps {
   message: ChatMessageType;
   isLatest?: boolean;
   onLoadQuery?: (sql: string) => void;
+  onResume?: () => void;
 }
 
-export function ChatMessage({ message, isLatest, onLoadQuery }: ChatMessageProps) {
+export function ChatMessage({ message, isLatest, onLoadQuery, onResume }: ChatMessageProps) {
   // System message (query results, errors)
   if (message.role === 'system') {
     const isError = message.content.toLowerCase().includes('error');
@@ -168,7 +170,25 @@ export function ChatMessage({ message, isLatest, onLoadQuery }: ChatMessageProps
       </div>
       <div className="chat-message-content">
         {message.error ? (
-          <Alert type="error" message={message.error} showIcon />
+          <Alert
+            type="error"
+            message={
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <span>{message.error}</span>
+                {message.error.includes('can be resumed') && onResume && (
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<PlayCircleOutlined />}
+                    onClick={onResume}
+                  >
+                    Resume Session
+                  </Button>
+                )}
+              </Space>
+            }
+            showIcon
+          />
         ) : (
           <Space direction="vertical" size={8} style={{ width: '100%' }}>
             {message.isAutoFix && (
