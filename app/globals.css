@@ -1416,9 +1416,18 @@ body {
   }
 }
 
-/* In progress pulse effect */
+/* In progress spin and pulse effect */
 .agent-todo-item-in_progress .todo-icon-in-progress {
-  animation: todo-pulse 1.5s ease-in-out infinite;
+  animation: todo-spin 1s linear infinite, todo-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes todo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes todo-pulse {
