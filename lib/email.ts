@@ -13,17 +13,30 @@ function getResendClient(): Resend | null {
 }
 
 // Get the app URL based on environment
-// Priority: NEXTAUTH_URL > VERCEL_PROJECT_PRODUCTION_URL > VERCEL_URL > localhost
+// For preview deployments, use the deployment-specific VERCEL_URL
+// For production, use VERCEL_PROJECT_PRODUCTION_URL (may have custom domain)
 function getAppUrl(): string {
+  // Explicit override takes precedence
   if (process.env.NEXTAUTH_URL) {
     return process.env.NEXTAUTH_URL
   }
+
+  // For preview deployments, use the deployment-specific URL
+  // VERCEL_ENV is "preview" for preview branches, "production" for production
+  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+
+  // For production, prefer the production URL (may have custom domain)
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
   }
+
+  // Fallback to deployment URL (works for any Vercel deployment)
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`
   }
+
   return 'http://localhost:3000'
 }
 
