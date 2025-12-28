@@ -426,7 +426,14 @@ export default function ChatPage() {
                   <ChatMessage key={msg.id} message={msg} />
                 ))}
                 {agentProgress && agentProgress.isRunning && (
-                  <AgentProgress progress={agentProgress} />
+                  <AgentProgress
+                    currentStep={agentProgress.currentStep}
+                    maxSteps={agentProgress.maxSteps}
+                    toolCalls={agentProgress.toolCalls}
+                    streamingText={agentProgress.streamingText}
+                    todos={agentProgress.todos}
+                    onStop={() => setAgentProgress(null)}
+                  />
                 )}
                 <div ref={messagesEndRef} />
               </div>

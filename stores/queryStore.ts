@@ -21,11 +21,11 @@ interface QueryStore {
   queryResults: QueryResult | null;
   setQueryResults: (r: QueryResult | null) => void;
   clearResults: () => void;
-  // Query history is now stored in database per project
-  // Keep local session history for quick access
-  sessionHistory: SavedQuery[];
-  addToSessionHistory: (sql: string, rowCount: number | null, executionTime: number | null) => void;
-  clearSessionHistory: () => void;
+  // Session-based history (not persisted to localStorage)
+  queryHistory: SavedQuery[];
+  addToHistory: (sql: string, rowCount: number | null, executionTime: number | null) => void;
+  removeFromHistory: (id: string) => void;
+  clearHistory: () => void;
   isExecuting: boolean;
   setIsExecuting: (val: boolean) => void;
   // Error state
@@ -33,12 +33,12 @@ interface QueryStore {
   setLastError: (error: string | null) => void;
 }
 
-const MAX_SESSION_HISTORY = 20;
+const MAX_HISTORY_SIZE = 50;
 
 export const useQueryStore = create<QueryStore>((set) => ({
   currentQuery: '',
   queryResults: null,
-  sessionHistory: [],
+  queryHistory: [],
   isExecuting: false,
   lastError: null,
 
@@ -54,7 +54,7 @@ export const useQueryStore = create<QueryStore>((set) => ({
     set({ queryResults: null, lastError: null });
   },
 
-  addToSessionHistory: (sql: string, rowCount: number | null, executionTime: number | null) => {
+  addToHistory: (sql: string, rowCount: number | null, executionTime: number | null) => {
     const newQuery: SavedQuery = {
       id: Date.now().toString(),
       sql,
@@ -64,13 +64,19 @@ export const useQueryStore = create<QueryStore>((set) => ({
     };
 
     set((state) => {
-      const newHistory = [newQuery, ...state.sessionHistory].slice(0, MAX_SESSION_HISTORY);
-      return { sessionHistory: newHistory };
+      const newHistory = [newQuery, ...state.queryHistory].slice(0, MAX_HISTORY_SIZE);
+      return { queryHistory: newHistory };
     });
   },
 
-  clearSessionHistory: () => {
-    set({ sessionHistory: [] });
+  removeFromHistory: (id: string) => {
+    set((state) => ({
+      queryHistory: state.queryHistory.filter((q) => q.id !== id),
+    }));
+  },
+
+  clearHistory: () => {
+    set({ queryHistory: [] });
   },
 
   setIsExecuting: (val: boolean) => {
@@ -81,6 +87,3 @@ export const useQueryStore = create<QueryStore>((set) => ({
     set({ lastError: error });
   },
 }));
-
-// Export deprecated names for backwards compatibility
-export const useQueryStore_deprecated = useQueryStore;
