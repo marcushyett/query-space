@@ -1,10 +1,11 @@
-import NextAuth, { type NextAuthConfig } from 'next-auth'
+import NextAuth from 'next-auth'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import GitHub from 'next-auth/providers/github'
 import Credentials from 'next-auth/providers/credentials'
 import { compare } from 'bcryptjs'
 import { prisma } from '@/lib/db/prisma'
 import { z } from 'zod'
+import { authConfig } from './config.edge'
 
 // Vercel OAuth provider (custom implementation)
 const VercelProvider = {
@@ -34,18 +35,9 @@ const credentialsSchema = z.object({
   password: z.string().min(8),
 })
 
-export const authConfig: NextAuthConfig = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(prisma),
-  session: {
-    strategy: 'jwt',
-  },
-  pages: {
-    signIn: '/login',
-    signOut: '/login',
-    error: '/login',
-    verifyRequest: '/verify-email',
-    newUser: '/onboarding',
-  },
   providers: [
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID,
@@ -93,24 +85,7 @@ export const authConfig: NextAuthConfig = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      if (user) {
-        token.id = user.id
-      }
-
-      // Handle session updates (e.g., after onboarding)
-      if (trigger === 'update' && session) {
-        return { ...token, ...session }
-      }
-
-      return token
-    },
-    async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string
-      }
-      return session
-    },
+    ...authConfig.callbacks,
     async signIn({ user, account }) {
       // Allow OAuth sign-ins without email verification
       if (account?.provider !== 'credentials') {
@@ -154,7 +129,4 @@ export const authConfig: NextAuthConfig = {
       }
     },
   },
-  trustHost: true,
-}
-
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig)
+})
