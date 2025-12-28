@@ -180,6 +180,16 @@ export function AiChatPanel() {
                 const totalTodos = session.todos.length;
                 const timeAgo = formatTimeAgo(session.updatedAt);
 
+                // Build progress indicator based on available data
+                let progressText = '';
+                if (totalTodos > 0) {
+                  progressText = `${completedTodos}/${totalTodos} tasks`;
+                } else if (session.toolCalls.length > 0) {
+                  progressText = `${session.toolCalls.length} steps`;
+                } else {
+                  progressText = 'Just started';
+                }
+
                 return (
                   <div
                     key={session.id}
@@ -192,7 +202,7 @@ export function AiChatPanel() {
                       </Text>
                       <Space size={8}>
                         <Text type="secondary" style={{ fontSize: 11 }}>
-                          {completedTodos}/{totalTodos} tasks
+                          {progressText}
                         </Text>
                         <Text type="secondary" style={{ fontSize: 11 }}>
                           {timeAgo}

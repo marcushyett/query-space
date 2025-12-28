@@ -225,7 +225,8 @@ export const useAgentSessionStore = create<AgentSessionStore>()(
           .filter((s) =>
             s.status === 'paused' &&
             (now - s.updatedAt) < maxAge &&
-            s.todos.length > 0 // Only show sessions with todos
+            // Show sessions that have meaningful work: todos, tool calls, or streaming text
+            (s.todos.length > 0 || s.toolCalls.length > 0 || s.lastStreamingText.length > 0)
           )
           .sort((a, b) => b.updatedAt - a.updatedAt);
       },

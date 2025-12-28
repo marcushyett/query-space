@@ -478,19 +478,40 @@ export function useAiAgent() {
           return false;
         }
 
-        const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+        const rawErrorMessage = err instanceof Error ? err.message : 'An error occurred';
+
+        // Check for network/connection errors
+        const isNetworkError = rawErrorMessage === 'Load failed' ||
+                              rawErrorMessage === 'Failed to fetch' ||
+                              rawErrorMessage.includes('network') ||
+                              rawErrorMessage.includes('Network');
+
+        const errorMessage = isNetworkError
+          ? 'Connection lost. Your session has been saved and can be resumed.'
+          : rawErrorMessage;
+
         addAssistantMessage({
           content: '',
           error: errorMessage,
         });
         completeAgent(false);
 
-        // Pause the session on error
+        // Pause the session on error - save current streaming text
         if (sessionIdRef.current) {
-          updateSession(sessionIdRef.current, { lastError: errorMessage });
+          const currentStreamingText = useAiChatStore.getState().agentProgress?.streamingText || '';
+          updateSession(sessionIdRef.current, {
+            lastError: rawErrorMessage,
+            lastStreamingText: currentStreamingText,
+          });
           pauseSession(sessionIdRef.current, '');
           sessionIdRef.current = null;
         }
+
+        // Show toast for network errors with resume hint
+        if (isNetworkError) {
+          message.info('Session saved. You can resume it when reconnected.');
+        }
+
         return false;
       }
     },
@@ -867,9 +888,25 @@ export function useAiAgent() {
         return false;
       }
 
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      const rawErrorMessage = err instanceof Error ? err.message : 'An error occurred';
+
+      // Check for network/connection errors
+      const isNetworkError = rawErrorMessage === 'Load failed' ||
+                            rawErrorMessage === 'Failed to fetch' ||
+                            rawErrorMessage.includes('network') ||
+                            rawErrorMessage.includes('Network');
+
+      const errorMessage = isNetworkError
+        ? 'Connection lost. Your session has been saved and can be resumed.'
+        : rawErrorMessage;
+
       addAssistantMessage({ content: '', error: errorMessage });
       completeAgent(false);
+
+      if (isNetworkError) {
+        message.info('Session saved. You can resume it when reconnected.');
+      }
+
       return false;
     }
   }, [
@@ -1257,15 +1294,35 @@ IMPORTANT: You are resuming a previous session. Review the todo list and continu
           return false;
         }
 
-        const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+        const rawErrorMessage = err instanceof Error ? err.message : 'An error occurred';
+
+        // Check for network/connection errors
+        const isNetworkError = rawErrorMessage === 'Load failed' ||
+                              rawErrorMessage === 'Failed to fetch' ||
+                              rawErrorMessage.includes('network') ||
+                              rawErrorMessage.includes('Network');
+
+        const errorMessage = isNetworkError
+          ? 'Connection lost. Your session has been saved and can be resumed.'
+          : rawErrorMessage;
+
         addAssistantMessage({ content: '', error: errorMessage });
         completeAgent(false);
 
         if (sessionIdRef.current) {
-          updateSession(sessionIdRef.current, { lastError: errorMessage });
+          const currentStreamingText = useAiChatStore.getState().agentProgress?.streamingText || '';
+          updateSession(sessionIdRef.current, {
+            lastError: rawErrorMessage,
+            lastStreamingText: currentStreamingText,
+          });
           pauseSession(sessionIdRef.current, '');
           sessionIdRef.current = null;
         }
+
+        if (isNetworkError) {
+          message.info('Session saved. You can resume it when reconnected.');
+        }
+
         return false;
       }
     },
