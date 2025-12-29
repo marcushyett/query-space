@@ -88,7 +88,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test query', mockConfig)) {
@@ -110,7 +110,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test query', mockConfig)) {
@@ -132,7 +132,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test query', mockConfig)) {
@@ -158,7 +158,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test query', mockConfig)) {
@@ -192,7 +192,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test query', mockConfig)) {
@@ -229,7 +229,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test query', mockConfig)) {
@@ -260,7 +260,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test query', mockConfig)) {
@@ -289,7 +289,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test query', mockConfig)) {
@@ -311,7 +311,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test query', mockConfig)) {
@@ -333,7 +333,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test query', mockConfig)) {
@@ -351,7 +351,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const configWithPreviousSql = {
         ...mockConfig,
@@ -388,7 +388,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test', mockConfig, abortController.signal)) {
@@ -425,7 +425,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test query', mockConfig)) {
@@ -443,7 +443,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test goal', mockConfig)) {
@@ -463,7 +463,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const configWithPreviousSql = {
         ...mockConfig,
@@ -486,7 +486,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const configWithContext = {
         ...mockConfig,
@@ -517,7 +517,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const state = await runQueryAgent('test', mockConfig)
 
@@ -544,7 +544,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const onToolCall = vi.fn()
       await runQueryAgent('test', mockConfig, onToolCall)
@@ -567,7 +567,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const onStateUpdate = vi.fn()
       await runQueryAgent('test', mockConfig, undefined, onStateUpdate)
@@ -587,7 +587,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const state = await runQueryAgent('test', mockConfig, undefined, undefined, abortController.signal)
 
@@ -625,7 +625,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test', mockConfig)) {
@@ -656,7 +656,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test', mockConfig)) {
@@ -681,7 +681,7 @@ describe('Query Agent', () => {
 
       mockedStreamText.mockReturnValue({
         fullStream: mockStream(),
-      } as ReturnType<typeof streamText>)
+      } as unknown as ReturnType<typeof streamText>)
 
       const events: AgentStreamEvent[] = []
       for await (const event of streamQueryAgent('test', mockConfig)) {

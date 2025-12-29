@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth'
-import type { OAuthConfig } from 'next-auth/providers'
+import type { OAuthConfig, OAuthUserConfig } from 'next-auth/providers'
+import type { TokenSet } from '@auth/core/types'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import GitHub from 'next-auth/providers/github'
 import Credentials from 'next-auth/providers/credentials'
@@ -36,9 +37,10 @@ const VercelProvider: OAuthConfig<VercelProfile> = {
   },
   userinfo: {
     url: 'https://api.vercel.com/login/oauth/userinfo',
-    async request({ tokens, provider }) {
+    async request({ tokens, provider }: { tokens: TokenSet; provider: OAuthUserConfig<VercelProfile> }) {
       // Fetch userinfo with access token
-      const response = await fetch(provider.userinfo?.url as string, {
+      const userinfoUrl = typeof provider.userinfo === 'object' ? provider.userinfo.url : provider.userinfo
+      const response = await fetch(userinfoUrl as string, {
         headers: {
           Authorization: `Bearer ${tokens.access_token}`,
         },
