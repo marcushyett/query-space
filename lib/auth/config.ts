@@ -99,9 +99,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     ...authConfig.callbacks,
-    async signIn({ user, account }) {
-      // Allow OAuth sign-ins without email verification
-      if (account?.provider !== 'credentials') {
+    async signIn({ user, account, profile }) {
+      // For OAuth providers, handle account linking
+      if (account?.provider !== 'credentials' && user.email) {
+        // Check if a user with this email already exists
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email },
+          include: { accounts: true },
+        })
+
+        if (existingUser) {
+          // Check if this OAuth account is already linked
+          const existingAccount = existingUser.accounts.find(
+            (acc) => acc.provider === account.provider && acc.providerAccountId === account.providerAccountId
+          )
+
+          if (!existingAccount) {
+            // Link the new OAuth account to the existing user
+            await prisma.account.create({
+              data: {
+                userId: existingUser.id,
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+                expires_at: account.expires_at,
+                token_type: account.token_type,
+                scope: account.scope,
+                id_token: account.id_token,
+              },
+            })
+          }
+
+          // Update the user object to use the existing user's ID
+          // This ensures the session uses the correct user
+          user.id = existingUser.id
+        }
+
         return true
       }
 
