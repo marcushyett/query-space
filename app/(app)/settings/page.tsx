@@ -18,7 +18,6 @@ import {
 } from 'antd'
 import {
   DatabaseOutlined,
-  KeyOutlined,
   UserOutlined,
   TeamOutlined,
   PlusOutlined,
@@ -26,9 +25,17 @@ import {
   MailOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons'
 
 const { Title, Text } = Typography
+
+interface Organization {
+  id: string
+  name: string | null
+  role: 'ADMIN' | 'MEMBER'
+  accessType: 'READ_ONLY' | 'READ_WRITE'
+}
 
 interface OrganizationSettings {
   name: string | null
@@ -63,9 +70,12 @@ export default function SettingsPage() {
   const { data: session } = useSession()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [testingConnection, setTestingConnection] = useState(false)
+  const [deletingConnection, setDeletingConnection] = useState(false)
   const [settings, setSettings] = useState<OrganizationSettings | null>(null)
   const [members, setMembers] = useState<Member[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
+  const [organizations, setOrganizations] = useState<Organization[]>([])
   const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +83,6 @@ export default function SettingsPage() {
   // Form state
   const [orgName, setOrgName] = useState('')
   const [databaseUrl, setDatabaseUrl] = useState('')
-  const [claudeApiKey, setClaudeApiKey] = useState('')
 
   // Invite modal
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
@@ -82,9 +91,13 @@ export default function SettingsPage() {
   const [inviteAccessType, setInviteAccessType] = useState<'READ_ONLY' | 'READ_WRITE'>('READ_WRITE')
   const [inviting, setInviting] = useState(false)
 
+  // Create organization modal
+  const [createOrgModalOpen, setCreateOrgModalOpen] = useState(false)
+  const [newOrgName, setNewOrgName] = useState('')
+  const [creatingOrg, setCreatingOrg] = useState(false)
+
   // Visibility toggles for sensitive data
   const [showDatabaseUrl, setShowDatabaseUrl] = useState(false)
-  const [showClaudeApiKey, setShowClaudeApiKey] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -93,8 +106,9 @@ export default function SettingsPage() {
         const orgsRes = await fetch('/api/organizations')
         const orgsData = await orgsRes.json()
 
+        setOrganizations(orgsData.organizations || [])
+
         if (!orgsData.organizations?.length) {
-          setError('No organization found')
           setLoading(false)
           return
         }
@@ -153,14 +167,13 @@ export default function SettingsPage() {
       if (databaseUrl) {
         updates.databaseUrl = databaseUrl
       }
-      if (claudeApiKey) {
-        updates.claudeApiKey = claudeApiKey
-      }
 
       if (Object.keys(updates).length === 0) {
         message.info('No changes to save')
         return
       }
+
+      setTestingConnection(!!databaseUrl)
 
       const res = await fetch(`/api/organizations/${organizationId}/settings`, {
         method: 'PATCH',
@@ -182,15 +195,92 @@ export default function SettingsPage() {
 
       // Clear sensitive fields
       setDatabaseUrl('')
-      setClaudeApiKey('')
 
-      message.success('Settings saved')
+      message.success(databaseUrl ? 'Database connection verified and saved' : 'Settings saved')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to save'
       setError(msg)
       message.error(msg)
     } finally {
       setSaving(false)
+      setTestingConnection(false)
+    }
+  }
+
+  const handleDeleteConnection = async () => {
+    if (!organizationId) return
+
+    setDeletingConnection(true)
+    setError(null)
+
+    try {
+      const res = await fetch(`/api/organizations/${organizationId}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ databaseUrl: null }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to delete connection')
+      }
+
+      // Refresh settings
+      const settingsRes = await fetch(`/api/organizations/${organizationId}/settings`)
+      const settingsData = await settingsRes.json()
+      if (settingsRes.ok) {
+        setSettings(settingsData.settings)
+      }
+
+      message.success('Database connection removed')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete'
+      setError(msg)
+      message.error(msg)
+    } finally {
+      setDeletingConnection(false)
+    }
+  }
+
+  const handleCreateOrganization = async () => {
+    setCreatingOrg(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/organizations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newOrgName || null }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to create organization')
+      }
+
+      const data = await res.json()
+
+      // Refresh organizations list
+      const orgsRes = await fetch('/api/organizations')
+      const orgsData = await orgsRes.json()
+      setOrganizations(orgsData.organizations || [])
+
+      setCreateOrgModalOpen(false)
+      setNewOrgName('')
+      message.success('Organization created')
+
+      // Switch to the new organization
+      if (data.organization?.id) {
+        setOrganizationId(data.organization.id)
+        localStorage.setItem('currentOrganizationId', data.organization.id)
+        window.location.reload()
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to create'
+      setError(msg)
+      message.error(msg)
+    } finally {
+      setCreatingOrg(false)
     }
   }
 
@@ -280,6 +370,55 @@ export default function SettingsPage() {
     )
   }
 
+  if (!loading && organizations.length === 0) {
+    return (
+      <div className="settings-page">
+        <Title level={2} style={{ color: '#fff', marginBottom: 24 }}>
+          Settings
+        </Title>
+        <div className="empty-state-action">
+          <div className="empty-state-icon">
+            <TeamOutlined />
+          </div>
+          <div className="empty-state-title">No organization yet</div>
+          <div className="empty-state-description">
+            Create an organization to get started with Query Space
+          </div>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setCreateOrgModalOpen(true)}
+          >
+            Create Organization
+          </Button>
+        </div>
+
+        {/* Create Organization Modal */}
+        <Modal
+          title="Create Organization"
+          open={createOrgModalOpen}
+          onCancel={() => {
+            setCreateOrgModalOpen(false)
+            setNewOrgName('')
+          }}
+          onOk={handleCreateOrganization}
+          okText="Create"
+          confirmLoading={creatingOrg}
+        >
+          <Form layout="vertical">
+            <Form.Item label="Organization Name (optional)">
+              <Input
+                value={newOrgName}
+                onChange={(e) => setNewOrgName(e.target.value)}
+                placeholder="My Organization"
+              />
+            </Form.Item>
+          </Form>
+        </Modal>
+      </div>
+    )
+  }
+
   if (error && !settings) {
     return (
       <div className="settings-page">
@@ -326,13 +465,15 @@ export default function SettingsPage() {
             <DatabaseOutlined style={{ marginRight: 8 }} />
             Database Connection
           </h3>
-          {settings?.hasDatabaseUrl && <Tag color="green">Connected</Tag>}
+          {settings?.hasDatabaseUrl && (
+            <Tag color="green" icon={<CheckCircleOutlined />}>Connected</Tag>
+          )}
         </div>
 
         <Alert
-          type="warning"
+          type="info"
           message="PostgreSQL Only"
-          description="We currently only support PostgreSQL databases. Please ensure you provide a read-only connection string for security."
+          description="We currently only support PostgreSQL databases. We recommend using a read-only connection string for security. The connection will be tested before saving."
           showIcon
           style={{ marginBottom: 16 }}
         />
@@ -340,19 +481,40 @@ export default function SettingsPage() {
         {settings?.hasDatabaseUrl && (
           <div className="settings-field">
             <label className="settings-label">Current Connection</label>
-            <Input
-              value={showDatabaseUrl ? (settings.databaseUrlMasked || '') : '••••••••••••••••••••••••••••••••'}
-              disabled
-              suffix={
-                <Button
-                  type="text"
-                  size="small"
-                  icon={showDatabaseUrl ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                  onClick={() => setShowDatabaseUrl(!showDatabaseUrl)}
-                  style={{ marginRight: -8 }}
-                />
-              }
-            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Input
+                value={showDatabaseUrl ? (settings.databaseUrlMasked || '') : '••••••••••••••••••••••••••••••••'}
+                disabled
+                style={{ flex: 1 }}
+                suffix={
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={showDatabaseUrl ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                    onClick={() => setShowDatabaseUrl(!showDatabaseUrl)}
+                    style={{ marginRight: -8 }}
+                  />
+                }
+              />
+              {isAdmin && (
+                <Popconfirm
+                  title="Delete database connection?"
+                  description="This will remove the connection. You can add it again later."
+                  onConfirm={handleDeleteConnection}
+                  okText="Delete"
+                  okButtonProps={{ danger: true }}
+                  cancelText="Cancel"
+                >
+                  <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    loading={deletingConnection}
+                  >
+                    Delete
+                  </Button>
+                </Popconfirm>
+              )}
+            </div>
           </div>
         )}
 
@@ -369,58 +531,7 @@ export default function SettingsPage() {
               autoComplete="off"
             />
             <p className="settings-hint">
-              Your connection string is encrypted at rest. Use a read-only database user for security.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Claude API Key */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <h3 className="settings-section-title">
-            <KeyOutlined style={{ marginRight: 8 }} />
-            Claude API Key
-          </h3>
-          {settings?.hasClaudeApiKey && <Tag color="green">Configured</Tag>}
-        </div>
-
-        {settings?.hasClaudeApiKey && (
-          <div className="settings-field">
-            <label className="settings-label">Current Key</label>
-            <Input
-              value={showClaudeApiKey ? (settings.claudeApiKeyMasked || '') : '••••••••••••••••••••••••••••••••'}
-              disabled
-              suffix={
-                <Button
-                  type="text"
-                  size="small"
-                  icon={showClaudeApiKey ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                  onClick={() => setShowClaudeApiKey(!showClaudeApiKey)}
-                  style={{ marginRight: -8 }}
-                />
-              }
-            />
-          </div>
-        )}
-
-        {isAdmin && (
-          <div className="settings-field">
-            <label className="settings-label">
-              {settings?.hasClaudeApiKey ? 'Update' : 'Add'} API Key
-            </label>
-            <Input.Password
-              id="claude-api-key-input"
-              value={claudeApiKey}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setClaudeApiKey(e.target.value)}
-              placeholder="sk-ant-..."
-              autoComplete="off"
-            />
-            <p className="settings-hint">
-              Your API key is encrypted at rest. Get one from{' '}
-              <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer">
-                console.anthropic.com
-              </a>
+              Your connection string is encrypted at rest. The connection will be validated when you save.
             </p>
           </div>
         )}
@@ -429,8 +540,13 @@ export default function SettingsPage() {
       {/* Save Button */}
       {isAdmin && (
         <div style={{ marginBottom: 32 }}>
-          <Button type="primary" loading={saving} onClick={handleSaveSettings}>
-            Save Settings
+          <Button
+            type="primary"
+            loading={saving}
+            onClick={handleSaveSettings}
+            disabled={!databaseUrl && orgName === settings?.name}
+          >
+            {testingConnection ? 'Testing Connection...' : 'Save Settings'}
           </Button>
         </div>
       )}
@@ -527,6 +643,48 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* Organizations */}
+      <div className="settings-section">
+        <div className="settings-section-header">
+          <h3 className="settings-section-title">
+            <TeamOutlined style={{ marginRight: 8 }} />
+            Organizations
+          </h3>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setCreateOrgModalOpen(true)}
+          >
+            New Organization
+          </Button>
+        </div>
+
+        <div className="members-list">
+          {organizations.map((org) => (
+            <div key={org.id} className="member-item">
+              <div className="member-info">
+                <Avatar
+                  icon={<TeamOutlined />}
+                  className="member-avatar"
+                  style={{ backgroundColor: org.id === organizationId ? '#1890ff' : '#444' }}
+                />
+                <div className="member-details">
+                  <span className="member-name">{org.name || 'My Organization'}</span>
+                  <span className="member-email">
+                    {org.role} • {org.accessType === 'READ_ONLY' ? 'Read Only' : 'Read/Write'}
+                  </span>
+                </div>
+              </div>
+              <div className="member-actions">
+                {org.id === organizationId && (
+                  <Tag color="blue">Current</Tag>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Invite Modal */}
       <Modal
         title="Invite Team Member"
@@ -556,6 +714,32 @@ export default function SettingsPage() {
               <Select.Option value="READ_WRITE">Read & Write</Select.Option>
               <Select.Option value="READ_ONLY">Read Only</Select.Option>
             </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Create Organization Modal */}
+      <Modal
+        title="Create Organization"
+        open={createOrgModalOpen}
+        onCancel={() => {
+          setCreateOrgModalOpen(false)
+          setNewOrgName('')
+        }}
+        onOk={handleCreateOrganization}
+        okText="Create"
+        confirmLoading={creatingOrg}
+      >
+        <Form layout="vertical">
+          <Form.Item label="Organization Name (optional)">
+            <Input
+              value={newOrgName}
+              onChange={(e) => setNewOrgName(e.target.value)}
+              placeholder="My Organization"
+            />
+            <p className="settings-hint" style={{ marginTop: 8 }}>
+              Leave empty to use the default name &quot;My Organization&quot;
+            </p>
           </Form.Item>
         </Form>
       </Modal>

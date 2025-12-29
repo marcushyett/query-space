@@ -8,36 +8,57 @@ import { prisma } from '@/lib/db/prisma'
 import { z } from 'zod'
 import { authConfig } from './config.edge'
 
-// Vercel OIDC profile type (standard OpenID Connect claims)
+// Vercel profile type from userinfo endpoint
 interface VercelProfile {
   sub: string
   email: string
   name?: string
   picture?: string
+  // Vercel-specific fields
+  user_id?: string
+  username?: string
 }
 
-// Vercel OAuth provider (custom implementation)
+// Vercel OAuth provider (custom implementation using Vercel's authorization server)
+// Docs: https://vercel.com/docs/sign-in-with-vercel/authorization-server-api
 const VercelProvider: OAuthConfig<VercelProfile> = {
   id: 'vercel',
   name: 'Vercel',
   type: 'oauth',
   authorization: {
     url: 'https://vercel.com/oauth/authorize',
-    params: { scope: 'openid email profile' },
+    // Use Vercel's supported scopes: profile, email, teams, billing
+    // Don't use 'openid' as Vercel uses its own scope format
+    params: { scope: 'profile email' },
   },
   token: {
     url: 'https://api.vercel.com/login/oauth/token',
   },
-  userinfo: 'https://api.vercel.com/login/oauth/userinfo',
+  userinfo: {
+    url: 'https://api.vercel.com/login/oauth/userinfo',
+    async request({ tokens, provider }) {
+      // Fetch userinfo with access token
+      const response = await fetch(provider.userinfo?.url as string, {
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
+        },
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to fetch userinfo: ${response.status}`)
+      }
+      return response.json()
+    },
+  },
   profile(profile) {
     return {
-      id: profile.sub,
+      id: profile.sub || profile.user_id || profile.email,
       email: profile.email,
-      name: profile.name ?? profile.email,
+      name: profile.name ?? profile.username ?? profile.email,
       image: profile.picture,
     }
   },
   // Use PKCE with S256 for enhanced security (Vercel supports PKCE)
+  // state is also used for CSRF protection
   checks: ['pkce', 'state'],
   clientId: process.env.VERCEL_CLIENT_ID,
   clientSecret: process.env.VERCEL_CLIENT_SECRET,

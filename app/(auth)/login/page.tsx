@@ -77,8 +77,22 @@ function LoginForm() {
           type="error"
           message={
             error === 'OAuthAccountNotLinked'
-              ? 'This email is already registered with a different provider'
-              : formError || 'Authentication failed'
+              ? 'This email is already registered with a different sign-in method. Please use the original method.'
+              : error === 'OAuthCallback'
+              ? 'OAuth login failed. Please try again or use email/password.'
+              : error === 'OAuthCallbackError'
+              ? 'OAuth callback error. The provider may be misconfigured.'
+              : error === 'Callback'
+              ? 'Login callback failed. Please try again.'
+              : error === 'OAuthSignin'
+              ? 'Could not start OAuth sign-in. Please try again.'
+              : error === 'OAuthCreateAccount'
+              ? 'Could not create account. Please try email registration.'
+              : error === 'AccessDenied'
+              ? 'Access denied. You may not have permission to sign in.'
+              : error === 'Configuration'
+              ? 'Server configuration error. Please contact support.'
+              : formError || 'Authentication failed. Please try again.'
           }
           showIcon
           style={{ marginBottom: 24 }}
