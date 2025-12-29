@@ -16,7 +16,17 @@ const VercelProvider = {
     url: 'https://vercel.com/oauth/authorize',
     params: { scope: 'user:email' },
   },
-  token: 'https://api.vercel.com/v2/oauth/access_token',
+  token: {
+    url: 'https://api.vercel.com/v2/oauth/access_token',
+    async conform(response: Response) {
+      // Vercel's token endpoint returns the access_token directly in the response
+      // If the response is not OK, return it as-is for proper error handling
+      if (!response.ok) {
+        return response
+      }
+      return response
+    },
+  },
   userinfo: 'https://api.vercel.com/v2/user',
   profile(profile: { uid: string; email: string; name: string; avatar?: string }) {
     return {
@@ -26,6 +36,8 @@ const VercelProvider = {
       image: profile.avatar,
     }
   },
+  // Disable PKCE - Vercel OAuth doesn't support code_verifier/code_challenge
+  checks: ['state'] as const,
   clientId: process.env.VERCEL_CLIENT_ID,
   clientSecret: process.env.VERCEL_CLIENT_SECRET,
 }
