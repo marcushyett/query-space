@@ -8,12 +8,12 @@ import { prisma } from '@/lib/db/prisma'
 import { z } from 'zod'
 import { authConfig } from './config.edge'
 
-// Vercel OAuth provider profile type
+// Vercel OIDC profile type (standard OpenID Connect claims)
 interface VercelProfile {
-  uid: string
+  sub: string
   email: string
-  name: string
-  avatar?: string
+  name?: string
+  picture?: string
 }
 
 // Vercel OAuth provider (custom implementation)
@@ -23,30 +23,22 @@ const VercelProvider: OAuthConfig<VercelProfile> = {
   type: 'oauth',
   authorization: {
     url: 'https://vercel.com/oauth/authorize',
-    params: { scope: 'user:email' },
+    params: { scope: 'openid email profile' },
   },
   token: {
-    url: 'https://api.vercel.com/v2/oauth/access_token',
-    async conform(response: Response) {
-      // Vercel's token endpoint returns the access_token directly in the response
-      // If the response is not OK, return it as-is for proper error handling
-      if (!response.ok) {
-        return response
-      }
-      return response
-    },
+    url: 'https://api.vercel.com/login/oauth/token',
   },
-  userinfo: 'https://api.vercel.com/v2/user',
+  userinfo: 'https://api.vercel.com/login/oauth/userinfo',
   profile(profile) {
     return {
-      id: profile.uid,
+      id: profile.sub,
       email: profile.email,
-      name: profile.name,
-      image: profile.avatar,
+      name: profile.name ?? profile.email,
+      image: profile.picture,
     }
   },
-  // Disable PKCE - Vercel OAuth doesn't support code_verifier/code_challenge
-  checks: ['state'],
+  // Use PKCE with S256 for enhanced security (Vercel supports PKCE)
+  checks: ['pkce', 'state'],
   clientId: process.env.VERCEL_CLIENT_ID,
   clientSecret: process.env.VERCEL_CLIENT_SECRET,
 }
@@ -108,8 +100,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     ...authConfig.callbacks,
     async signIn({ user, account }) {
-      // Allow OAuth sign-ins without email verification
-      if (account?.provider !== 'credentials') {
+      // For OAuth providers, handle account linking
+      if (account && account.provider !== 'credentials' && user.email) {
+        // Check if a user with this email already exists
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email },
+          include: { accounts: true },
+        })
+
+        if (existingUser) {
+          // Check if this OAuth account is already linked
+          const existingAccount = existingUser.accounts.find(
+            (acc) => acc.provider === account.provider && acc.providerAccountId === account.providerAccountId
+          )
+
+          if (!existingAccount) {
+            // Link the new OAuth account to the existing user
+            await prisma.account.create({
+              data: {
+                userId: existingUser.id,
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+                expires_at: account.expires_at,
+                token_type: account.token_type,
+                scope: account.scope,
+                id_token: account.id_token,
+              },
+            })
+          }
+
+          // Update the user object to use the existing user's ID
+          // This ensures the session uses the correct user
+          user.id = existingUser.id
+        }
+
         return true
       }
 
