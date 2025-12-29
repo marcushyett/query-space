@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import type { SchemaTable } from '@/app/api/schema/route';
 import { formatSql } from '@/lib/sql-formatter';
+import { getClaudeApiKey } from '@/lib/auth/organization-settings';
+import { requireUser } from '@/lib/auth/session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,7 +30,7 @@ interface QueryResultInfo {
 
 interface AiQueryRequest {
   prompt: string;
-  apiKey: string;
+  organizationId: string;
   schema: SchemaTable[];
   conversationHistory?: ConversationMessage[];
   currentSql?: string;
@@ -250,10 +252,13 @@ function buildConversationMessages(
 
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    await requireUser();
+
     const body: AiQueryRequest = await request.json();
     const {
       prompt,
-      apiKey,
+      organizationId,
       schema,
       conversationHistory = [],
       currentSql,
@@ -270,11 +275,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const effectiveApiKey = apiKey || process.env.CLAUDE_API_KEY;
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'Missing required field: organizationId' },
+        { status: 400 }
+      );
+    }
+
+    // Get Claude API key from organization settings or environment
+    const effectiveApiKey = await getClaudeApiKey(organizationId);
 
     if (!effectiveApiKey) {
       return NextResponse.json(
-        { error: 'API key is required. Please provide your Claude API key.' },
+        { error: 'Claude API key is not configured. Go to Settings to add your Claude API key.' },
         { status: 400 }
       );
     }

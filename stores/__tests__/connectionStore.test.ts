@@ -6,6 +6,7 @@ describe('connectionStore', () => {
     // Reset store to initial state before each test
     useConnectionStore.setState({
       connectionString: null,
+      organizationId: null,
     })
   })
 
@@ -13,6 +14,11 @@ describe('connectionStore', () => {
     it('should have null connection string initially', () => {
       const state = useConnectionStore.getState()
       expect(state.connectionString).toBeNull()
+    })
+
+    it('should have null organizationId initially', () => {
+      const state = useConnectionStore.getState()
+      expect(state.organizationId).toBeNull()
     })
 
     it('should report not connected initially', () => {
@@ -30,13 +36,6 @@ describe('connectionStore', () => {
       expect(state.connectionString).toBe(connString)
     })
 
-    it('should report connected after setting connection string', () => {
-      useConnectionStore.getState().setConnectionString('postgresql://localhost/db')
-
-      const state = useConnectionStore.getState()
-      expect(state.isConnected()).toBe(true)
-    })
-
     it('should update connection string when called again', () => {
       useConnectionStore.getState().setConnectionString('postgresql://localhost/db1')
       useConnectionStore.getState().setConnectionString('postgresql://localhost/db2')
@@ -46,17 +45,35 @@ describe('connectionStore', () => {
     })
   })
 
+  describe('setOrganizationId', () => {
+    it('should set organizationId', () => {
+      useConnectionStore.getState().setOrganizationId('org-123')
+
+      const state = useConnectionStore.getState()
+      expect(state.organizationId).toBe('org-123')
+    })
+
+    it('should report connected after setting organizationId', () => {
+      useConnectionStore.getState().setOrganizationId('org-123')
+
+      const state = useConnectionStore.getState()
+      expect(state.isConnected()).toBe(true)
+    })
+  })
+
   describe('clearConnection', () => {
-    it('should clear connection string', () => {
+    it('should clear connection string and organizationId', () => {
       useConnectionStore.getState().setConnectionString('postgresql://localhost/db')
+      useConnectionStore.getState().setOrganizationId('org-123')
       useConnectionStore.getState().clearConnection()
 
       const state = useConnectionStore.getState()
       expect(state.connectionString).toBeNull()
+      expect(state.organizationId).toBeNull()
     })
 
     it('should report not connected after clearing', () => {
-      useConnectionStore.getState().setConnectionString('postgresql://localhost/db')
+      useConnectionStore.getState().setOrganizationId('org-123')
       useConnectionStore.getState().clearConnection()
 
       const state = useConnectionStore.getState()
@@ -65,20 +82,20 @@ describe('connectionStore', () => {
   })
 
   describe('isConnected', () => {
-    it('should return false when connection string is null', () => {
-      useConnectionStore.setState({ connectionString: null })
+    it('should return false when organizationId is null', () => {
+      useConnectionStore.setState({ organizationId: null })
       expect(useConnectionStore.getState().isConnected()).toBe(false)
     })
 
-    it('should return true when connection string is set', () => {
-      useConnectionStore.setState({ connectionString: 'postgresql://localhost/db' })
+    it('should return true when organizationId is set', () => {
+      useConnectionStore.setState({ organizationId: 'org-123' })
       expect(useConnectionStore.getState().isConnected()).toBe(true)
     })
 
-    it('should return true even for empty string', () => {
-      // Note: This documents current behavior - empty string is truthy in isConnected
-      useConnectionStore.setState({ connectionString: '' })
-      expect(useConnectionStore.getState().isConnected()).toBe(true)
+    it('should return false when only connectionString is set (deprecated behavior)', () => {
+      // Note: isConnected now checks organizationId, not connectionString
+      useConnectionStore.setState({ connectionString: 'postgresql://localhost/db', organizationId: null })
+      expect(useConnectionStore.getState().isConnected()).toBe(false)
     })
   })
 })
