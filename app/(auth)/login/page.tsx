@@ -12,11 +12,26 @@ const { Title, Text } = Typography
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/'
+  const callbackUrlParam = searchParams.get('callbackUrl')
   const error = searchParams.get('error')
 
   const [loading, setLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+
+  // Get the full callback URL including origin for OAuth
+  // This ensures users return to the correct domain (including preview branches)
+  const getCallbackUrl = () => {
+    if (callbackUrlParam) {
+      // If it's already a full URL, use it
+      if (callbackUrlParam.startsWith('http')) {
+        return callbackUrlParam
+      }
+      // Otherwise, prepend the current origin
+      return `${window.location.origin}${callbackUrlParam}`
+    }
+    // Default to the current origin's home page
+    return window.location.origin
+  }
 
   const handleCredentialsLogin = async (values: {
     email: string
@@ -35,7 +50,7 @@ function LoginForm() {
       if (result?.error) {
         setFormError('Invalid email or password')
       } else {
-        router.push(callbackUrl)
+        router.push(callbackUrlParam || '/')
       }
     } catch {
       setFormError('An error occurred. Please try again.')
@@ -45,7 +60,7 @@ function LoginForm() {
   }
 
   const handleOAuthLogin = (provider: string) => {
-    signIn(provider, { callbackUrl })
+    signIn(provider, { callbackUrl: getCallbackUrl() })
   }
 
   return (

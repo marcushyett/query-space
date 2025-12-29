@@ -46,7 +46,8 @@ export default function RegisterPage() {
   }
 
   const handleOAuthLogin = (provider: string) => {
-    signIn(provider, { callbackUrl: '/' })
+    // Use the full origin URL so users return to the correct domain (including preview branches)
+    signIn(provider, { callbackUrl: window.location.origin })
   }
 
   if (success) {
