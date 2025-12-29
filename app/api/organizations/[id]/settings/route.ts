@@ -10,6 +10,7 @@ import {
   encrypt,
   decrypt,
   validatePostgresConnectionString,
+  testPostgresConnection,
   maskConnectionString,
 } from '@/lib/encryption'
 
@@ -138,11 +139,20 @@ export async function PATCH(
         settingsUpdate.encryptedDatabaseUrl = null
         settingsUpdate.databaseUrlIv = null
       } else {
-        // Validate connection string
+        // Validate connection string format
         const validationError = validatePostgresConnectionString(databaseUrl)
         if (validationError) {
           return NextResponse.json(
             { error: validationError },
+            { status: 400 }
+          )
+        }
+
+        // Test the actual connection
+        const connectionError = await testPostgresConnection(databaseUrl)
+        if (connectionError) {
+          return NextResponse.json(
+            { error: connectionError },
             { status: 400 }
           )
         }
