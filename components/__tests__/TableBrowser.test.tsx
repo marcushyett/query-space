@@ -46,7 +46,7 @@ describe('TableBrowser', () => {
   describe('without connection', () => {
     it('should show connect message when not connected', () => {
       renderWithProviders(<TableBrowser />)
-      expect(screen.getByText(/Connect to a database/i)).toBeInTheDocument()
+      expect(screen.getByText(/No database connected/i)).toBeInTheDocument()
     })
 
     it('should not fetch tables when not connected', () => {
