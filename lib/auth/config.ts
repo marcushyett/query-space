@@ -101,7 +101,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig.callbacks,
     async signIn({ user, account }) {
       // For OAuth providers, handle account linking
-      if (account?.provider !== 'credentials' && user.email) {
+      if (account && account.provider !== 'credentials' && user.email) {
         // Check if a user with this email already exists
         const existingUser = await prisma.user.findUnique({
           where: { email: user.email },
