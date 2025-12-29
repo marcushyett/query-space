@@ -1,6 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createQueryAgentTools, type SchemaInfo, type ToolContext } from '../tools'
 
+// Type definitions for tool results
+type TableSchemaResult = { tableCount: number; tables: Array<{ name: string; type: string; columns: Array<{ name: string; type: string; isPrimaryKey: boolean }> }>; error: null; hint: string }
+type JsonKeysResult = { table: string; column: string; nestedPath: string | null; keys: string[] | null; keyCount: number; sampleValues: Record<string, unknown[]> | null; hint: string; error: string | null; suggestion: string | null }
+type ExecuteQueryResult = { success: boolean; error?: string; suggestion?: string; rowCount: number | null; executionTime?: number; columns: string[] | null; rows: Record<string, unknown>[] | null; hasMoreRows: boolean | null; warning: string | null; emptyColumns: string[] | null; title: string; description: string; dataQuality?: unknown }
+type ValidateQueryResult = { isValid: boolean; message?: string; error?: string; suggestion?: string }
+type UpdateQueryUIResult = { action: string; sql: string; explanation: string; summary: string; message: string; changes: string[]; confidence: string; suggestions: string[] }
+type GenerateChartResult = { success: boolean; error?: string; chartConfig?: { type: string; xAxis: string; yAxes: string[]; stacked?: boolean }; chartData?: Record<string, unknown>[]; title?: string }
+type ManageTodoResult = { success: boolean; action: string; items?: Array<{ text: string; status: string; addedDuringExecution?: boolean }>; item_id?: string; item?: { text: string; status: string; addedDuringExecution?: boolean }; message?: string; error?: string }
+
+// Helper to create options
+const opts = { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
+
 // Mock pg Client
 const mockQuery = vi.fn()
 const mockConnect = vi.fn()
@@ -82,7 +94,7 @@ describe('Agent Tools', () => {
 
   describe('get_table_schema', () => {
     it('should return all tables and views by default', async () => {
-      const result = await tools.get_table_schema.execute({ includeViews: true }, { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] })
+      const result = await tools.get_table_schema.execute!({ includeViews: true }, { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }) as { tableCount: number; tables: Array<{ name: string; type: string; columns: Array<{ name: string; type: string; isPrimaryKey: boolean }> }>; error: null; hint: string }
 
       expect(result.tableCount).toBe(4)
       expect(result.tables).toHaveLength(4)
@@ -90,37 +102,37 @@ describe('Agent Tools', () => {
     })
 
     it('should exclude views when includeViews is false', async () => {
-      const result = await tools.get_table_schema.execute({ includeViews: false }, { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] })
+      const result = await tools.get_table_schema.execute!({ includeViews: false }, { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }) as { tableCount: number; tables: Array<{ name: string; type: string; columns: Array<{ name: string; type: string; isPrimaryKey: boolean }> }>; error: null; hint: string }
 
       expect(result.tableCount).toBe(3)
       expect(result.tables).toHaveLength(3)
-      expect(result.tables?.every(t => t.type !== 'view')).toBe(true)
+      expect(result.tables.every((t: { type: string }) => t.type !== 'view')).toBe(true)
     })
 
     it('should format table names correctly with schema prefix', async () => {
-      const result = await tools.get_table_schema.execute({}, { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] })
+      const result = await tools.get_table_schema.execute!({}, { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }) as { tableCount: number; tables: Array<{ name: string; type: string; columns: Array<{ name: string; type: string; isPrimaryKey: boolean }> }>; error: null; hint: string }
 
-      const publicTable = result.tables?.find(t => t.name === '"users"')
+      const publicTable = result.tables.find((t: { name: string }) => t.name === '"users"')
       expect(publicTable).toBeDefined()
       expect(publicTable?.type).toBe('table')
 
-      const schemaTable = result.tables?.find(t => t.name === '"audit"."audit_log"')
+      const schemaTable = result.tables.find((t: { name: string }) => t.name === '"audit"."audit_log"')
       expect(schemaTable).toBeDefined()
     })
 
     it('should include column information', async () => {
-      const result = await tools.get_table_schema.execute({}, { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] })
+      const result = await tools.get_table_schema.execute!({}, { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }) as { tableCount: number; tables: Array<{ name: string; type: string; columns: Array<{ name: string; type: string; isPrimaryKey: boolean }> }>; error: null; hint: string }
 
-      const usersTable = result.tables?.find(t => t.name === '"users"')
+      const usersTable = result.tables.find((t: { name: string }) => t.name === '"users"')
       expect(usersTable?.columns).toHaveLength(4)
 
-      const idColumn = usersTable?.columns.find(c => c.name === 'id')
+      const idColumn = usersTable?.columns.find((c: { name: string }) => c.name === 'id')
       expect(idColumn?.type).toBe('integer')
       expect(idColumn?.isPrimaryKey).toBe(true)
     })
 
     it('should include hint about JSON keys', async () => {
-      const result = await tools.get_table_schema.execute({}, { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] })
+      const result = await tools.get_table_schema.execute!({}, { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }) as { tableCount: number; tables: Array<{ name: string; type: string; columns: Array<{ name: string; type: string; isPrimaryKey: boolean }> }>; error: null; hint: string }
 
       expect(result.hint).toContain('get_json_keys')
     })
@@ -132,10 +144,10 @@ describe('Agent Tools', () => {
         rows: [{ key: 'name' }, { key: 'age' }, { key: 'email' }],
       })
 
-      const result = await tools.get_json_keys.execute(
+      const result = await tools.get_json_keys.execute!(
         { table: 'users', column: 'metadata' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as JsonKeysResult
 
       expect(result.keys).toEqual(['name', 'age', 'email'])
       expect(result.keyCount).toBe(3)
@@ -148,10 +160,10 @@ describe('Agent Tools', () => {
         rows: [{ key: 'street' }, { key: 'city' }],
       })
 
-      const result = await tools.get_json_keys.execute(
+      const result = await tools.get_json_keys.execute!(
         { table: 'users', column: 'metadata', nestedPath: 'address' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as JsonKeysResult
 
       expect(result.nestedPath).toBe('address')
       expect(result.keys).toEqual(['street', 'city'])
@@ -166,10 +178,10 @@ describe('Agent Tools', () => {
         .mockResolvedValueOnce({ rows: [{ value: 'John' }, { value: 'Jane' }] })
         .mockResolvedValueOnce({ rows: [{ value: '25' }, { value: '30' }] })
 
-      const result = await tools.get_json_keys.execute(
+      const result = await tools.get_json_keys.execute!(
         { table: 'users', column: 'metadata', sampleValues: true },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as JsonKeysResult
 
       expect(result.sampleValues).toEqual({
         name: ['John', 'Jane'],
@@ -180,10 +192,10 @@ describe('Agent Tools', () => {
     it('should handle empty JSON column', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [] })
 
-      const result = await tools.get_json_keys.execute(
+      const result = await tools.get_json_keys.execute!(
         { table: 'users', column: 'metadata' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as JsonKeysResult
 
       expect(result.keys).toEqual([])
       expect(result.keyCount).toBe(0)
@@ -193,10 +205,10 @@ describe('Agent Tools', () => {
     it('should handle database errors', async () => {
       mockQuery.mockRejectedValueOnce(new Error('Column not found'))
 
-      const result = await tools.get_json_keys.execute(
+      const result = await tools.get_json_keys.execute!(
         { table: 'users', column: 'nonexistent' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as JsonKeysResult
 
       expect(result.error).toBe('Column not found')
       expect(result.keys).toBeNull()
@@ -212,10 +224,10 @@ describe('Agent Tools', () => {
         rowCount: 2,
       })
 
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'SELECT * FROM users', title: 'All Users', description: 'Fetches all users' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(true)
       expect(result.rowCount).toBe(2)
@@ -225,10 +237,10 @@ describe('Agent Tools', () => {
     })
 
     it('should reject DELETE queries', async () => {
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'DELETE FROM users WHERE id = 1', title: 'Delete User', description: 'Deletes a user' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Only SELECT queries are allowed')
@@ -236,80 +248,80 @@ describe('Agent Tools', () => {
     })
 
     it('should reject DROP queries', async () => {
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'DROP TABLE users', title: 'Drop Table', description: 'Drops users table' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Only SELECT queries are allowed')
     })
 
     it('should reject INSERT queries', async () => {
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: "INSERT INTO users (name) VALUES ('test')", title: 'Insert', description: 'Inserts user' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Only SELECT queries are allowed')
     })
 
     it('should reject UPDATE queries', async () => {
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: "UPDATE users SET name = 'test' WHERE id = 1", title: 'Update', description: 'Updates user' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Only SELECT queries are allowed')
     })
 
     it('should reject TRUNCATE queries', async () => {
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'TRUNCATE TABLE users', title: 'Truncate', description: 'Truncates table' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Only SELECT queries are allowed')
     })
 
     it('should reject ALTER queries', async () => {
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'ALTER TABLE users ADD COLUMN age INT', title: 'Alter', description: 'Alters table' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Only SELECT queries are allowed')
     })
 
     it('should reject CREATE queries', async () => {
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'CREATE TABLE test (id INT)', title: 'Create', description: 'Creates table' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Only SELECT queries are allowed')
     })
 
     it('should reject GRANT queries', async () => {
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'GRANT SELECT ON users TO test_user', title: 'Grant', description: 'Grants access' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Only SELECT queries are allowed')
     })
 
     it('should reject queries not starting with SELECT, WITH, or EXPLAIN', async () => {
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'SHOW TABLES', title: 'Show', description: 'Shows tables' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Query must start with SELECT, WITH, or EXPLAIN')
@@ -322,9 +334,9 @@ describe('Agent Tools', () => {
         rowCount: 0,
       })
 
-      await tools.execute_query.execute(
+      await tools.execute_query.execute!(
         { sql: 'SELECT * FROM users', title: 'Test', description: 'Test query' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
+        opts
       )
 
       expect(mockQuery).toHaveBeenCalledWith(
@@ -339,9 +351,9 @@ describe('Agent Tools', () => {
         rowCount: 0,
       })
 
-      await tools.execute_query.execute(
+      await tools.execute_query.execute!(
         { sql: 'SELECT * FROM users', title: 'Test', description: 'Test', limit: 50 },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
+        opts
       )
 
       expect(mockQuery).toHaveBeenCalledWith(
@@ -356,9 +368,9 @@ describe('Agent Tools', () => {
         rowCount: 0,
       })
 
-      await tools.execute_query.execute(
+      await tools.execute_query.execute!(
         { sql: 'SELECT * FROM users', title: 'Test', description: 'Test', limit: 5000 },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
+        opts
       )
 
       expect(mockQuery).toHaveBeenCalledWith(
@@ -373,9 +385,9 @@ describe('Agent Tools', () => {
         rowCount: 0,
       })
 
-      await tools.execute_query.execute(
+      await tools.execute_query.execute!(
         { sql: 'SELECT * FROM users LIMIT 10', title: 'Test', description: 'Test' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
+        opts
       )
 
       expect(mockQuery).toHaveBeenCalledWith('SELECT * FROM users LIMIT 10')
@@ -388,9 +400,9 @@ describe('Agent Tools', () => {
         rowCount: 0,
       })
 
-      await tools.execute_query.execute(
+      await tools.execute_query.execute!(
         { sql: 'SELECT * FROM users;', title: 'Test', description: 'Test' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
+        opts
       )
 
       expect(mockQuery).toHaveBeenCalledWith('SELECT * FROM users LIMIT 100')
@@ -403,14 +415,14 @@ describe('Agent Tools', () => {
         rowCount: 1,
       })
 
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         {
           sql: 'WITH active AS (SELECT * FROM users WHERE active = true) SELECT COUNT(*) as total FROM active',
           title: 'Active Count',
           description: 'Counts active users'
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(true)
     })
@@ -422,14 +434,14 @@ describe('Agent Tools', () => {
         rowCount: 1,
       })
 
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         {
           sql: 'EXPLAIN SELECT * FROM users',
           title: 'Query Plan',
           description: 'Shows query plan'
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(true)
     })
@@ -447,10 +459,10 @@ describe('Agent Tools', () => {
         rowCount: 2,
       })
 
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'SELECT id, name FROM users', title: 'Test', description: 'Test' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.warning).toContain('name')
       expect(result.emptyColumns).toContain('name')
@@ -459,10 +471,10 @@ describe('Agent Tools', () => {
     it('should handle database errors', async () => {
       mockQuery.mockRejectedValueOnce(new Error('column "nonexistent" does not exist'))
 
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'SELECT nonexistent FROM users', title: 'Test', description: 'Test' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('column')
@@ -472,10 +484,10 @@ describe('Agent Tools', () => {
     it('should handle syntax errors', async () => {
       mockQuery.mockRejectedValueOnce(new Error('syntax error at or near'))
 
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'SELECTT * FROM users', title: 'Test', description: 'Test' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.suggestion).toContain('syntax error')
@@ -489,10 +501,10 @@ describe('Agent Tools', () => {
         rowCount: 10,
       })
 
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         { sql: 'SELECT id FROM users', title: 'Test', description: 'Test' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.rows).toHaveLength(5)
       expect(result.hasMoreRows).toBe(true)
@@ -500,14 +512,14 @@ describe('Agent Tools', () => {
 
     it('should reject queries starting with comments', async () => {
       // Queries must literally start with SELECT/WITH/EXPLAIN
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         {
           sql: '-- This is a comment about DELETE\nSELECT * FROM users',
           title: 'Test',
           description: 'Test'
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Query must start with SELECT')
@@ -518,10 +530,10 @@ describe('Agent Tools', () => {
     it('should validate a correct SELECT query', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [] })
 
-      const result = await tools.validate_query.execute(
+      const result = await tools.validate_query.execute!(
         { sql: 'SELECT * FROM users' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as ValidateQueryResult
 
       expect(result.isValid).toBe(true)
       expect(result.message).toBe('Query is syntactically valid PostgreSQL')
@@ -531,29 +543,29 @@ describe('Agent Tools', () => {
     it('should validate WITH queries', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [] })
 
-      const result = await tools.validate_query.execute(
+      const result = await tools.validate_query.execute!(
         { sql: 'WITH cte AS (SELECT * FROM users) SELECT * FROM cte' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as ValidateQueryResult
 
       expect(result.isValid).toBe(true)
     })
 
     it('should reject non-SELECT queries', async () => {
-      const result = await tools.validate_query.execute(
+      const result = await tools.validate_query.execute!(
         { sql: 'DROP TABLE users' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as ValidateQueryResult
 
       expect(result.isValid).toBe(false)
       expect(result.error).toContain('must start with SELECT or WITH')
     })
 
     it('should reject mutation queries', async () => {
-      const result = await tools.validate_query.execute(
+      const result = await tools.validate_query.execute!(
         { sql: 'DELETE FROM users' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as ValidateQueryResult
 
       expect(result.isValid).toBe(false)
       // DELETE doesn't start with SELECT or WITH, so it's rejected at the first check
@@ -563,10 +575,10 @@ describe('Agent Tools', () => {
     it('should handle column errors', async () => {
       mockQuery.mockRejectedValueOnce(new Error('column "bad" does not exist'))
 
-      const result = await tools.validate_query.execute(
+      const result = await tools.validate_query.execute!(
         { sql: 'SELECT bad FROM users' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as ValidateQueryResult
 
       expect(result.isValid).toBe(false)
       expect(result.suggestion).toContain('column')
@@ -575,10 +587,10 @@ describe('Agent Tools', () => {
     it('should handle relation errors', async () => {
       mockQuery.mockRejectedValueOnce(new Error('relation "bad_table" does not exist'))
 
-      const result = await tools.validate_query.execute(
+      const result = await tools.validate_query.execute!(
         { sql: 'SELECT * FROM bad_table' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as ValidateQueryResult
 
       expect(result.isValid).toBe(false)
       expect(result.suggestion).toContain('table')
@@ -589,10 +601,10 @@ describe('Agent Tools', () => {
 
       // Note: SELEC doesn't start with SELECT so it fails the first check
       // Let's use a valid-looking query that has a syntax error
-      const result = await tools.validate_query.execute(
+      const result = await tools.validate_query.execute!(
         { sql: 'SELECT ** FROM users' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as ValidateQueryResult
 
       expect(result.isValid).toBe(false)
       expect(result.error).toContain('syntax error')
@@ -601,9 +613,9 @@ describe('Agent Tools', () => {
     it('should remove trailing semicolon before EXPLAIN', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [] })
 
-      await tools.validate_query.execute(
+      await tools.validate_query.execute!(
         { sql: 'SELECT * FROM users;' },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
+        opts
       )
 
       expect(mockQuery).toHaveBeenCalledWith('EXPLAIN SELECT * FROM users')
@@ -612,14 +624,15 @@ describe('Agent Tools', () => {
 
   describe('update_query_ui', () => {
     it('should return update action with SQL and explanation', async () => {
-      const result = await tools.update_query_ui.execute(
+      const result = await tools.update_query_ui.execute!(
         {
           sql: 'SELECT * FROM users',
           explanation: 'This query returns all users',
           summary: 'Found 100 users in the database',
+          assumptions: [],
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as UpdateQueryUIResult
 
       expect(result.action).toBe('updateUI')
       expect(result.sql).toBe('SELECT * FROM users')
@@ -629,56 +642,60 @@ describe('Agent Tools', () => {
     })
 
     it('should include changes when provided', async () => {
-      const result = await tools.update_query_ui.execute(
+      const result = await tools.update_query_ui.execute!(
         {
           sql: 'SELECT * FROM users WHERE active = true',
           explanation: 'Added filter for active users',
           summary: 'Now only showing active users',
+          assumptions: [],
           changes: ['Added WHERE clause', 'Filtered by active status'],
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as UpdateQueryUIResult
 
       expect(result.changes).toEqual(['Added WHERE clause', 'Filtered by active status'])
     })
 
     it('should include confidence level', async () => {
-      const result = await tools.update_query_ui.execute(
+      const result = await tools.update_query_ui.execute!(
         {
           sql: 'SELECT * FROM users',
           explanation: 'Query',
           summary: 'Summary',
+          assumptions: [],
           confidence: 'medium',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as UpdateQueryUIResult
 
       expect(result.confidence).toBe('medium')
     })
 
     it('should include suggestions', async () => {
-      const result = await tools.update_query_ui.execute(
+      const result = await tools.update_query_ui.execute!(
         {
           sql: 'SELECT * FROM users',
           explanation: 'Query',
           summary: 'Summary',
+          assumptions: [],
           suggestions: ['Add ORDER BY', 'Consider adding indexes'],
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as UpdateQueryUIResult
 
       expect(result.suggestions).toEqual(['Add ORDER BY', 'Consider adding indexes'])
     })
 
     it('should use defaults for optional fields', async () => {
-      const result = await tools.update_query_ui.execute(
+      const result = await tools.update_query_ui.execute!(
         {
           sql: 'SELECT * FROM users',
           explanation: 'Query',
           summary: 'Summary',
+          assumptions: [],
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as UpdateQueryUIResult
 
       expect(result.confidence).toBe('high')
       expect(result.changes).toEqual([])
@@ -694,7 +711,7 @@ describe('Agent Tools', () => {
         value: (i + 1) * 10,
       }))
 
-      const result = await tools.generate_chart.execute(
+      const result = await tools.generate_chart.execute!(
         {
           data,
           columns: [
@@ -704,8 +721,8 @@ describe('Agent Tools', () => {
           title: 'Values by Category',
           description: 'Shows values for each category',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as GenerateChartResult
 
       expect(result.success).toBe(true)
       expect(result.chartConfig?.type).toBe('column')
@@ -723,7 +740,7 @@ describe('Agent Tools', () => {
         { category: 'C', value: 30 },
       ]
 
-      const result = await tools.generate_chart.execute(
+      const result = await tools.generate_chart.execute!(
         {
           data,
           columns: [
@@ -733,8 +750,8 @@ describe('Agent Tools', () => {
           title: 'Distribution',
           description: 'Shows distribution',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as GenerateChartResult
 
       expect(result.success).toBe(true)
       expect(result.chartConfig?.type).toBe('pie')
@@ -748,7 +765,7 @@ describe('Agent Tools', () => {
         { date: '2024-01-03', count: 20 },
       ]
 
-      const result = await tools.generate_chart.execute(
+      const result = await tools.generate_chart.execute!(
         {
           data,
           columns: [
@@ -758,8 +775,8 @@ describe('Agent Tools', () => {
           title: 'Count Over Time',
           description: 'Shows count trend',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as GenerateChartResult
 
       expect(result.success).toBe(true)
       expect(result.chartConfig?.type).toBe('line')
@@ -773,7 +790,7 @@ describe('Agent Tools', () => {
         value2: (i + 1) * 5,
       }))
 
-      const result = await tools.generate_chart.execute(
+      const result = await tools.generate_chart.execute!(
         {
           data,
           columns: [
@@ -784,8 +801,8 @@ describe('Agent Tools', () => {
           title: 'Comparison',
           description: 'Compares values',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as GenerateChartResult
 
       expect(result.success).toBe(true)
       expect(result.chartConfig?.type).toBe('column')
@@ -798,7 +815,7 @@ describe('Agent Tools', () => {
         { category: 'B', value: 20 },
       ]
 
-      const result = await tools.generate_chart.execute(
+      const result = await tools.generate_chart.execute!(
         {
           data,
           columns: [
@@ -809,8 +826,8 @@ describe('Agent Tools', () => {
           description: 'Test',
           chartType: 'area',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as GenerateChartResult
 
       expect(result.chartConfig?.type).toBe('area')
     })
@@ -821,7 +838,7 @@ describe('Agent Tools', () => {
         { a: 4, b: 5, c: 6 },
       ]
 
-      const result = await tools.generate_chart.execute(
+      const result = await tools.generate_chart.execute!(
         {
           data,
           columns: [
@@ -834,23 +851,23 @@ describe('Agent Tools', () => {
           xAxis: 'a',
           yAxes: ['b', 'c'],
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as GenerateChartResult
 
       expect(result.chartConfig?.xAxis).toBe('a')
       expect(result.chartConfig?.yAxes).toEqual(['b', 'c'])
     })
 
     it('should handle empty data', async () => {
-      const result = await tools.generate_chart.execute(
+      const result = await tools.generate_chart.execute!(
         {
           data: [],
           columns: [{ name: 'x', type: 'text' }],
           title: 'Empty',
           description: 'Empty chart',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as GenerateChartResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('No data provided')
@@ -861,7 +878,7 @@ describe('Agent Tools', () => {
         { text1: 'a', text2: 'b' },
       ]
 
-      const result = await tools.generate_chart.execute(
+      const result = await tools.generate_chart.execute!(
         {
           data,
           columns: [
@@ -871,8 +888,8 @@ describe('Agent Tools', () => {
           title: 'Test',
           description: 'Test',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as GenerateChartResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Cannot determine chart axes')
@@ -883,7 +900,7 @@ describe('Agent Tools', () => {
         { category: 'A', value1: 10, value2: 5 },
       ]
 
-      const result = await tools.generate_chart.execute(
+      const result = await tools.generate_chart.execute!(
         {
           data,
           columns: [
@@ -895,8 +912,8 @@ describe('Agent Tools', () => {
           description: 'Test',
           stacked: true,
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as GenerateChartResult
 
       expect(result.chartConfig?.stacked).toBe(true)
     })
@@ -907,7 +924,7 @@ describe('Agent Tools', () => {
         { category: 'B', value: '20.3' },
       ]
 
-      const result = await tools.generate_chart.execute(
+      const result = await tools.generate_chart.execute!(
         {
           data,
           columns: [
@@ -917,8 +934,8 @@ describe('Agent Tools', () => {
           title: 'Test',
           description: 'Test',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as unknown as GenerateChartResult
 
       expect(result.success).toBe(true)
       expect(result.chartData?.[0].value).toBe(10.5)
@@ -928,13 +945,13 @@ describe('Agent Tools', () => {
 
   describe('manage_todo', () => {
     it('should create a todo list', async () => {
-      const result = await tools.manage_todo.execute(
+      const result = await tools.manage_todo.execute!(
         {
           action: 'create',
           items: ['Get schema', 'Build query', 'Test query'],
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ManageTodoResult
 
       expect(result.success).toBe(true)
       expect(result.action).toBe('create')
@@ -947,26 +964,26 @@ describe('Agent Tools', () => {
     })
 
     it('should fail create without items', async () => {
-      const result = await tools.manage_todo.execute(
+      const result = await tools.manage_todo.execute!(
         {
           action: 'create',
           items: [],
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ManageTodoResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Must provide items')
     })
 
     it('should set current item', async () => {
-      const result = await tools.manage_todo.execute(
+      const result = await tools.manage_todo.execute!(
         {
           action: 'set_current',
           item_id: 'todo-123',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ManageTodoResult
 
       expect(result.success).toBe(true)
       expect(result.action).toBe('set_current')
@@ -974,25 +991,25 @@ describe('Agent Tools', () => {
     })
 
     it('should fail set_current without item_id', async () => {
-      const result = await tools.manage_todo.execute(
+      const result = await tools.manage_todo.execute!(
         {
           action: 'set_current',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ManageTodoResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Must provide item_id')
     })
 
     it('should complete an item', async () => {
-      const result = await tools.manage_todo.execute(
+      const result = await tools.manage_todo.execute!(
         {
           action: 'complete',
           item_id: 'todo-456',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ManageTodoResult
 
       expect(result.success).toBe(true)
       expect(result.action).toBe('complete')
@@ -1001,25 +1018,25 @@ describe('Agent Tools', () => {
     })
 
     it('should fail complete without item_id', async () => {
-      const result = await tools.manage_todo.execute(
+      const result = await tools.manage_todo.execute!(
         {
           action: 'complete',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ManageTodoResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Must provide item_id')
     })
 
     it('should skip an item', async () => {
-      const result = await tools.manage_todo.execute(
+      const result = await tools.manage_todo.execute!(
         {
           action: 'skip',
           item_id: 'todo-789',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ManageTodoResult
 
       expect(result.success).toBe(true)
       expect(result.action).toBe('skip')
@@ -1028,25 +1045,25 @@ describe('Agent Tools', () => {
     })
 
     it('should fail skip without item_id', async () => {
-      const result = await tools.manage_todo.execute(
+      const result = await tools.manage_todo.execute!(
         {
           action: 'skip',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ManageTodoResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Must provide item_id')
     })
 
     it('should add a new item', async () => {
-      const result = await tools.manage_todo.execute(
+      const result = await tools.manage_todo.execute!(
         {
           action: 'add',
           item_text: 'New task discovered',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ManageTodoResult
 
       expect(result.success).toBe(true)
       expect(result.action).toBe('add')
@@ -1057,12 +1074,12 @@ describe('Agent Tools', () => {
     })
 
     it('should fail add without item_text', async () => {
-      const result = await tools.manage_todo.execute(
+      const result = await tools.manage_todo.execute!(
         {
           action: 'add',
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ManageTodoResult
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Must provide item_text')
@@ -1099,10 +1116,10 @@ describe('Agent Tools', () => {
 
     for (const { sql, pattern } of dangerousQueries) {
       it(`should reject ${pattern}`, async () => {
-        const result = await tools.execute_query.execute(
+        const result = await tools.execute_query.execute!(
           { sql, title: 'Test', description: 'Test' },
-          { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-        )
+          opts
+        ) as ExecuteQueryResult
 
         expect(result.success).toBe(false)
         expect(result.error).toContain('Only SELECT queries are allowed')
@@ -1118,28 +1135,28 @@ describe('Agent Tools', () => {
         rowCount: 0,
       })
 
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         {
           sql: 'SELECT delete_count, drop_flag FROM audit_log',
           title: 'Test',
           description: 'Test'
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       expect(result.success).toBe(true)
     })
 
     it('should block queries that contain dangerous patterns even within comments for safety', async () => {
       // Block comment contains DROP - query must start with SELECT anyway
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         {
           sql: '/* DROP TABLE users */ SELECT * FROM users',
           title: 'Test',
           description: 'Test'
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       // Query doesn't start with SELECT so it's rejected
       expect(result.success).toBe(false)
@@ -1156,14 +1173,14 @@ describe('Agent Tools', () => {
 
       // A SELECT query that mentions DELETE in comments should pass the mutation check
       // Note: it still must START with SELECT
-      const result = await tools.execute_query.execute(
+      const result = await tools.execute_query.execute!(
         {
           sql: "SELECT * FROM users -- DELETE FROM logs",
           title: 'Test',
           description: 'Test'
         },
-        { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }
-      )
+        opts
+      ) as ExecuteQueryResult
 
       // This passes because the query starts with SELECT and the comment is stripped
       // before checking for dangerous patterns

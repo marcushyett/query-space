@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Tree, Input, Typography, Empty, Button } from 'antd';
+import { Tree, Input, Typography, Empty, Button, Alert } from 'antd';
 import { TechSpinner } from './TechSpinner';
 import {
   TableOutlined,
@@ -10,12 +10,14 @@ import {
   SearchOutlined,
   DatabaseOutlined,
   FolderOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useTables } from '@/hooks/useTables';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
 import type { TableInfo } from '@/app/api/tables/route';
 import type { DataNode } from 'antd/es/tree';
+import Link from 'next/link';
 
 const { Text } = Typography;
 const { Search } = Input;
@@ -25,7 +27,7 @@ interface TableBrowserProps {
 }
 
 export function TableBrowser({ onTableSelect }: TableBrowserProps) {
-  const { tables, isLoading, fetchTables, refreshTables } = useTables();
+  const { tables, isLoading, error, fetchTables, refreshTables } = useTables();
   const { connectionString } = useConnectionStore();
   const { setSelectedTable, setTableDetailDrawerOpen } = useUiStore();
   const [searchValue, setSearchValue] = useState('');
@@ -131,9 +133,14 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
     return (
       <div style={{ padding: 16, textAlign: 'center' }}>
         <DatabaseOutlined style={{ fontSize: 32, color: '#666', marginBottom: 8 }} />
-        <Text type="secondary" style={{ display: 'block' }}>
-          Connect to a database to browse tables
+        <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+          No database connected
         </Text>
+        <Link href="/settings">
+          <Button type="primary" size="small" icon={<SettingOutlined />}>
+            Connect Database
+          </Button>
+        </Link>
       </div>
     );
   }
@@ -161,6 +168,23 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
         />
       </div>
 
+      {/* Error display */}
+      {error && (
+        <div style={{ padding: '8px 12px' }}>
+          <Alert
+            type="error"
+            message={error}
+            showIcon
+            closable
+            action={
+              <Button size="small" onClick={refreshTables}>
+                Retry
+              </Button>
+            }
+          />
+        </div>
+      )}
+
       {/* Search */}
       <div style={{ padding: '8px 12px' }}>
         <Search
@@ -181,6 +205,21 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
             <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
               Loading tables...
             </Text>
+          </div>
+        ) : error && treeData.length === 0 ? (
+          <div style={{ padding: 16, textAlign: 'center' }}>
+            <DatabaseOutlined style={{ fontSize: 24, color: '#ff4d4f', marginBottom: 8 }} />
+            <Text type="danger" style={{ display: 'block', marginBottom: 8 }}>
+              Connection failed
+            </Text>
+            <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 12 }}>
+              Check your database connection in Settings
+            </Text>
+            <Link href="/settings">
+              <Button size="small" icon={<SettingOutlined />}>
+                Go to Settings
+              </Button>
+            </Link>
           </div>
         ) : treeData.length === 0 ? (
           <Empty
