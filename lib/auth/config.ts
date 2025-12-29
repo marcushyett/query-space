@@ -8,12 +8,12 @@ import { prisma } from '@/lib/db/prisma'
 import { z } from 'zod'
 import { authConfig } from './config.edge'
 
-// Vercel OAuth provider profile type
+// Vercel OIDC profile type (standard OpenID Connect claims)
 interface VercelProfile {
-  uid: string
+  sub: string
   email: string
-  name: string
-  avatar?: string
+  name?: string
+  picture?: string
 }
 
 // Vercel OAuth provider (custom implementation)
@@ -23,30 +23,22 @@ const VercelProvider: OAuthConfig<VercelProfile> = {
   type: 'oauth',
   authorization: {
     url: 'https://vercel.com/oauth/authorize',
-    params: { scope: 'user:email' },
+    params: { scope: 'openid email profile' },
   },
   token: {
-    url: 'https://api.vercel.com/v2/oauth/access_token',
-    async conform(response: Response) {
-      // Vercel's token endpoint returns the access_token directly in the response
-      // If the response is not OK, return it as-is for proper error handling
-      if (!response.ok) {
-        return response
-      }
-      return response
-    },
+    url: 'https://api.vercel.com/login/oauth/token',
   },
-  userinfo: 'https://api.vercel.com/v2/user',
+  userinfo: 'https://api.vercel.com/login/oauth/userinfo',
   profile(profile) {
     return {
-      id: profile.uid,
+      id: profile.sub,
       email: profile.email,
-      name: profile.name,
-      image: profile.avatar,
+      name: profile.name ?? profile.email,
+      image: profile.picture,
     }
   },
-  // Disable PKCE - Vercel OAuth doesn't support code_verifier/code_challenge
-  checks: ['state'],
+  // Use PKCE with S256 for enhanced security (Vercel supports PKCE)
+  checks: ['pkce', 'state'],
   clientId: process.env.VERCEL_CLIENT_ID,
   clientSecret: process.env.VERCEL_CLIENT_SECRET,
 }
