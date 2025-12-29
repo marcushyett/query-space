@@ -1,4 +1,5 @@
 import NextAuth from 'next-auth'
+import type { OAuthConfig } from 'next-auth/providers'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import GitHub from 'next-auth/providers/github'
 import Credentials from 'next-auth/providers/credentials'
@@ -7,11 +8,19 @@ import { prisma } from '@/lib/db/prisma'
 import { z } from 'zod'
 import { authConfig } from './config.edge'
 
+// Vercel OAuth provider profile type
+interface VercelProfile {
+  uid: string
+  email: string
+  name: string
+  avatar?: string
+}
+
 // Vercel OAuth provider (custom implementation)
-const VercelProvider = {
+const VercelProvider: OAuthConfig<VercelProfile> = {
   id: 'vercel',
   name: 'Vercel',
-  type: 'oauth' as const,
+  type: 'oauth',
   authorization: {
     url: 'https://vercel.com/oauth/authorize',
     params: { scope: 'user:email' },
@@ -28,7 +37,7 @@ const VercelProvider = {
     },
   },
   userinfo: 'https://api.vercel.com/v2/user',
-  profile(profile: { uid: string; email: string; name: string; avatar?: string }) {
+  profile(profile) {
     return {
       id: profile.uid,
       email: profile.email,
@@ -37,7 +46,7 @@ const VercelProvider = {
     }
   },
   // Disable PKCE - Vercel OAuth doesn't support code_verifier/code_challenge
-  checks: ['state'] as const,
+  checks: ['state'],
   clientId: process.env.VERCEL_CLIENT_ID,
   clientSecret: process.env.VERCEL_CLIENT_SECRET,
 }
