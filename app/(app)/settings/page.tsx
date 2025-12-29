@@ -24,6 +24,8 @@ import {
   PlusOutlined,
   DeleteOutlined,
   MailOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
 } from '@ant-design/icons'
 
 const { Title, Text } = Typography
@@ -79,6 +81,10 @@ export default function SettingsPage() {
   const [inviteRole, setInviteRole] = useState<'ADMIN' | 'MEMBER'>('MEMBER')
   const [inviteAccessType, setInviteAccessType] = useState<'READ_ONLY' | 'READ_WRITE'>('READ_WRITE')
   const [inviting, setInviting] = useState(false)
+
+  // Visibility toggles for sensitive data
+  const [showDatabaseUrl, setShowDatabaseUrl] = useState(false)
+  const [showClaudeApiKey, setShowClaudeApiKey] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -334,7 +340,19 @@ export default function SettingsPage() {
         {settings?.hasDatabaseUrl && (
           <div className="settings-field">
             <label className="settings-label">Current Connection</label>
-            <Input value={settings.databaseUrlMasked || ''} disabled />
+            <Input
+              value={showDatabaseUrl ? (settings.databaseUrlMasked || '') : '••••••••••••••••••••••••••••••••'}
+              disabled
+              suffix={
+                <Button
+                  type="text"
+                  size="small"
+                  icon={showDatabaseUrl ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                  onClick={() => setShowDatabaseUrl(!showDatabaseUrl)}
+                  style={{ marginRight: -8 }}
+                />
+              }
+            />
           </div>
         )}
 
@@ -344,9 +362,11 @@ export default function SettingsPage() {
               {settings?.hasDatabaseUrl ? 'Update' : 'Add'} Connection String
             </label>
             <Input.Password
+              id="database-url-input"
               value={databaseUrl}
-              onChange={(e) => setDatabaseUrl(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDatabaseUrl(e.target.value)}
               placeholder="postgresql://user:password@host:5432/database"
+              autoComplete="off"
             />
             <p className="settings-hint">
               Your connection string is encrypted at rest. Use a read-only database user for security.
@@ -368,7 +388,19 @@ export default function SettingsPage() {
         {settings?.hasClaudeApiKey && (
           <div className="settings-field">
             <label className="settings-label">Current Key</label>
-            <Input value={settings.claudeApiKeyMasked || ''} disabled />
+            <Input
+              value={showClaudeApiKey ? (settings.claudeApiKeyMasked || '') : '••••••••••••••••••••••••••••••••'}
+              disabled
+              suffix={
+                <Button
+                  type="text"
+                  size="small"
+                  icon={showClaudeApiKey ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                  onClick={() => setShowClaudeApiKey(!showClaudeApiKey)}
+                  style={{ marginRight: -8 }}
+                />
+              }
+            />
           </div>
         )}
 
@@ -378,9 +410,11 @@ export default function SettingsPage() {
               {settings?.hasClaudeApiKey ? 'Update' : 'Add'} API Key
             </label>
             <Input.Password
+              id="claude-api-key-input"
               value={claudeApiKey}
-              onChange={(e) => setClaudeApiKey(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setClaudeApiKey(e.target.value)}
               placeholder="sk-ant-..."
+              autoComplete="off"
             />
             <p className="settings-hint">
               Your API key is encrypted at rest. Get one from{' '}
