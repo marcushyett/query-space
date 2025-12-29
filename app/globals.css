@@ -1729,8 +1729,12 @@ body {
 /* Settings page styles */
 .settings-page {
   max-width: 800px;
+  width: 100%;
   margin: 0 auto;
   padding: 24px;
+  overflow-y: auto;
+  height: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 .settings-section {
@@ -2007,6 +2011,7 @@ body {
 
   .settings-page {
     padding: 16px;
+    padding-bottom: 32px;
   }
 
   .settings-section {
