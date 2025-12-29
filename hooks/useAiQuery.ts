@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react';
 import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { useAiStore } from '@/stores/aiStore';
 import { useSchemaStore } from '@/stores/schemaStore';
 
 interface AiQueryResponse {
@@ -13,8 +12,7 @@ interface AiQueryResponse {
 
 export function useAiQuery() {
   const { message } = App.useApp();
-  const connectionString = useConnectionStore((state) => state.connectionString);
-  const apiKey = useAiStore((state) => state.apiKey);
+  const { connectionString, organizationId } = useConnectionStore();
   const tables = useSchemaStore((state) => state.tables);
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -28,8 +26,8 @@ export function useAiQuery() {
         return null;
       }
 
-      if (!apiKey || apiKey.length === 0) {
-        message.error('Please enter your Claude API key');
+      if (!organizationId) {
+        message.error('No organization selected');
         return null;
       }
 
@@ -47,7 +45,7 @@ export function useAiQuery() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prompt: prompt.trim(),
-            apiKey,
+            organizationId,
             schema: tables,
           }),
         });
@@ -79,7 +77,7 @@ export function useAiQuery() {
         setIsGenerating(false);
       }
     },
-    [connectionString, apiKey, tables, message]
+    [connectionString, organizationId, tables, message]
   );
 
   const clearError = useCallback(() => {

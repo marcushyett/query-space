@@ -2089,6 +2089,16 @@ body {
   object-fit: cover;
 }
 
+/* Navigation icon button */
+.nav-icon-button {
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-icon-button:hover {
+  background: #1a1a1a !important;
+  color: #fff !important;
+}
+
 /* Mobile navigation adjustments */
 @media (max-width: 767px) {
   .app-nav {
@@ -2100,7 +2110,7 @@ body {
   }
 
   .app-nav-right {
-    gap: 8px;
+    gap: 4px;
   }
 
   /* Hide org name on mobile, show only icon */

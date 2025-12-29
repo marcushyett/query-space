@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { streamQueryAgent, MAX_AGENT_STEPS, type AgentStreamEvent, type SchemaInfo } from '@/lib/agent';
+import { getClaudeApiKey } from '@/lib/auth/organization-settings';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -7,7 +8,7 @@ export const maxDuration = 120; // 2 minute max for agent execution
 
 interface AgentRequest {
   prompt: string;
-  apiKey: string;
+  organizationId?: string;
   connectionString: string;
   schema: SchemaInfo[];
   previousSql?: string;
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     const body: AgentRequest = await request.json();
     const {
       prompt,
-      apiKey,
+      organizationId,
       connectionString,
       schema,
       previousSql,
@@ -35,10 +36,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const effectiveApiKey = apiKey || process.env.CLAUDE_API_KEY;
+    // Get API key from organization settings or environment variable
+    const effectiveApiKey = organizationId
+      ? await getClaudeApiKey(organizationId)
+      : process.env.CLAUDE_API_KEY;
+
     if (!effectiveApiKey) {
       return new Response(
-        JSON.stringify({ error: 'API key is required' }),
+        JSON.stringify({ error: 'Claude API key is not configured. Go to Settings to add your Claude API key.' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }

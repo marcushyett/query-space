@@ -7,14 +7,12 @@ import {
   CloseOutlined,
   PlusOutlined,
   RobotOutlined,
-  KeyOutlined,
   ExpandOutlined,
   CompressOutlined,
   HistoryOutlined,
   PlayCircleOutlined,
 } from '@ant-design/icons';
 import { useAiChatStore } from '@/stores/aiChatStore';
-import { useAiStore } from '@/stores/aiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useQueryStore } from '@/stores/queryStore';
 import { useAiAgent } from '@/hooks/useAiAgent';
@@ -40,7 +38,6 @@ export function AiChatPanel() {
   const isMobile = !screens.md;
 
   const { isOpen, setOpen, messages, isGenerating, agentProgress } = useAiChatStore();
-  const { apiKey, setApiKey, setPersistApiKey } = useAiStore();
   const { connectionString } = useConnectionStore();
   const { isExecuting, setCurrentQuery } = useQueryStore();
   const { sendMessage, continueAgent, stopAgent, startNewConversation, setCurrentSql, setIsAiGenerated, resumeSession, resumableSessions } = useAiAgent();
@@ -53,7 +50,6 @@ export function AiChatPanel() {
   };
 
   const [inputValue, setInputValue] = useState('');
-  const [apiKeyInput, setApiKeyInput] = useState(apiKey || '');
   const [isExpanded, setIsExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -70,9 +66,6 @@ export function AiChatPanel() {
 
   const handleSend = async () => {
     if (!inputValue.trim() || isGenerating || isExecuting) return;
-    if (apiKeyInput && !apiKey) {
-      setApiKey(apiKeyInput);
-    }
     const prompt = inputValue;
     setInputValue('');
     await sendMessage(prompt);
@@ -82,13 +75,6 @@ export function AiChatPanel() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
-    }
-  };
-
-  const handleApiKeySave = () => {
-    if (apiKeyInput) {
-      setApiKey(apiKeyInput);
-      setPersistApiKey(true);
     }
   };
 
@@ -133,33 +119,6 @@ export function AiChatPanel() {
 
       {/* Content */}
       <div className="ai-chat-content">
-        {/* API Key prompt */}
-        {!apiKey && (
-          <div className="p-4">
-            <Space direction="vertical" size={12} style={{ width: '100%' }}>
-              <Space>
-                <KeyOutlined />
-                <Text>Enter your Claude API key to start</Text>
-              </Space>
-              <Space.Compact style={{ width: '100%' }}>
-                <Input.Password
-                  value={apiKeyInput}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                  placeholder="sk-ant-..."
-                  onPressEnter={handleApiKeySave}
-                  style={{ flex: 1 }}
-                />
-                <Button type="primary" onClick={handleApiKeySave} disabled={!apiKeyInput}>
-                  Save
-                </Button>
-              </Space.Compact>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                Stored locally in your browser
-              </Text>
-            </Space>
-          </div>
-        )}
-
         {/* Not connected */}
         {!isConnected && (
           <div className="p-4 text-center">
@@ -168,7 +127,7 @@ export function AiChatPanel() {
         )}
 
         {/* Resumable sessions banner */}
-        {resumableSessions.length > 0 && messages.length === 0 && apiKey && isConnected && !isWorking && (
+        {resumableSessions.length > 0 && messages.length === 0 && isConnected && !isWorking && (
           <div className="resumable-sessions-banner">
             <Space direction="vertical" size={8} style={{ width: '100%' }}>
               <Space>
@@ -226,7 +185,7 @@ export function AiChatPanel() {
         )}
 
         {/* Empty state */}
-        {messages.length === 0 && apiKey && isConnected && resumableSessions.length === 0 && (
+        {messages.length === 0 && isConnected && resumableSessions.length === 0 && (
           <Empty
             image={<RobotOutlined style={{ fontSize: 48, color: '#333' }} />}
             description={
@@ -318,14 +277,14 @@ export function AiChatPanel() {
             onKeyDown={handleKeyDown}
             placeholder={messages.length === 0 ? "What data do you want to see?" : "Refine the query..."}
             autoSize={{ minRows: 1, maxRows: isMobile ? 3 : 4 }}
-            disabled={!apiKey || !isConnected || isWorking}
+            disabled={!isConnected || isWorking}
             style={{ flex: 1 }}
           />
           <Button
             type="primary"
             icon={<SendOutlined />}
             onClick={handleSend}
-            disabled={!inputValue.trim() || !apiKey || !isConnected || isWorking}
+            disabled={!inputValue.trim() || !isConnected || isWorking}
             loading={isWorking}
           />
         </Space.Compact>

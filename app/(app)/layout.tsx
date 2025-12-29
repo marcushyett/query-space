@@ -175,16 +175,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             <div className="app-nav-right">
               {/* Settings Link */}
-              <span
+              <button
+                className="nav-icon-button"
                 style={{
-                  padding: '4px 8px',
+                  background: 'none',
+                  border: 'none',
+                  padding: '8px',
                   cursor: 'pointer',
                   color: pathname === '/settings' ? '#fff' : '#888',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: 44,
+                  minHeight: 44,
+                  borderRadius: 6,
                 }}
                 onClick={() => router.push('/settings')}
+                aria-label="Settings"
               >
-                <SettingOutlined />
-              </span>
+                <SettingOutlined style={{ fontSize: 18 }} />
+              </button>
 
               {/* User Menu */}
               <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>

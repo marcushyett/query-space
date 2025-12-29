@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { Button, Typography, Grid } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button, Typography, Grid, Spin } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -9,8 +10,8 @@ import {
   HistoryOutlined,
   PlayCircleOutlined,
   RobotOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
-import { ConnectionDialog } from './ConnectionDialog';
 import { SqlEditor } from './SqlEditor';
 import { QueryResults } from './QueryResults';
 import { TableBrowser } from './TableBrowser';
@@ -32,13 +33,15 @@ const TABLE_BROWSER_WIDTH = 260;
 const TABLE_BROWSER_WIDTH_MOBILE = 200;
 
 export function HomePage() {
-  const { connectionString } = useConnectionStore();
-  const { connectionDialogOpen, setConnectionDialogOpen, tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer } = useUiStore();
+  const router = useRouter();
+  const { connectionString, setConnectionString, setOrganizationId } = useConnectionStore();
+  const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer } = useUiStore();
   const { currentQuery, isExecuting } = useQueryStore();
   const { isOpen: aiChatOpen, setOpen: setAiChatOpen } = useAiChatStore();
   const { executeQuery } = useQuery();
   const screens = useBreakpoint();
-  const hasCheckedConnection = React.useRef(false);
+  const [isLoadingConnection, setIsLoadingConnection] = useState(true);
+  const hasLoadedSettings = React.useRef(false);
 
   // Fetch schema for autocomplete (automatically triggered when connected)
   useSchema();
@@ -48,17 +51,42 @@ export function HomePage() {
 
   useKeyboardShortcuts();
 
-  // Only show connection dialog if not connected (run once after mount)
+  // Load connection from org settings on mount
   useEffect(() => {
-    // Wait for zustand to hydrate and only check once
-    const timer = setTimeout(() => {
-      if (!hasCheckedConnection.current && !connectionString && !connectionDialogOpen) {
-        hasCheckedConnection.current = true;
-        setConnectionDialogOpen(true);
+    if (hasLoadedSettings.current) return;
+    hasLoadedSettings.current = true;
+
+    const loadConnectionFromOrg = async () => {
+      try {
+        // Fetch organizations
+        const orgsRes = await fetch('/api/organizations');
+        const orgsData = await orgsRes.json();
+
+        if (!orgsData.organizations?.length) {
+          setIsLoadingConnection(false);
+          return;
+        }
+
+        const org = orgsData.organizations[0];
+        setOrganizationId(org.id);
+
+        // Fetch org settings to check for database URL
+        const settingsRes = await fetch(`/api/organizations/${org.id}/settings`);
+        const settingsData = await settingsRes.json();
+
+        if (settingsRes.ok && settingsData.settings?.hasDatabaseUrl) {
+          // Mark as connected - the actual connection string is used server-side
+          setConnectionString('configured-in-org-settings');
+        }
+      } catch (err) {
+        console.error('Failed to load organization settings:', err);
+      } finally {
+        setIsLoadingConnection(false);
       }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [connectionString, connectionDialogOpen, setConnectionDialogOpen]);
+    };
+
+    loadConnectionFromOrg();
+  }, [setConnectionString, setOrganizationId]);
 
   const handleRunQuery = () => {
     if (currentQuery) {
@@ -78,6 +106,17 @@ export function HomePage() {
   const handleToggleAiChat = () => {
     setAiChatOpen(!aiChatOpen);
   };
+
+  // Show loading spinner while checking org settings
+  if (isLoadingConnection) {
+    return (
+      <div className="app-container">
+        <div className="loading-state-large">
+          <Spin size="large" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
@@ -105,7 +144,7 @@ export function HomePage() {
           {!connectionString && (
             <Button
               size="small"
-              onClick={() => setConnectionDialogOpen(true)}
+              onClick={() => router.push('/settings')}
             >
               Connect
             </Button>
@@ -129,6 +168,12 @@ export function HomePage() {
               Run
             </Button>
           )}
+          <Button
+            type="text"
+            icon={<SettingOutlined />}
+            onClick={() => router.push('/settings')}
+            aria-label="Settings"
+          />
           <Button
             type="text"
             icon={<HistoryOutlined />}
@@ -166,7 +211,6 @@ export function HomePage() {
         </div>
       </main>
 
-      <ConnectionDialog />
       <TableDetailDrawer />
       <QueryHistoryDrawer />
     </div>
