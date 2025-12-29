@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
+import { Client } from 'pg'
 
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 16
@@ -128,5 +129,67 @@ export function maskConnectionString(connectionString: string): string {
     return url.toString()
   } catch {
     return connectionString.replace(/:[^:@]+@/, ':****@')
+  }
+}
+
+/**
+ * Test a PostgreSQL connection by attempting to connect and run a simple query
+ * Returns null if successful, or an error message if failed
+ */
+export async function testPostgresConnection(connectionString: string): Promise<string | null> {
+  let client: Client | null = null
+
+  try {
+    client = new Client({
+      connectionString,
+      connectionTimeoutMillis: 10000, // 10 second timeout
+    })
+
+    await client.connect()
+
+    // Run a simple query to verify the connection works
+    await client.query('SELECT 1')
+
+    return null // Success
+  } catch (error) {
+    // Provide user-friendly error messages
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase()
+
+      if (message.includes('timeout') || message.includes('timed out')) {
+        return 'Connection timed out. Please check the hostname and port are correct and accessible.'
+      }
+      if (message.includes('password authentication failed') || message.includes('authentication failed')) {
+        return 'Authentication failed. Please check your username and password.'
+      }
+      if (message.includes('does not exist') && message.includes('database')) {
+        return 'Database does not exist. Please check the database name.'
+      }
+      if (message.includes('enotfound') || message.includes('getaddrinfo')) {
+        return 'Hostname not found. Please check the hostname is correct.'
+      }
+      if (message.includes('econnrefused') || message.includes('connection refused')) {
+        return 'Connection refused. Please check the hostname and port, and ensure the database server is running.'
+      }
+      if (message.includes('ssl') || message.includes('certificate')) {
+        return 'SSL/TLS error. You may need to add ?sslmode=require or ?sslmode=no-verify to your connection string.'
+      }
+      if (message.includes('permission denied')) {
+        return 'Permission denied. Please check your user has access to the database.'
+      }
+
+      // Return a generic but informative message
+      return `Connection failed: ${error.message}`
+    }
+
+    return 'Connection failed. Please check your connection string.'
+  } finally {
+    if (client) {
+      try {
+        await client.end()
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
   }
 }

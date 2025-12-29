@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useAiQuery } from '../useAiQuery'
 import { useConnectionStore } from '@/stores/connectionStore'
-import { useAiStore } from '@/stores/aiStore'
 import { useSchemaStore } from '@/stores/schemaStore'
 
 // Mock fetch
@@ -33,8 +32,7 @@ vi.mock('antd', async () => {
 describe('useAiQuery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    useConnectionStore.setState({ connectionString: null })
-    useAiStore.setState({ apiKey: null, persistApiKey: false })
+    useConnectionStore.setState({ connectionString: null, organizationId: null })
     useSchemaStore.setState({
       tables: [],
       isLoading: false,
@@ -50,8 +48,6 @@ describe('useAiQuery', () => {
   describe('generateQuery', () => {
     describe('validation', () => {
       it('should return error when no connection string', async () => {
-        useAiStore.setState({ apiKey: 'sk-ant-test-key' })
-
         const { result } = renderHook(() => useAiQuery())
 
         await act(async () => {
@@ -62,8 +58,8 @@ describe('useAiQuery', () => {
         expect(mockFetch).not.toHaveBeenCalled()
       })
 
-      it('should return error when no API key', async () => {
-        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
+      it('should return error when no organization selected', async () => {
+        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb', organizationId: null })
 
         const { result } = renderHook(() => useAiQuery())
 
@@ -71,13 +67,12 @@ describe('useAiQuery', () => {
           await result.current.generateQuery('show all users')
         })
 
-        expect(mockMessage.error).toHaveBeenCalledWith('Please enter your Claude API key')
+        expect(mockMessage.error).toHaveBeenCalledWith('No organization selected')
         expect(mockFetch).not.toHaveBeenCalled()
       })
 
       it('should return error for empty prompt', async () => {
-        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
-        useAiStore.setState({ apiKey: 'sk-ant-test-key' })
+        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb', organizationId: 'org-123' })
 
         const { result } = renderHook(() => useAiQuery())
 
@@ -90,8 +85,7 @@ describe('useAiQuery', () => {
       })
 
       it('should return error for whitespace-only prompt', async () => {
-        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
-        useAiStore.setState({ apiKey: 'sk-ant-test-key' })
+        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb', organizationId: 'org-123' })
 
         const { result } = renderHook(() => useAiQuery())
 
@@ -105,8 +99,7 @@ describe('useAiQuery', () => {
 
     describe('with valid inputs', () => {
       beforeEach(() => {
-        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
-        useAiStore.setState({ apiKey: 'sk-ant-test-key' })
+        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb', organizationId: 'org-123' })
         useSchemaStore.setState({
           tables: [
             {
@@ -144,7 +137,7 @@ describe('useAiQuery', () => {
         })
       })
 
-      it('should include API key in request', async () => {
+      it('should include organizationId in request', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
           json: async () => ({ sql: 'SELECT * FROM users' }),
@@ -157,7 +150,7 @@ describe('useAiQuery', () => {
         })
 
         const callBody = JSON.parse((mockFetch.mock.calls[0][1] as { body: string }).body)
-        expect(callBody.apiKey).toBe('sk-ant-test-key')
+        expect(callBody.organizationId).toBe('org-123')
       })
 
       it('should include schema in request', async () => {
@@ -238,8 +231,7 @@ describe('useAiQuery', () => {
 
     describe('error handling', () => {
       beforeEach(() => {
-        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
-        useAiStore.setState({ apiKey: 'sk-ant-test-key' })
+        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb', organizationId: 'org-123' })
         useSchemaStore.setState({
           tables: [{ schema: 'public', name: 'users', type: 'table', columns: [] }],
           isLoading: false,
@@ -308,8 +300,7 @@ describe('useAiQuery', () => {
 
   describe('clearError', () => {
     it('should clear error state', async () => {
-      useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
-      useAiStore.setState({ apiKey: 'sk-ant-test-key' })
+      useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb', organizationId: 'org-123' })
       useSchemaStore.setState({
         tables: [{ schema: 'public', name: 'users', type: 'table', columns: [] }],
         isLoading: false,
