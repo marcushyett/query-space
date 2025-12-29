@@ -3,6 +3,7 @@ import type { NextAuthConfig } from 'next-auth'
 // Lightweight auth config for middleware (Edge-compatible)
 // Does NOT include Prisma adapter or bcrypt which require Node.js crypto
 export const authConfig: NextAuthConfig = {
+  secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: 'jwt',
   },

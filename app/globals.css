@@ -2089,6 +2089,46 @@ body {
   object-fit: cover;
 }
 
+/* Mobile navigation adjustments */
+@media (max-width: 767px) {
+  .app-nav {
+    padding: 0 12px;
+  }
+
+  .app-nav-left {
+    gap: 8px;
+  }
+
+  .app-nav-right {
+    gap: 8px;
+  }
+
+  /* Hide org name on mobile, show only icon */
+  .org-selector-name,
+  .org-selector > span:last-child {
+    display: none;
+  }
+
+  .org-selector {
+    padding: 6px 8px;
+  }
+
+  /* Larger touch targets for mobile */
+  .user-menu-trigger {
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+}
+
 /* Database connection status */
 .connection-status {
   display: flex;
