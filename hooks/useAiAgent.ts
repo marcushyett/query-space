@@ -3,7 +3,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { useAiStore } from '@/stores/aiStore';
 import { useSchemaStore } from '@/stores/schemaStore';
 import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata, AgentTodoItem } from '@/stores/aiChatStore';
 import { useQueryStore, QueryResult } from '@/stores/queryStore';
@@ -15,8 +14,7 @@ const MAX_STEPS = 25;
 
 export function useAiAgent() {
   const { message } = App.useApp();
-  const connectionString = useConnectionStore((state) => state.connectionString);
-  const apiKey = useAiStore((state) => state.apiKey);
+  const { connectionString, organizationId } = useConnectionStore();
   const tables = useSchemaStore((state) => state.tables);
   const { setCurrentQuery, setQueryResults, addToHistory, setIsExecuting } = useQueryStore();
 
@@ -132,8 +130,8 @@ export function useAiAgent() {
         return false;
       }
 
-      if (!apiKey || apiKey.length === 0) {
-        message.error('Please enter your Claude API key');
+      if (!organizationId) {
+        message.error('No organization selected');
         return false;
       }
 
@@ -160,7 +158,7 @@ export function useAiAgent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prompt: prompt.trim(),
-            apiKey,
+            organizationId,
             connectionString,
             schema: tables,
             previousSql: currentSql,
@@ -517,7 +515,7 @@ export function useAiAgent() {
     },
     [
       connectionString,
-      apiKey,
+      organizationId,
       tables,
       currentSql,
       addUserMessage,
@@ -611,7 +609,7 @@ export function useAiAgent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: continuePrompt,
-          apiKey,
+          organizationId,
           connectionString,
           schema: tables,
           previousSql: currentSql,
@@ -911,7 +909,7 @@ export function useAiAgent() {
     }
   }, [
     buildContextSummary,
-    apiKey,
+    organizationId,
     connectionString,
     tables,
     currentSql,
@@ -958,8 +956,8 @@ export function useAiAgent() {
         return false;
       }
 
-      if (!apiKey || apiKey.length === 0) {
-        message.error('Please enter your Claude API key');
+      if (!organizationId) {
+        message.error('No organization selected');
         return false;
       }
 
@@ -999,7 +997,7 @@ IMPORTANT: You are resuming a previous session. Review the todo list and continu
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prompt: resumePrompt,
-            apiKey,
+            organizationId,
             connectionString,
             schema: tables,
             previousSql: session.currentSql,
@@ -1328,7 +1326,7 @@ IMPORTANT: You are resuming a previous session. Review the todo list and continu
     },
     [
       connectionString,
-      apiKey,
+      organizationId,
       tables,
       addUserMessage,
       addAssistantMessage,
