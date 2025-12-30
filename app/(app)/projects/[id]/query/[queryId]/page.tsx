@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   Button,
@@ -71,6 +71,9 @@ export default function QueryEditorPage() {
   const [projectName, setProjectName] = useState<string>('')
   const [form] = Form.useForm()
   const hasGeneratedName = useRef(false)
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastSavedSqlRef = useRef<string>('')
+  const [autoSaving, setAutoSaving] = useState(false)
 
   const isMobile = !screens.md
   const isDesktop = screens.lg
@@ -333,6 +336,87 @@ export default function QueryEditorPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [executeQuery, handleSave])
 
+  // Auto-save with debounce (2 seconds after last change)
+  useEffect(() => {
+    // Don't auto-save if query is empty or unchanged
+    if (!currentQuery || currentQuery === lastSavedSqlRef.current) {
+      return
+    }
+
+    // Clear any existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current)
+    }
+
+    // Set a new timeout for auto-save
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      // Only auto-save if there's meaningful content
+      if (!currentQuery.trim()) return
+
+      setAutoSaving(true)
+      try {
+        if (isNew) {
+          // For new queries, create and redirect
+          const res = await fetch(`/api/projects/${projectId}/queries`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: queryName || null,
+              sql: currentQuery,
+              sampleResults: queryResults?.rows?.slice(0, 10),
+              rowCount: queryResults?.rowCount,
+              executionTime: queryResults?.executionTime,
+            }),
+          })
+
+          if (res.ok) {
+            const data = await res.json()
+            lastSavedSqlRef.current = currentQuery
+            router.replace(`/projects/${projectId}/query/${data.query.id}`)
+          }
+        } else {
+          // Update existing query
+          const res = await fetch(`/api/queries/${queryId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: queryName || null,
+              sql: currentQuery,
+              sampleResults: queryResults?.rows?.slice(0, 10),
+              rowCount: queryResults?.rowCount,
+              executionTime: queryResults?.executionTime,
+            }),
+          })
+
+          if (res.ok) {
+            const data = await res.json()
+            setQueryData(data.query)
+            lastSavedSqlRef.current = currentQuery
+            setHasUnsavedChanges(false)
+          }
+        }
+      } catch (err) {
+        // Silently fail auto-save - user can manually save
+        console.error('Auto-save failed:', err)
+      } finally {
+        setAutoSaving(false)
+      }
+    }, 2000)
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current)
+      }
+    }
+  }, [currentQuery, queryName, isNew, projectId, queryId, queryResults, router])
+
+  // Update lastSavedSqlRef when query data is loaded
+  useEffect(() => {
+    if (queryData?.sql) {
+      lastSavedSqlRef.current = queryData.sql
+    }
+  }, [queryData])
+
   if (loading) {
     return (
       <div className="loading-state-large">
@@ -382,11 +466,15 @@ export default function QueryEditorPage() {
             ]}
             style={{ flex: 1 }}
           />
-          {hasUnsavedChanges && !isMobile && (
+          {!isMobile && (autoSaving ? (
+            <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+              Saving...
+            </Text>
+          ) : hasUnsavedChanges ? (
             <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
               Unsaved
             </Text>
-          )}
+          ) : null)}
         </div>
         <div className="flex items-center gap-2">
           <Button

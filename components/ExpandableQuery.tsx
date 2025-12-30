@@ -61,14 +61,11 @@ export function ExpandableQuery({ queryMetadata, onLoadQuery, compact = false }:
     <div className="expandable-query">
       {/* Header with title */}
       <div className="expandable-query-header" onClick={() => setIsExpanded(!isExpanded)}>
-        <Space size={8} style={{ flex: 1 }}>
-          <DatabaseOutlined style={{ color: '#1890ff' }} />
-          <Text strong style={{ fontSize: compact ? 12 : 13 }}>{title}</Text>
-          <Tag color="success" style={{ fontSize: 10, margin: 0 }}>
-            {rowCount} rows
-          </Tag>
+        <Space size={6} style={{ flex: 1 }}>
+          <DatabaseOutlined style={{ color: '#666', fontSize: 11 }} />
+          <Text style={{ fontSize: 11, color: '#aaa' }}>{title}</Text>
           <Text type="secondary" style={{ fontSize: 10 }}>
-            {executionTime}ms
+            {rowCount} rows · {executionTime}ms
           </Text>
         </Space>
         <Space size={4}>
