@@ -59,9 +59,15 @@ const VercelProvider: OAuthConfig<VercelProfile> = {
       image: profile.picture,
     }
   },
-  // Use PKCE with S256 for enhanced security (Vercel supports PKCE)
-  // state is also used for CSRF protection
-  checks: ['pkce', 'state'],
+  // Use state for CSRF protection
+  // Note: Removed PKCE as Vercel's OAuth may not fully support it
+  checks: ['state'],
+  // Use client_secret_post to send credentials in request body
+  // instead of default client_secret_basic (Authorization header)
+  // This is required by Vercel's token endpoint
+  client: {
+    token_endpoint_auth_method: 'client_secret_post',
+  },
   clientId: process.env.VERCEL_CLIENT_ID,
   clientSecret: process.env.VERCEL_CLIENT_SECRET,
 }

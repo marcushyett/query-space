@@ -8,6 +8,19 @@ import { TechSpinner } from '@/components/TechSpinner'
 import { GithubOutlined, MailOutlined, LockOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 
+// Vercel logo icon (no built-in antd icon available)
+const VercelIcon = () => (
+  <svg
+    width="1em"
+    height="1em"
+    viewBox="0 0 76 65"
+    fill="currentColor"
+    style={{ verticalAlign: '-0.125em' }}
+  >
+    <path d="M37.5274 0L75.0548 65H0L37.5274 0Z" />
+  </svg>
+)
+
 const { Title, Text } = Typography
 
 function LoginForm() {
@@ -111,6 +124,7 @@ function LoginForm() {
         </Button>
         <Button
           size="large"
+          icon={<VercelIcon />}
           onClick={() => handleOAuthLogin('vercel')}
           block
           style={{ marginTop: 12 }}
