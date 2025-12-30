@@ -32,7 +32,7 @@ describe('useTableInfo', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Reset connection store
-    useConnectionStore.setState({ connectionString: null })
+    useConnectionStore.setState({ organizationId: null })
   })
 
   afterEach(() => {
@@ -71,7 +71,7 @@ describe('useTableInfo', () => {
 
   describe('fetchTableInfo with connection', () => {
     beforeEach(() => {
-      useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
+      useConnectionStore.setState({ organizationId: 'test-org-123' })
     })
 
     const mockTableInfoResponse = {
@@ -166,7 +166,7 @@ describe('useTableInfo', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          connectionString: 'postgresql://localhost/testdb',
+          organizationId: 'test-org-123',
           schema: 'public',
           table: 'users',
         }),
@@ -176,7 +176,7 @@ describe('useTableInfo', () => {
 
   describe('clearTableInfo', () => {
     it('should clear table info and error', async () => {
-      useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
+      useConnectionStore.setState({ organizationId: 'test-org-123' })
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -211,7 +211,7 @@ describe('useTableInfo', () => {
 
   describe('columns structure', () => {
     it('should have correct column structure', async () => {
-      useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
+      useConnectionStore.setState({ organizationId: 'test-org-123' })
 
       const mockResponse = {
         schema: 'public',
