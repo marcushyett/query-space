@@ -13,13 +13,13 @@ export interface TablesState {
 
 export function useTables() {
   const { message } = App.useApp();
-  const { connectionString } = useConnectionStore();
+  const { connectionString, organizationId } = useConnectionStore();
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTables = useCallback(async () => {
-    if (!connectionString) {
+    if (!connectionString || !organizationId) {
       setError('No database connection');
       return;
     }
@@ -31,7 +31,7 @@ export function useTables() {
       const response = await fetch('/api/tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionString }),
+        body: JSON.stringify({ organizationId }),
       });
 
       const data = await response.json();
@@ -49,7 +49,7 @@ export function useTables() {
     } finally {
       setIsLoading(false);
     }
-  }, [connectionString, message]);
+  }, [connectionString, organizationId, message]);
 
   const refreshTables = useCallback(() => {
     fetchTables();

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'pg';
+import { requireDatabaseConnection } from '@/lib/auth/organization-settings';
+import { requireUser } from '@/lib/auth/session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,11 +39,26 @@ export async function POST(request: NextRequest) {
   let client: Client | null = null;
 
   try {
-    const { connectionString } = await request.json();
+    // Require authentication
+    await requireUser();
 
-    if (!connectionString) {
+    const { organizationId } = await request.json();
+
+    if (!organizationId) {
       return NextResponse.json(
-        { error: 'Missing required field: connectionString' },
+        { error: 'Missing required field: organizationId' },
+        { status: 400 }
+      );
+    }
+
+    // Get connection string from organization settings
+    let connectionString: string;
+    try {
+      connectionString = await requireDatabaseConnection(organizationId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get database connection';
+      return NextResponse.json(
+        { error: message },
         { status: 400 }
       );
     }

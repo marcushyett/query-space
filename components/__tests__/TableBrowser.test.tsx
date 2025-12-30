@@ -31,7 +31,7 @@ const renderWithProviders = (component: React.ReactNode) => {
 describe('TableBrowser', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    useConnectionStore.setState({ connectionString: null })
+    useConnectionStore.setState({ connectionString: null, organizationId: null })
     useUiStore.setState({
       tableBrowserOpen: true,
       selectedTable: null,
@@ -57,7 +57,7 @@ describe('TableBrowser', () => {
 
   describe('with connection', () => {
     beforeEach(() => {
-      useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
+      useConnectionStore.setState({ connectionString: 'configured-in-org-settings', organizationId: 'org-123' })
     })
 
     it('should show loading state while fetching', async () => {

@@ -9,11 +9,11 @@ import type { SchemaResponse } from '@/app/api/schema/route';
 const CACHE_DURATION = 5 * 60 * 1000;
 
 export function useSchema() {
-  const connectionString = useConnectionStore((state) => state.connectionString);
+  const { connectionString, organizationId } = useConnectionStore();
   const { tables, isLoading, error, lastFetched, setTables, setLoading, setError, reset } = useSchemaStore();
 
   const fetchSchema = useCallback(async (force = false) => {
-    if (!connectionString) {
+    if (!connectionString || !organizationId) {
       reset();
       return;
     }
@@ -30,7 +30,7 @@ export function useSchema() {
       const response = await fetch('/api/schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionString }),
+        body: JSON.stringify({ organizationId }),
       });
 
       const data: SchemaResponse = await response.json();
@@ -47,16 +47,16 @@ export function useSchema() {
     } finally {
       setLoading(false);
     }
-  }, [connectionString, lastFetched, tables.length, setTables, setLoading, setError, reset]);
+  }, [connectionString, organizationId, lastFetched, tables.length, setTables, setLoading, setError, reset]);
 
   // Fetch schema when connection changes
   useEffect(() => {
-    if (connectionString) {
+    if (connectionString && organizationId) {
       fetchSchema();
     } else {
       reset();
     }
-  }, [connectionString, fetchSchema, reset]);
+  }, [connectionString, organizationId, fetchSchema, reset]);
 
   return {
     tables,

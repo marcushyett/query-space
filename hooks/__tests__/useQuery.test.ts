@@ -32,7 +32,7 @@ vi.mock('antd', async () => {
 describe('useQuery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    useConnectionStore.setState({ connectionString: null })
+    useConnectionStore.setState({ connectionString: null, organizationId: null })
     useQueryStore.setState({
       queryResults: null,
       isExecuting: false,
@@ -60,7 +60,7 @@ describe('useQuery', () => {
 
     describe('with empty query', () => {
       beforeEach(() => {
-        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
+        useConnectionStore.setState({ connectionString: 'configured-in-org-settings', organizationId: 'org-123' })
       })
 
       it('should show warning for empty query', async () => {
@@ -87,7 +87,7 @@ describe('useQuery', () => {
 
     describe('with valid connection and query', () => {
       beforeEach(() => {
-        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
+        useConnectionStore.setState({ connectionString: 'configured-in-org-settings', organizationId: 'org-123' })
       })
 
       it('should make correct API call', async () => {
@@ -111,7 +111,7 @@ describe('useQuery', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            connectionString: 'postgresql://localhost/testdb',
+            organizationId: 'org-123',
             sql: 'SELECT 1',
           }),
         })
@@ -237,7 +237,7 @@ describe('useQuery', () => {
 
     describe('error handling', () => {
       beforeEach(() => {
-        useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
+        useConnectionStore.setState({ connectionString: 'configured-in-org-settings', organizationId: 'org-123' })
       })
 
       it('should handle API error response', async () => {
