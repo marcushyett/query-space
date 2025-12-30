@@ -15,6 +15,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons'
 import { darkTheme } from '@/config/theme'
+import { useConnectionStore } from '@/stores/connectionStore'
 
 interface Organization {
   id: string
@@ -43,10 +44,38 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const { data: session, status } = useSession()
+  const { setOrganizationId, setConnectionString, clearConnection } = useConnectionStore()
 
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Initialize connection store when organization changes
+  useEffect(() => {
+    const initializeConnection = async (org: Organization) => {
+      // Set organization ID in the connection store
+      setOrganizationId(org.id)
+
+      // Fetch settings to check if database is configured
+      try {
+        const settingsRes = await fetch(`/api/organizations/${org.id}/settings`)
+        const settingsData = await settingsRes.json()
+
+        if (settingsRes.ok && settingsData.settings?.hasDatabaseUrl) {
+          // Mark as connected - the actual connection string is used server-side
+          setConnectionString('configured-in-org-settings')
+        }
+      } catch (err) {
+        console.error('Failed to fetch organization settings:', err)
+      }
+    }
+
+    if (currentOrg) {
+      initializeConnection(currentOrg)
+    } else {
+      clearConnection()
+    }
+  }, [currentOrg, setOrganizationId, setConnectionString, clearConnection])
 
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -84,6 +113,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const switchOrganization = (orgId: string) => {
     const org = organizations.find((o) => o.id === orgId)
     if (org) {
+      // Clear existing connection before switching
+      clearConnection()
       setCurrentOrg(org)
       localStorage.setItem('currentOrganizationId', orgId)
       // Reload to refresh data for new org

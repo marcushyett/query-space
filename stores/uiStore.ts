@@ -7,7 +7,6 @@ interface UiStore {
   connectionDialogOpen: boolean;
   tableDetailDrawerOpen: boolean;
   selectedTable: string | null;
-  aiModalOpen: boolean;
   toggleTableBrowser: () => void;
   setTableBrowserOpen: (open: boolean) => void;
   toggleHistoryDrawer: () => void;
@@ -16,7 +15,6 @@ interface UiStore {
   setConnectionDialogOpen: (open: boolean) => void;
   setTableDetailDrawerOpen: (open: boolean) => void;
   setSelectedTable: (table: string | null) => void;
-  setAiModalOpen: (open: boolean) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -26,7 +24,6 @@ export const useUiStore = create<UiStore>((set) => ({
   connectionDialogOpen: false,
   tableDetailDrawerOpen: false,
   selectedTable: null,
-  aiModalOpen: false,
 
   toggleTableBrowser: () =>
     set((state) => ({ tableBrowserOpen: !state.tableBrowserOpen })),
@@ -51,7 +48,4 @@ export const useUiStore = create<UiStore>((set) => ({
 
   setSelectedTable: (table: string | null) =>
     set({ selectedTable: table }),
-
-  setAiModalOpen: (open: boolean) =>
-    set({ aiModalOpen: open }),
 }));
