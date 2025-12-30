@@ -132,18 +132,36 @@ export function SqlEditor() {
         }[] = [];
 
         // Check if we're after a dot (column context)
-        const dotMatch = textBeforeCursor.match(/(\w+)\.\s*\w*$/);
+        // Match both quoted ("table") and unquoted (table) identifiers
+        const dotMatch = textBeforeCursor.match(/(?:"([^"]+)"|(\w+))\.\s*\w*$/);
         if (dotMatch) {
-          const tableAlias = dotMatch[1].toLowerCase();
+          // dotMatch[1] is quoted identifier content, dotMatch[2] is unquoted identifier
+          const tableAlias = (dotMatch[1] || dotMatch[2]).toLowerCase();
 
           // Find table by name or check for alias in the query
-          const aliasMatch = textBeforeCursor.match(new RegExp(`(\\w+\\.\\w+|\\w+)\\s+(?:AS\\s+)?${tableAlias}\\b`, 'i'));
+          // Handle both quoted and unquoted table names with optional aliases
+          const aliasMatch = textBeforeCursor.match(new RegExp(`(?:"([^"]+)\\s*"\\s*\\.\\s*"([^"]+)"|"([^"]+)"|([\\w.]+))\\s+(?:AS\\s+)?${tableAlias}\\b`, 'i'));
           let targetTable = currentTables.find(t => t.name.toLowerCase() === tableAlias);
 
           if (!targetTable && aliasMatch) {
-            const tableName = aliasMatch[1].includes('.')
-              ? aliasMatch[1].split('.')[1]
-              : aliasMatch[1];
+            // Extract table name from matched groups:
+            // aliasMatch[1]: schema from "schema"."table"
+            // aliasMatch[2]: table from "schema"."table"
+            // aliasMatch[3]: table from "table"
+            // aliasMatch[4]: unquoted table name (possibly with schema like schema.table)
+            let tableName: string;
+            if (aliasMatch[2]) {
+              tableName = aliasMatch[2]; // schema-qualified quoted: "schema"."table"
+            } else if (aliasMatch[3]) {
+              tableName = aliasMatch[3]; // simple quoted: "table"
+            } else if (aliasMatch[4]) {
+              // Unquoted, possibly schema-qualified
+              tableName = aliasMatch[4].includes('.')
+                ? aliasMatch[4].split('.')[1]
+                : aliasMatch[4];
+            } else {
+              tableName = tableAlias;
+            }
             targetTable = currentTables.find(t => t.name.toLowerCase() === tableName.toLowerCase());
           }
 
