@@ -10,11 +10,13 @@ import { ConfigProvider } from 'antd'
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-// Mock clipboard
-Object.assign(navigator, {
-  clipboard: {
+// Mock clipboard (use defineProperty for happy-dom compatibility)
+Object.defineProperty(navigator, 'clipboard', {
+  value: {
     writeText: vi.fn().mockResolvedValue(undefined),
   },
+  writable: true,
+  configurable: true,
 })
 
 // Mock antd message
@@ -56,7 +58,7 @@ describe('TableDetailDrawer', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
+    useConnectionStore.setState({ organizationId: 'test-org-123' })
     useUiStore.setState({
       tableDetailDrawerOpen: false,
       selectedTable: null,
