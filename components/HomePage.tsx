@@ -68,17 +68,6 @@ export function HomePage() {
     setAiChatOpen(!aiChatOpen);
   };
 
-  // Show loading spinner while checking org settings
-  if (isLoadingConnection) {
-    return (
-      <div className="app-container">
-        <div className="loading-state-large">
-          <Spin size="large" />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="app-container">
       <header className="app-header">
