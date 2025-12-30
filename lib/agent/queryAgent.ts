@@ -154,6 +154,7 @@ Do NOT ask for clarification about:
 6. update_query_ui - Finalize and present query to user (ALWAYS provide summary AND assumptions)
 7. generate_chart - Create a visualization for query results (ALWAYS provide title and description)
 8. analyze_data_quality - Deep analysis of data quality issues when needed
+9. **set_query_name** - ALWAYS call this after update_query_ui to name the query
 
 ## TODO LIST WORKFLOW
 1. Call manage_todo(action="create", items=[...]) at the START
@@ -231,9 +232,10 @@ IMPORTANT: Only generate charts for aggregated/analytical queries. Skip charts f
 - Queries returning only text columns
 
 ## FINISHING
-Call update_query_ui with:
-- The final SQL query
-- A brief explanation of what it does${isFollowUp ? '\n- What you changed from the previous query' : ''}`;
+1. Call update_query_ui with:
+   - The final SQL query
+   - A brief explanation of what it does${isFollowUp ? '\n   - What you changed from the previous query' : ''}
+2. ALWAYS call set_query_name immediately after update_query_ui with a descriptive name (2-5 words)`;
 }
 
 export type AgentStreamEvent =

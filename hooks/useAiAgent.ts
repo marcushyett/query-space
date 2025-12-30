@@ -16,7 +16,7 @@ export function useAiAgent() {
   const { message } = App.useApp();
   const { organizationId } = useConnectionStore();
   const tables = useSchemaStore((state) => state.tables);
-  const { setCurrentQuery, setQueryResults, addToHistory, setIsExecuting } = useQueryStore();
+  const { setCurrentQuery, setQueryName, setQueryResults, addToHistory, setIsExecuting } = useQueryStore();
 
   // Session persistence
   const {
@@ -331,6 +331,19 @@ export function useAiAgent() {
                           description: result.description || args.description,
                         };
                         addChartMessage(chartData, result.message);
+                      }
+                    }
+
+                    // Handle set_query_name results
+                    if (tc.toolName === 'set_query_name') {
+                      const result = tc.result as {
+                        success: boolean;
+                        name?: string;
+                        error?: string;
+                      };
+
+                      if (result.success && result.name) {
+                        setQueryName(result.name);
                       }
                     }
 
@@ -762,6 +775,19 @@ export function useAiAgent() {
                     }
                   }
 
+                  // Handle set_query_name results
+                  if (tc.toolName === 'set_query_name') {
+                    const result = tc.result as {
+                      success: boolean;
+                      name?: string;
+                      error?: string;
+                    };
+
+                    if (result.success && result.name) {
+                      setQueryName(result.name);
+                    }
+                  }
+
                   // Handle manage_todo results
                   if (tc.toolName === 'manage_todo') {
                     const result = tc.result as {
@@ -1146,6 +1172,19 @@ IMPORTANT: You are resuming a previous session. Review the todo list and continu
                           description: result.description || args.description,
                         };
                         addChartMessage(chartDataObj, result.message);
+                      }
+                    }
+
+                    // Handle set_query_name
+                    if (tc.toolName === 'set_query_name') {
+                      const result = tc.result as {
+                        success: boolean;
+                        name?: string;
+                        error?: string;
+                      };
+
+                      if (result.success && result.name) {
+                        setQueryName(result.name);
                       }
                     }
 

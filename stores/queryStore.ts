@@ -18,6 +18,9 @@ export interface SavedQuery {
 interface QueryStore {
   currentQuery: string;
   setCurrentQuery: (q: string) => void;
+  // Query name for AI-generated and user-editable naming
+  queryName: string;
+  setQueryName: (name: string) => void;
   queryResults: QueryResult | null;
   setQueryResults: (r: QueryResult | null) => void;
   clearResults: () => void;
@@ -37,6 +40,7 @@ const MAX_HISTORY_SIZE = 50;
 
 export const useQueryStore = create<QueryStore>((set) => ({
   currentQuery: '',
+  queryName: '',
   queryResults: null,
   queryHistory: [],
   isExecuting: false,
@@ -44,6 +48,10 @@ export const useQueryStore = create<QueryStore>((set) => ({
 
   setCurrentQuery: (q: string) => {
     set({ currentQuery: q });
+  },
+
+  setQueryName: (name: string) => {
+    set({ queryName: name });
   },
 
   setQueryResults: (r: QueryResult | null) => {
