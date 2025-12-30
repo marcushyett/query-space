@@ -3,7 +3,7 @@
 import { useState, useEffect, createContext, useContext } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { ConfigProvider, Dropdown, Avatar, message, Layout, Flex } from 'antd'
+import { ConfigProvider, Dropdown, Avatar, message, Layout, Flex, Grid } from 'antd'
 import { TechSpinner } from '@/components/TechSpinner'
 import type { MenuProps } from 'antd'
 import {
@@ -14,6 +14,8 @@ import {
   DownOutlined,
   PlusOutlined,
 } from '@ant-design/icons'
+
+const { useBreakpoint } = Grid
 import { darkTheme } from '@/config/theme'
 import { useConnectionStore } from '@/stores/connectionStore'
 
@@ -47,6 +49,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { data: session, status } = useSession()
   const { setOrganizationId, setConnectionString, clearConnection } = useConnectionStore()
+  const screens = useBreakpoint()
+  const isMobile = !screens.md
 
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
@@ -231,20 +235,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <Dropdown menu={{ items: orgMenuItems }} trigger={['click']}>
                   <Flex
                     align="center"
-                    gap={8}
+                    gap={4}
                     style={{
                       cursor: 'pointer',
-                      padding: '4px 12px',
-                      borderRadius: 6,
-                      background: '#1a1a1a',
-                      border: '1px solid #333',
+                      padding: isMobile ? '4px 6px' : '2px 8px',
+                      borderRadius: 4,
+                      transition: 'background 0.15s',
                     }}
+                    className="nav-icon-button"
                   >
-                    <TeamOutlined style={{ fontSize: 12, color: '#fff' }} />
-                    <span style={{ color: '#fff', fontSize: 13 }}>
-                      {currentOrg?.name || 'My Organization'}
-                    </span>
-                    <DownOutlined style={{ fontSize: 10, color: '#666' }} />
+                    <TeamOutlined style={{ fontSize: 14, color: '#888' }} />
+                    {!isMobile && (
+                      <>
+                        <span style={{ color: '#ccc', fontSize: 12, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {currentOrg?.name || 'Organization'}
+                        </span>
+                        <DownOutlined style={{ fontSize: 8, color: '#666' }} />
+                      </>
+                    )}
                   </Flex>
                 </Dropdown>
               )}

@@ -630,24 +630,113 @@ body {
   font-size: 16px !important;
 }
 
-/* Main content area with AI chat */
-.main-content-area {
+/* =====================================================
+   QUERY EDITOR PAGE LAYOUT
+   ===================================================== */
+
+/* App container - fills all available space */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* App header - toolbar row */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  height: 48px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--border-color);
+  background: #000;
+  flex-shrink: 0;
+}
+
+/* App main - horizontal layout container */
+.app-main {
   display: flex;
   flex: 1;
   overflow: hidden;
-  min-width: 0;
-  width: 100%;
-  height: 100%; /* Takes full height of parent app-main */
+  min-height: 0;
 }
 
+/* Sidebar (table browser) */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+  background: #000;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: width 0.2s ease;
+}
+
+.sidebar-hidden {
+  width: 0 !important;
+  min-width: 0 !important;
+  border-right: none;
+}
+
+/* Main content area with AI chat - horizontal flex on desktop */
+.main-content-area {
+  display: flex;
+  flex-direction: row; /* Explicit horizontal layout */
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  height: 100%;
+}
+
+/* Editor/Results takes remaining space after AI chat sidebar */
 .editor-results-container {
   display: flex;
   flex-direction: column;
   flex: 1;
   overflow: hidden;
   min-width: 0;
-  width: 100%;
   height: 100%;
+}
+
+/* Editor pane - SQL editor */
+.editor-pane {
+  height: 200px;
+  min-height: 150px;
+  max-height: 50%;
+  border-bottom: 1px solid var(--border-color);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Results pane - Query results */
+.results-pane {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile layout adjustments for query page */
+@media (max-width: 767px) {
+  .app-header {
+    padding: 6px 10px;
+  }
+
+  .editor-pane {
+    height: 150px;
+    min-height: 120px;
+  }
+
+  /* On mobile, main content is just editor/results (AI chat overlays) */
+  .main-content-area {
+    flex-direction: column;
+  }
 }
 
 /* AI Chat Panel - Essential layout only */
