@@ -88,7 +88,7 @@ export default function QueryEditorPage() {
 
         if (res.ok) {
           const data = await res.json()
-          setTables(data.schema || [])
+          setTables(data.tables || [])
         } else {
           setSchemaError('Failed to fetch schema')
         }
