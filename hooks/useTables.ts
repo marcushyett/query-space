@@ -13,13 +13,14 @@ export interface TablesState {
 
 export function useTables() {
   const { message } = App.useApp();
-  const { connectionString, organizationId } = useConnectionStore();
+  const { organizationId } = useConnectionStore();
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTables = useCallback(async () => {
-    if (!connectionString || !organizationId) {
+    // Only require organizationId - connectionString is deprecated
+    if (!organizationId) {
       setError('No database connection');
       return;
     }
@@ -49,7 +50,7 @@ export function useTables() {
     } finally {
       setIsLoading(false);
     }
-  }, [connectionString, organizationId, message]);
+  }, [organizationId, message]);
 
   const refreshTables = useCallback(() => {
     fetchTables();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Tree, Input, Typography, Empty, Button, Alert } from 'antd';
 import { TechSpinner } from './TechSpinner';
 import {
@@ -28,17 +28,25 @@ interface TableBrowserProps {
 
 export function TableBrowser({ onTableSelect }: TableBrowserProps) {
   const { tables, isLoading, error, fetchTables, refreshTables } = useTables();
-  const { connectionString } = useConnectionStore();
+  const { organizationId } = useConnectionStore();
   const { setSelectedTable, setTableDetailDrawerOpen } = useUiStore();
   const [searchValue, setSearchValue] = useState('');
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
 
-  // Fetch tables when connection changes
+  // Handle table click - opens the detail drawer
+  const handleTableClick = useCallback((schema: string, tableName: string) => {
+    const key = `${schema}.${tableName}`;
+    setSelectedTable(key);
+    setTableDetailDrawerOpen(true);
+    onTableSelect?.(schema, tableName);
+  }, [setSelectedTable, setTableDetailDrawerOpen, onTableSelect]);
+
+  // Fetch tables when organization changes
   useEffect(() => {
-    if (connectionString) {
+    if (organizationId) {
       fetchTables();
     }
-  }, [connectionString, fetchTables]);
+  }, [organizationId, fetchTables]);
 
   // Group tables by schema
   const tablesBySchema = useMemo(() => {
@@ -90,7 +98,22 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
       children: schemaTables.map((table) => ({
         key: `${schema}.${table.name}`,
         title: (
-          <span className="mobile-tree-node">
+          <span
+            className="mobile-tree-node"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleTableClick(schema, table.name);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleTableClick(schema, table.name);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer' }}
+          >
             {table.type === 'view' ? (
               <EyeOutlined style={{ color: '#888', flexShrink: 0 }} />
             ) : (
@@ -107,7 +130,7 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
         isLeaf: true,
       })),
     }));
-  }, [filteredTables]);
+  }, [filteredTables, handleTableClick]);
 
   // Auto-expand schemas when filtered - using memo pattern to avoid effect setState warning
   const expandedSchemas = useMemo(() => {
@@ -117,19 +140,7 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
     return expandedKeys;
   }, [searchValue, filteredTables, expandedKeys]);
 
-  const handleSelect = (selectedKeys: React.Key[]) => {
-    if (selectedKeys.length === 0) return;
-
-    const key = selectedKeys[0] as string;
-    if (!key.includes('.')) return; // Schema node, not table
-
-    const [schema, table] = key.split('.');
-    setSelectedTable(key);
-    setTableDetailDrawerOpen(true);
-    onTableSelect?.(schema, table);
-  };
-
-  if (!connectionString) {
+  if (!organizationId) {
     return (
       <div style={{ padding: 16, textAlign: 'center' }}>
         <DatabaseOutlined style={{ fontSize: 32, color: '#666', marginBottom: 8 }} />
@@ -231,11 +242,11 @@ export function TableBrowser({ onTableSelect }: TableBrowserProps) {
         ) : (
           <Tree
             treeData={treeData}
-            onSelect={handleSelect}
             expandedKeys={expandedSchemas}
             onExpand={(keys) => setExpandedKeys(keys as React.Key[])}
             showLine={{ showLeafIcon: false }}
             blockNode
+            selectable={false}
             style={{ background: 'transparent' }}
           />
         )}

@@ -10,7 +10,7 @@ import { useAiChatStore } from '@/stores/aiChatStore';
 export function useKeyboardShortcuts() {
   const { executeQuery } = useQuery();
   const { currentQuery } = useQueryStore();
-  const connectionString = useConnectionStore((state) => state.connectionString);
+  const organizationId = useConnectionStore((state) => state.organizationId);
   const {
     toggleTableBrowser,
     toggleHistoryDrawer,
@@ -52,7 +52,7 @@ export function useKeyboardShortcuts() {
 
   // Cmd+K: AI chat panel (when connected) / Connection dialog (when not)
   useHotkeys('mod+k', () => {
-    if (connectionString) {
+    if (organizationId) {
       toggleAiChat();
     } else {
       setConnectionDialogOpen(true);

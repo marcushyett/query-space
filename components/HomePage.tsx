@@ -34,7 +34,7 @@ const TABLE_BROWSER_WIDTH_MOBILE = 200;
 
 export function HomePage() {
   const router = useRouter();
-  const { connectionString } = useConnectionStore();
+  const { organizationId } = useConnectionStore();
   const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer } = useUiStore();
   const { currentQuery, isExecuting } = useQueryStore();
   const { isOpen: aiChatOpen, setOpen: setAiChatOpen } = useAiChatStore();
@@ -83,7 +83,7 @@ export function HomePage() {
           </Title>
         </div>
         <div className="flex items-center gap-4">
-          {connectionString && !isMobile && (
+          {organizationId && !isMobile && (
             <div className="flex items-center gap-2">
               <DatabaseOutlined className="icon-muted" />
               <Text type="secondary" className="text-sm">
@@ -91,7 +91,7 @@ export function HomePage() {
               </Text>
             </div>
           )}
-          {!connectionString && (
+          {!organizationId && (
             <Button
               size="small"
               onClick={() => router.push('/settings')}
@@ -99,7 +99,7 @@ export function HomePage() {
               Connect
             </Button>
           )}
-          {connectionString && (
+          {organizationId && (
             <Button
               type={aiChatOpen ? 'primary' : 'text'}
               icon={<RobotOutlined />}
@@ -107,7 +107,7 @@ export function HomePage() {
               aria-label="AI Query Assistant"
             />
           )}
-          {isMobile && connectionString && (
+          {isMobile && organizationId && (
             <Button
               type="primary"
               size="small"
