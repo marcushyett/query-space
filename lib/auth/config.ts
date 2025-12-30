@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth'
-import type { OAuthConfig, OAuthUserConfig } from 'next-auth/providers'
+import type { OAuthConfig } from 'next-auth/providers'
 import type { TokenSet } from '@auth/core/types'
+import type { Account } from 'next-auth'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import GitHub from 'next-auth/providers/github'
 import Credentials from 'next-auth/providers/credentials'
@@ -42,7 +43,15 @@ const VercelProvider: OAuthConfig<VercelProfile> = {
   token: {
     url: 'https://api.vercel.com/login/oauth/token',
     // Vercel requires form-urlencoded body with grant_type
-    async request({ params, checks, provider }) {
+    async request({
+      params,
+      checks,
+      provider,
+    }: {
+      params: { code?: string; redirect_uri?: string }
+      checks: { code_verifier?: string }
+      provider: { clientId?: string; clientSecret?: string }
+    }): Promise<{ tokens: TokenSet }> {
       const response = await fetch('https://api.vercel.com/login/oauth/token', {
         method: 'POST',
         headers: {
@@ -50,11 +59,11 @@ const VercelProvider: OAuthConfig<VercelProfile> = {
         },
         body: new URLSearchParams({
           grant_type: 'authorization_code',
-          client_id: provider.clientId as string,
-          client_secret: provider.clientSecret as string,
-          code: params.code as string,
-          code_verifier: checks.code_verifier as string,
-          redirect_uri: params.redirect_uri as string,
+          client_id: provider.clientId ?? '',
+          client_secret: provider.clientSecret ?? '',
+          code: params.code ?? '',
+          code_verifier: checks.code_verifier ?? '',
+          redirect_uri: params.redirect_uri ?? '',
         }),
       })
 
@@ -64,7 +73,7 @@ const VercelProvider: OAuthConfig<VercelProfile> = {
         throw new Error(`Token exchange failed: ${response.status} ${errorText}`)
       }
 
-      const tokens = await response.json()
+      const tokens: TokenSet = await response.json()
       console.log('[Vercel OAuth] Token exchange successful, received tokens:', {
         hasAccessToken: !!tokens.access_token,
         hasIdToken: !!tokens.id_token,
@@ -77,7 +86,7 @@ const VercelProvider: OAuthConfig<VercelProfile> = {
   },
   userinfo: {
     url: 'https://api.vercel.com/login/oauth/userinfo',
-    async request({ tokens }) {
+    async request({ tokens }: { tokens: TokenSet }): Promise<VercelProfile> {
       // Vercel userinfo endpoint uses POST with Bearer token
       const response = await fetch('https://api.vercel.com/login/oauth/userinfo', {
         method: 'POST',
@@ -90,7 +99,7 @@ const VercelProvider: OAuthConfig<VercelProfile> = {
         console.error('[Vercel OAuth] Userinfo fetch failed:', response.status, errorText)
         throw new Error(`Failed to fetch userinfo: ${response.status} ${errorText}`)
       }
-      const profile = await response.json()
+      const profile: VercelProfile = await response.json()
       console.log('[Vercel OAuth] Userinfo fetched successfully:', {
         sub: profile.sub,
         email: profile.email,
@@ -100,13 +109,13 @@ const VercelProvider: OAuthConfig<VercelProfile> = {
       return profile
     },
   },
-  profile(profile) {
+  profile(profile: VercelProfile) {
     console.log('[Vercel OAuth] Mapping profile:', profile)
     return {
       id: profile.sub,
-      email: profile.email,
-      name: profile.name ?? profile.preferred_username ?? profile.email,
-      image: profile.picture,
+      email: profile.email ?? '',
+      name: profile.name ?? profile.preferred_username ?? profile.email ?? '',
+      image: profile.picture ?? null,
     }
   },
   // PKCE with S256 is REQUIRED by Vercel OAuth
@@ -195,7 +204,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (existingUser) {
           // Check if this OAuth account is already linked
           const existingAccount = existingUser.accounts.find(
-            (acc) => acc.provider === account.provider && acc.providerAccountId === account.providerAccountId
+            (acc: { provider: string; providerAccountId: string }) =>
+              acc.provider === account.provider && acc.providerAccountId === account.providerAccountId
           )
 
           if (!existingAccount) {
