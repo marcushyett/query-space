@@ -5,7 +5,7 @@ interface TechSpinnerProps {
 }
 
 export function TechSpinner({ size = 'default' }: TechSpinnerProps) {
-  const squareSize = size === 'small' ? 12 : size === 'large' ? 24 : 16;
+  const squareSize = size === 'small' ? 10 : size === 'large' ? 16 : 12;
 
   return (
     <span

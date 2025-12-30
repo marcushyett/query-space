@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   Button,
@@ -11,23 +11,23 @@ import {
   Modal,
   Form,
   Grid,
+  Breadcrumb,
 } from 'antd'
 import { TechSpinner } from '@/components/TechSpinner'
 import {
-  ArrowLeftOutlined,
   PlayCircleOutlined,
   SaveOutlined,
   MoreOutlined,
-  EditOutlined,
   DeleteOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   RobotOutlined,
+  HomeOutlined,
+  FolderOutlined,
 } from '@ant-design/icons'
 import { SqlEditor } from '@/components/SqlEditor'
 import { QueryResults } from '@/components/QueryResults'
 import { TableBrowser } from '@/components/TableBrowser'
-import { TableDetailDrawer } from '@/components/TableDetailDrawer'
 import { AiChatPanel } from '@/components/AiChatPanel'
 import { useOrganization } from '../../../../layout'
 import { useQueryStore, QueryResult } from '@/stores/queryStore'
@@ -68,10 +68,13 @@ export default function QueryEditorPage() {
   const [queryName, setQueryName] = useState('')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [projectName, setProjectName] = useState<string>('')
   const [form] = Form.useForm()
+  const hasGeneratedName = useRef(false)
 
   const isMobile = !screens.md
-  const TABLE_BROWSER_WIDTH = isMobile ? 200 : 260
+  const isDesktop = screens.lg
+  const TABLE_BROWSER_WIDTH = isMobile ? 200 : 280
 
   // Fetch schema for autocomplete
   useEffect(() => {
@@ -156,12 +159,32 @@ export default function QueryEditorPage() {
     }
   }, [currentQuery, queryName, queryData, isNew])
 
-  // Auto-close sidebar on mobile
+  // Fetch project name for breadcrumbs
   useEffect(() => {
-    if (isMobile && tableBrowserOpen) {
-      setTableBrowserOpen(false)
+    const fetchProject = async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}`)
+        if (res.ok) {
+          const data = await res.json()
+          setProjectName(data.project?.title || '')
+        }
+      } catch (err) {
+        console.error('Failed to fetch project:', err)
+      }
     }
-  }, [isMobile, tableBrowserOpen, setTableBrowserOpen])
+    fetchProject()
+  }, [projectId])
+
+  // Auto-open sidebars on desktop, close on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setTableBrowserOpen(false)
+      setAiChatOpen(false)
+    } else if (isDesktop) {
+      setTableBrowserOpen(true)
+      setAiChatOpen(true)
+    }
+  }, [isMobile, isDesktop, setTableBrowserOpen, setAiChatOpen])
 
   const executeQuery = useCallback(async () => {
     if (!currentQuery || !currentOrg) return
@@ -189,13 +212,33 @@ export default function QueryEditorPage() {
         rowCount: data.rowCount,
         executionTime: data.executionTime,
       })
+
+      // Auto-generate name on first successful run if no name exists
+      if (!queryName && !hasGeneratedName.current && isNew) {
+        hasGeneratedName.current = true
+        try {
+          const nameRes = await fetch('/api/queries/generate-name', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sql: currentQuery }),
+          })
+          if (nameRes.ok) {
+            const nameData = await nameRes.json()
+            if (nameData.name) {
+              setQueryName(nameData.name)
+            }
+          }
+        } catch {
+          // Ignore name generation errors
+        }
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Query execution failed'
       message.error(msg)
     } finally {
       setIsExecuting(false)
     }
-  }, [currentQuery, currentOrg, setIsExecuting, setQueryResults])
+  }, [currentQuery, currentOrg, setIsExecuting, setQueryResults, queryName, isNew])
 
   const handleSave = async () => {
     if (!currentQuery) {
@@ -301,36 +344,57 @@ export default function QueryEditorPage() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3" style={{ flex: 1, minWidth: 0 }}>
           <Button
             type="text"
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.push(`/projects/${projectId}`)}
-          />
-          <Button
-            type="text"
+            size="small"
             icon={tableBrowserOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
             onClick={toggleTableBrowser}
           />
-          <Input
-            placeholder="Query name..."
-            value={queryName}
-            onChange={(e) => setQueryName(e.target.value)}
-            variant="borderless"
-            style={{ maxWidth: 300, fontSize: 16, fontWeight: 500 }}
+          <Breadcrumb
+            items={[
+              {
+                title: <span style={{ cursor: 'pointer' }} onClick={() => router.push('/')}><HomeOutlined /></span>,
+              },
+              {
+                title: (
+                  <span style={{ cursor: 'pointer' }} onClick={() => router.push(`/projects/${projectId}`)}>
+                    {projectName || 'Project'}
+                  </span>
+                ),
+              },
+              {
+                title: (
+                  <Input
+                    placeholder="Query name..."
+                    value={queryName}
+                    onChange={(e) => setQueryName(e.target.value)}
+                    variant="borderless"
+                    style={{
+                      width: isMobile ? 120 : 200,
+                      fontSize: 14,
+                      fontWeight: 500,
+                      padding: 0,
+                    }}
+                  />
+                ),
+              },
+            ]}
+            style={{ flex: 1 }}
           />
-          {hasUnsavedChanges && (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Unsaved changes
+          {hasUnsavedChanges && !isMobile && (
+            <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+              Unsaved
             </Text>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <Button
             type="primary"
             icon={<PlayCircleOutlined />}
             onClick={executeQuery}
             loading={isExecuting}
+            size={isMobile ? 'middle' : 'middle'}
           >
             {isMobile ? '' : 'Run'}
           </Button>
@@ -339,6 +403,7 @@ export default function QueryEditorPage() {
             onClick={handleSave}
             loading={saving}
             disabled={!currentQuery}
+            size={isMobile ? 'middle' : 'middle'}
           >
             {isMobile ? '' : 'Save'}
           </Button>
@@ -375,21 +440,19 @@ export default function QueryEditorPage() {
               <Button type="text" icon={<MoreOutlined />} />
             </Dropdown>
           )}
-          {!isMobile && (
-            <Text type="secondary" className="text-xs">
-              Cmd+Enter to run
-            </Text>
-          )}
         </div>
       </header>
 
       <main className="app-main">
-        <aside
-          className={tableBrowserOpen ? 'sidebar' : 'sidebar sidebar-hidden'}
-          style={{ width: tableBrowserOpen ? TABLE_BROWSER_WIDTH : 0 }}
-        >
-          {tableBrowserOpen && <TableBrowser />}
-        </aside>
+        {/* Desktop sidebar */}
+        {!isMobile && (
+          <aside
+            className={tableBrowserOpen ? 'sidebar' : 'sidebar sidebar-hidden'}
+            style={{ width: tableBrowserOpen ? TABLE_BROWSER_WIDTH : 0 }}
+          >
+            {tableBrowserOpen && <TableBrowser />}
+          </aside>
+        )}
 
         <div className="main-content-area">
           <div className="editor-results-container">
@@ -405,7 +468,13 @@ export default function QueryEditorPage() {
         </div>
       </main>
 
-      <TableDetailDrawer />
+      {/* Mobile full-screen table browser */}
+      {isMobile && tableBrowserOpen && (
+        <TableBrowser
+          isMobileFullScreen
+          onClose={() => setTableBrowserOpen(false)}
+        />
+      )}
     </div>
   )
 }

@@ -198,13 +198,13 @@ export default function ProjectsPage() {
                       width: 36,
                       height: 36,
                       borderRadius: 8,
-                      background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
+                      background: '#1a1a1a',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       flexShrink: 0,
                     }}>
-                      <FolderOutlined style={{ color: '#fff', fontSize: 16 }} />
+                      <FolderOutlined style={{ color: '#888', fontSize: 16 }} />
                     </div>
                     <div>
                       <h4 className="query-card-title">{project.title}</h4>

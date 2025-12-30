@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  Tabs,
   Button,
   Input,
   Empty,
@@ -12,19 +11,18 @@ import {
   message,
   Typography,
   Dropdown,
-  Popconfirm,
+  Breadcrumb,
 } from 'antd'
 import { TechSpinner } from '@/components/TechSpinner'
 import {
-  ArrowLeftOutlined,
   PlusOutlined,
   CodeOutlined,
-  MessageOutlined,
   SearchOutlined,
   MoreOutlined,
   EditOutlined,
   DeleteOutlined,
   ClockCircleOutlined,
+  HomeOutlined,
 } from '@ant-design/icons'
 import { useOrganization } from '../../layout'
 
@@ -54,15 +52,6 @@ interface Query {
   updatedAt: string
 }
 
-interface Chat {
-  id: string
-  title: string | null
-  messageCount: number
-  createdBy: string | null
-  createdAt: string
-  updatedAt: string
-}
-
 export default function ProjectPage() {
   const params = useParams()
   const router = useRouter()
@@ -72,16 +61,11 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null)
   const [canWrite, setCanWrite] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('queries')
 
   // Queries state
   const [queries, setQueries] = useState<Query[]>([])
   const [queriesLoading, setQueriesLoading] = useState(false)
   const [querySearch, setQuerySearch] = useState('')
-
-  // Chats state
-  const [chats, setChats] = useState<Chat[]>([])
-  const [chatsLoading, setChatsLoading] = useState(false)
 
   // Edit project modal
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -140,28 +124,6 @@ export default function ProjectPage() {
     fetchQueries()
   }, [project, projectId, querySearch])
 
-  // Fetch chats
-  useEffect(() => {
-    if (!project) return
-
-    const fetchChats = async () => {
-      setChatsLoading(true)
-      try {
-        const res = await fetch(`/api/projects/${projectId}/chats`)
-        if (res.ok) {
-          const data = await res.json()
-          setChats(data.chats || [])
-        }
-      } catch (err) {
-        console.error('Failed to fetch chats:', err)
-      } finally {
-        setChatsLoading(false)
-      }
-    }
-
-    fetchChats()
-  }, [project, projectId])
-
   const handleUpdateProject = async (values: { title: string; description?: string }) => {
     setSaving(true)
     try {
@@ -208,25 +170,6 @@ export default function ProjectPage() {
   const handleNewQuery = () => {
     // Navigate to query editor with project context
     router.push(`/projects/${projectId}/query/new`)
-  }
-
-  const handleNewChat = async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/chats`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-
-      if (!res.ok) {
-        throw new Error('Failed to create chat')
-      }
-
-      const data = await res.json()
-      router.push(`/projects/${projectId}/chat/${data.chat.id}`)
-    } catch (err) {
-      message.error('Failed to create chat')
-    }
   }
 
   const formatDate = (dateStr: string) => {
@@ -295,12 +238,16 @@ export default function ProjectPage() {
         borderBottom: '1px solid var(--border-color)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <Button
-            type="text"
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.push('/')}
+          <Breadcrumb
+            items={[
+              {
+                title: <span style={{ cursor: 'pointer' }} onClick={() => router.push('/')}><HomeOutlined /></span>,
+              },
+              {
+                title: <span style={{ fontWeight: 600, fontSize: 16 }}>{project.title}</span>,
+              },
+            ]}
           />
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{project.title}</h1>
           {canWrite && (
             <Dropdown
               menu={{
@@ -324,257 +271,141 @@ export default function ProjectPage() {
           )}
         </div>
         {project.description && (
-          <Paragraph type="secondary" style={{ margin: 0, marginLeft: 44 }}>
+          <Paragraph type="secondary" style={{ margin: 0, marginLeft: 0 }}>
             {project.description}
           </Paragraph>
         )}
       </div>
 
-      {/* Tabs */}
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
-        tabBarStyle={{ padding: '0 24px', marginBottom: 0 }}
-        items={[
-          {
-            key: 'queries',
-            label: (
-              <span>
-                <CodeOutlined /> Queries ({project.queryCount})
-              </span>
-            ),
-            children: (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                {/* Search and actions */}
-                <div style={{
-                  padding: '16px 24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 16,
-                  borderBottom: '1px solid var(--border-color)',
-                }}>
-                  <Input
-                    placeholder="Search queries..."
-                    prefix={<SearchOutlined style={{ color: '#666' }} />}
-                    value={querySearch}
-                    onChange={(e) => setQuerySearch(e.target.value)}
-                    style={{ maxWidth: 300 }}
-                    allowClear
-                  />
-                  {canWrite && (
-                    <Button
-                      type="primary"
-                      icon={<PlusOutlined />}
-                      onClick={handleNewQuery}
-                    >
-                      New Query
-                    </Button>
-                  )}
-                </div>
+      {/* Queries Section - Unified experience (AI chat is integrated in query editor) */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Search and actions */}
+        <div style={{
+          padding: '16px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          borderBottom: '1px solid var(--border-color)',
+        }}>
+          <Input
+            placeholder="Search queries..."
+            prefix={<SearchOutlined style={{ color: '#666' }} />}
+            value={querySearch}
+            onChange={(e) => setQuerySearch(e.target.value)}
+            style={{ maxWidth: 300 }}
+            allowClear
+          />
+          {canWrite && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleNewQuery}
+            >
+              New Query
+            </Button>
+          )}
+        </div>
 
-                {/* Queries list */}
-                <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-                  {queriesLoading ? (
-                    <div className="loading-state">
-                      <TechSpinner />
-                    </div>
-                  ) : queries.length === 0 ? (
-                    <div className="empty-state-action">
-                      <div className="empty-state-icon">
-                        <CodeOutlined />
-                      </div>
-                      <div className="empty-state-title">
-                        {querySearch ? 'No queries found' : 'No queries yet'}
-                      </div>
-                      <div className="empty-state-description">
-                        {querySearch
-                          ? 'Try a different search term'
-                          : 'Create your first query to start exploring data'}
-                      </div>
-                      {!querySearch && canWrite && (
-                        <Button
-                          type="primary"
-                          icon={<PlusOutlined />}
-                          onClick={handleNewQuery}
-                        >
-                          Create Query
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="item-grid">
-                      {queries.map((query) => (
-                        <div
-                          key={query.id}
-                          className="query-card"
-                          onClick={() => router.push(`/projects/${projectId}/query/${query.id}`)}
-                        >
-                          <div className="query-card-header">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                              <div style={{
-                                width: 36,
-                                height: 36,
-                                borderRadius: 8,
-                                background: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0,
-                              }}>
-                                <CodeOutlined style={{ color: '#fff', fontSize: 16 }} />
-                              </div>
-                              <div>
-                                <h4 className="query-card-title">
-                                  {query.name || 'Untitled Query'}
-                                </h4>
-                                <div className="query-card-meta">
-                                  Updated {formatDate(query.updatedAt)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <Text
-                            code
-                            style={{
-                              display: 'block',
-                              fontSize: 11,
-                              marginBottom: 12,
-                              background: 'rgba(255,255,255,0.05)',
-                              padding: '8px 10px',
-                              borderRadius: 4,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {truncateSql(query.sql)}
-                          </Text>
-
-                          <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#666' }}>
-                            {query.rowCount !== null && (
-                              <span>{query.rowCount.toLocaleString()} rows</span>
-                            )}
-                            {query.executionTime !== null && (
-                              <span>
-                                <ClockCircleOutlined style={{ marginRight: 4 }} />
-                                {query.executionTime}ms
-                              </span>
-                            )}
-                            {query.chartCount > 0 && (
-                              <span>{query.chartCount} chart{query.chartCount !== 1 ? 's' : ''}</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+        {/* Queries list */}
+        <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+          {queriesLoading ? (
+            <div className="loading-state">
+              <TechSpinner />
+            </div>
+          ) : queries.length === 0 ? (
+            <div className="empty-state-action">
+              <div className="empty-state-icon">
+                <CodeOutlined />
               </div>
-            ),
-          },
-          {
-            key: 'chats',
-            label: (
-              <span>
-                <MessageOutlined /> AI Chats ({project.chatCount})
-              </span>
-            ),
-            children: (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                {/* Actions */}
-                <div style={{
-                  padding: '16px 24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  borderBottom: '1px solid var(--border-color)',
-                }}>
-                  {canWrite && (
-                    <Button
-                      type="primary"
-                      icon={<PlusOutlined />}
-                      onClick={handleNewChat}
-                    >
-                      New Chat
-                    </Button>
-                  )}
-                </div>
-
-                {/* Chats list */}
-                <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-                  {chatsLoading ? (
-                    <div className="loading-state">
-                      <TechSpinner />
-                    </div>
-                  ) : chats.length === 0 ? (
-                    <div className="empty-state-action">
-                      <div className="empty-state-icon">
-                        <MessageOutlined />
-                      </div>
-                      <div className="empty-state-title">No chats yet</div>
-                      <div className="empty-state-description">
-                        Start a chat to explore your data with AI assistance
-                      </div>
-                      {canWrite && (
-                        <Button
-                          type="primary"
-                          icon={<PlusOutlined />}
-                          onClick={handleNewChat}
-                        >
-                          Start Chat
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="item-grid">
-                      {chats.map((chat) => (
-                        <div
-                          key={chat.id}
-                          className="query-card"
-                          onClick={() => router.push(`/projects/${projectId}/chat/${chat.id}`)}
-                        >
-                          <div className="query-card-header">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                              <div style={{
-                                width: 36,
-                                height: 36,
-                                borderRadius: 8,
-                                background: 'linear-gradient(135deg, #722ed1 0%, #531dab 100%)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0,
-                              }}>
-                                <MessageOutlined style={{ color: '#fff', fontSize: 16 }} />
-                              </div>
-                              <div>
-                                <h4 className="query-card-title">
-                                  {chat.title || 'New Chat'}
-                                </h4>
-                                <div className="query-card-meta">
-                                  Updated {formatDate(chat.updatedAt)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#666' }}>
-                            <span>{chat.messageCount} message{chat.messageCount !== 1 ? 's' : ''}</span>
-                            {chat.createdBy && <span>by {chat.createdBy}</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              <div className="empty-state-title">
+                {querySearch ? 'No queries found' : 'No queries yet'}
               </div>
-            ),
-          },
-        ]}
-      />
+              <div className="empty-state-description">
+                {querySearch
+                  ? 'Try a different search term'
+                  : 'Create a query to start exploring data. Use the AI assistant for help!'}
+              </div>
+              {!querySearch && canWrite && (
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={handleNewQuery}
+                >
+                  Create Query
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="item-grid">
+              {queries.map((query) => (
+                <div
+                  key={query.id}
+                  className="query-card"
+                  onClick={() => router.push(`/projects/${projectId}/query/${query.id}`)}
+                >
+                  <div className="query-card-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 8,
+                        background: '#1a1a1a',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        <CodeOutlined style={{ color: '#888', fontSize: 16 }} />
+                      </div>
+                      <div>
+                        <h4 className="query-card-title">
+                          {query.name || 'Untitled Query'}
+                        </h4>
+                        <div className="query-card-meta">
+                          Updated {formatDate(query.updatedAt)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Text
+                    code
+                    style={{
+                      display: 'block',
+                      fontSize: 11,
+                      marginBottom: 12,
+                      background: 'rgba(255,255,255,0.05)',
+                      padding: '8px 10px',
+                      borderRadius: 4,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {truncateSql(query.sql)}
+                  </Text>
+
+                  <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#666' }}>
+                    {query.rowCount !== null && (
+                      <span>{query.rowCount.toLocaleString()} rows</span>
+                    )}
+                    {query.executionTime !== null && (
+                      <span>
+                        <ClockCircleOutlined style={{ marginRight: 4 }} />
+                        {query.executionTime}ms
+                      </span>
+                    )}
+                    {query.chartCount > 0 && (
+                      <span>{query.chartCount} chart{query.chartCount !== 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Edit Project Modal */}
       <Modal
