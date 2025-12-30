@@ -795,6 +795,45 @@ The tool provides a quality score (0-100) and specific issues to address.`,
         };
       },
     }),
+
+    // Tool 9: Set query name
+    set_query_name: tool({
+      description: `Set a descriptive name for the current query.
+Use this tool to give the query a clear, concise name that describes what it does.
+
+WHEN TO USE:
+- After successfully building a query with update_query_ui
+- When you understand what the query retrieves
+- To help users identify and organize their queries
+
+NAME GUIDELINES:
+- Keep it short (2-5 words)
+- Be descriptive and specific (e.g., "Monthly Revenue by Region", "Active Users Last Week")
+- Avoid generic names like "Query 1" or "New Query"
+- Use title case
+- Focus on what the data shows, not how it's retrieved`,
+      inputSchema: z.object({
+        name: z.string().describe('A short, descriptive name for the query (2-5 words, title case)'),
+      }),
+      execute: async ({ name }) => {
+        // Validate and clean the name
+        const cleanedName = name.trim().slice(0, 100);
+
+        if (!cleanedName) {
+          return {
+            success: false,
+            error: 'Name cannot be empty',
+            name: null,
+          };
+        }
+
+        return {
+          success: true,
+          name: cleanedName,
+          message: `Query name set to: ${cleanedName}`,
+        };
+      },
+    }),
   };
 }
 

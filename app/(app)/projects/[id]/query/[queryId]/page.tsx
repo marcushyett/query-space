@@ -57,7 +57,7 @@ export default function QueryEditorPage() {
   const isNew = queryId === 'new'
 
   const { currentOrg } = useOrganization()
-  const { setCurrentQuery, currentQuery, setQueryResults, queryResults, isExecuting, setIsExecuting } = useQueryStore()
+  const { setCurrentQuery, currentQuery, setQueryResults, queryResults, isExecuting, setIsExecuting, queryName: storeQueryName, setQueryName: setStoreQueryName } = useQueryStore()
   const { setTables, setLoading: setSchemaLoading, setError: setSchemaError } = useSchemaStore()
   const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen } = useUiStore()
   const { isOpen: aiChatOpen, setOpen: setAiChatOpen } = useAiChatStore()
@@ -70,7 +70,6 @@ export default function QueryEditorPage() {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [projectName, setProjectName] = useState<string>('')
   const [form] = Form.useForm()
-  const hasGeneratedName = useRef(false)
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSavedSqlRef = useRef<string>('')
   const [autoSaving, setAutoSaving] = useState(false)
@@ -78,6 +77,19 @@ export default function QueryEditorPage() {
   const isMobile = !screens.md
   const isDesktop = screens.lg
   const TABLE_BROWSER_WIDTH = isMobile ? 200 : 280
+
+  // Sync store queryName with local state (from AI agent)
+  useEffect(() => {
+    if (storeQueryName && storeQueryName !== queryName) {
+      setQueryName(storeQueryName)
+    }
+  }, [storeQueryName])
+
+  // Keep store in sync when user edits the name
+  const handleQueryNameChange = (name: string) => {
+    setQueryName(name)
+    setStoreQueryName(name)
+  }
 
   // Fetch schema for autocomplete
   useEffect(() => {
@@ -215,33 +227,14 @@ export default function QueryEditorPage() {
         rowCount: data.rowCount,
         executionTime: data.executionTime,
       })
-
-      // Auto-generate name on first successful run if no name exists
-      if (!queryName && !hasGeneratedName.current && isNew) {
-        hasGeneratedName.current = true
-        try {
-          const nameRes = await fetch('/api/queries/generate-name', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sql: currentQuery }),
-          })
-          if (nameRes.ok) {
-            const nameData = await nameRes.json()
-            if (nameData.name) {
-              setQueryName(nameData.name)
-            }
-          }
-        } catch {
-          // Ignore name generation errors
-        }
-      }
+      // Query naming is handled by AI agent via set_query_name tool
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Query execution failed'
       message.error(msg)
     } finally {
       setIsExecuting(false)
     }
-  }, [currentQuery, currentOrg, setIsExecuting, setQueryResults, queryName, isNew])
+  }, [currentQuery, currentOrg, setIsExecuting, setQueryResults])
 
   const handleSave = async () => {
     if (!currentQuery) {
@@ -452,7 +445,7 @@ export default function QueryEditorPage() {
                   <Input
                     placeholder="Query name..."
                     value={queryName}
-                    onChange={(e) => setQueryName(e.target.value)}
+                    onChange={(e) => handleQueryNameChange(e.target.value)}
                     variant="borderless"
                     style={{
                       width: isMobile ? 120 : 200,
