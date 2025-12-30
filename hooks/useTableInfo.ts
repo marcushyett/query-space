@@ -13,13 +13,14 @@ export interface TableInfoState {
 
 export function useTableInfo() {
   const { message } = App.useApp();
-  const { connectionString } = useConnectionStore();
+  const { organizationId } = useConnectionStore();
   const [tableInfo, setTableInfo] = useState<TableInfoResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTableInfo = useCallback(async (schema: string, table: string) => {
-    if (!connectionString) {
+    // Only require organizationId - connectionString is deprecated
+    if (!organizationId) {
       setError('No database connection');
       return;
     }
@@ -31,7 +32,7 @@ export function useTableInfo() {
       const response = await fetch('/api/table-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionString, schema, table }),
+        body: JSON.stringify({ organizationId, schema, table }),
       });
 
       const data = await response.json();
@@ -49,7 +50,7 @@ export function useTableInfo() {
     } finally {
       setIsLoading(false);
     }
-  }, [connectionString, message]);
+  }, [organizationId, message]);
 
   const clearTableInfo = useCallback(() => {
     setTableInfo(null);

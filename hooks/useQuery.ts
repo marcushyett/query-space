@@ -7,12 +7,13 @@ import { useQueryStore, QueryResult } from '@/stores/queryStore';
 
 export function useQuery() {
   const { message } = App.useApp();
-  const { connectionString, organizationId } = useConnectionStore();
+  const { organizationId } = useConnectionStore();
   const { setQueryResults, addToHistory, setIsExecuting } = useQueryStore();
   const [error, setError] = useState<string | null>(null);
 
   const executeQuery = async (sql: string) => {
-    if (!connectionString || !organizationId) {
+    // Only require organizationId - connectionString is deprecated
+    if (!organizationId) {
       message.error('No database connection. Please connect to a database first.');
       return;
     }

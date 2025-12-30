@@ -9,11 +9,13 @@ import type { SchemaResponse } from '@/app/api/schema/route';
 const CACHE_DURATION = 5 * 60 * 1000;
 
 export function useSchema() {
-  const { connectionString, organizationId } = useConnectionStore();
+  const { organizationId } = useConnectionStore();
   const { tables, isLoading, error, lastFetched, setTables, setLoading, setError, reset } = useSchemaStore();
 
   const fetchSchema = useCallback(async (force = false) => {
-    if (!connectionString || !organizationId) {
+    // Only require organizationId - connectionString is deprecated
+    // The API endpoint fetches the connection string from organization settings
+    if (!organizationId) {
       reset();
       return;
     }
@@ -47,16 +49,16 @@ export function useSchema() {
     } finally {
       setLoading(false);
     }
-  }, [connectionString, organizationId, lastFetched, tables.length, setTables, setLoading, setError, reset]);
+  }, [organizationId, lastFetched, tables.length, setTables, setLoading, setError, reset]);
 
-  // Fetch schema when connection changes
+  // Fetch schema when organization changes
   useEffect(() => {
-    if (connectionString && organizationId) {
+    if (organizationId) {
       fetchSchema();
     } else {
       reset();
     }
-  }, [connectionString, organizationId, fetchSchema, reset]);
+  }, [organizationId, fetchSchema, reset]);
 
   return {
     tables,

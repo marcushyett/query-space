@@ -14,7 +14,7 @@ const MAX_STEPS = 25;
 
 export function useAiAgent() {
   const { message } = App.useApp();
-  const { connectionString, organizationId } = useConnectionStore();
+  const { organizationId } = useConnectionStore();
   const tables = useSchemaStore((state) => state.tables);
   const { setCurrentQuery, setQueryResults, addToHistory, setIsExecuting } = useQueryStore();
 
@@ -82,7 +82,8 @@ export function useAiAgent() {
   // Execute a query (for when agent finalizes)
   const executeQuery = useCallback(
     async (sql: string): Promise<{ success: boolean; result?: QueryResult; error?: string }> => {
-      if (!connectionString || !organizationId) {
+      // Only require organizationId - connectionString is deprecated
+      if (!organizationId) {
         return { success: false, error: 'No database connection' };
       }
 
@@ -119,19 +120,15 @@ export function useAiAgent() {
         setIsExecuting(false);
       }
     },
-    [connectionString, organizationId, setIsExecuting, setQueryResults, addToHistory]
+    [organizationId, setIsExecuting, setQueryResults, addToHistory]
   );
 
   // Send a message to the agent
   const sendMessage = useCallback(
     async (prompt: string): Promise<boolean> => {
-      if (!connectionString) {
-        message.error('No database connection. Please connect to a database first.');
-        return false;
-      }
-
+      // Only require organizationId - connectionString is deprecated
       if (!organizationId) {
-        message.error('No organization selected');
+        message.error('No database connection. Please connect to a database first.');
         return false;
       }
 
@@ -513,7 +510,6 @@ export function useAiAgent() {
       }
     },
     [
-      connectionString,
       organizationId,
       tables,
       currentSql,
@@ -908,7 +904,6 @@ export function useAiAgent() {
   }, [
     buildContextSummary,
     organizationId,
-    connectionString,
     tables,
     currentSql,
     addUserMessage,
@@ -949,13 +944,9 @@ export function useAiAgent() {
   // Resume a paused session
   const resumeSession = useCallback(
     async (session: AgentSession): Promise<boolean> => {
-      if (!connectionString) {
-        message.error('No database connection. Please connect to a database first.');
-        return false;
-      }
-
+      // Only require organizationId - connectionString is deprecated
       if (!organizationId) {
-        message.error('No organization selected');
+        message.error('No database connection. Please connect to a database first.');
         return false;
       }
 
@@ -1322,7 +1313,6 @@ IMPORTANT: You are resuming a previous session. Review the todo list and continu
       }
     },
     [
-      connectionString,
       organizationId,
       tables,
       addUserMessage,

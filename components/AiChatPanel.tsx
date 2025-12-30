@@ -39,7 +39,7 @@ export function AiChatPanel() {
   const isMobile = !screens.md;
 
   const { isOpen, setOpen, messages, isGenerating, agentProgress } = useAiChatStore();
-  const { connectionString } = useConnectionStore();
+  const { organizationId } = useConnectionStore();
   const { isExecuting, setCurrentQuery } = useQueryStore();
   const { sendMessage, continueAgent, stopAgent, startNewConversation, setCurrentSql, setIsAiGenerated, resumeSession, resumableSessions } = useAiAgent();
 
@@ -79,7 +79,7 @@ export function AiChatPanel() {
     }
   };
 
-  const isConnected = !!connectionString;
+  const isConnected = !!organizationId;
   const isWorking = isGenerating || isExecuting;
 
   if (!isOpen) return null;
