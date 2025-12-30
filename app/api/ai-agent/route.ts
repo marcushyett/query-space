@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { streamQueryAgent, MAX_AGENT_STEPS, type AgentStreamEvent, type SchemaInfo } from '@/lib/agent';
-import { getClaudeApiKey } from '@/lib/auth/organization-settings';
+import { getClaudeApiKey, requireDatabaseConnection } from '@/lib/auth/organization-settings';
+import { requireUser } from '@/lib/auth/session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,8 +9,7 @@ export const maxDuration = 120; // 2 minute max for agent execution
 
 interface AgentRequest {
   prompt: string;
-  organizationId?: string;
-  connectionString: string;
+  organizationId: string;
   schema: SchemaInfo[];
   previousSql?: string;
   previousContext?: string;
@@ -19,11 +19,13 @@ export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
 
   try {
+    // Require authentication
+    await requireUser();
+
     const body: AgentRequest = await request.json();
     const {
       prompt,
       organizationId,
-      connectionString,
       schema,
       previousSql,
       previousContext,
@@ -36,10 +38,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!organizationId) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required field: organizationId' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Get API key from organization settings or environment variable
-    const effectiveApiKey = organizationId
-      ? await getClaudeApiKey(organizationId)
-      : process.env.CLAUDE_API_KEY;
+    const effectiveApiKey = await getClaudeApiKey(organizationId);
 
     if (!effectiveApiKey) {
       return new Response(
@@ -48,9 +55,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!connectionString) {
+    // Get connection string from organization settings
+    let connectionString: string;
+    try {
+      connectionString = await requireDatabaseConnection(organizationId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get database connection';
       return new Response(
-        JSON.stringify({ error: 'Database connection is required' }),
+        JSON.stringify({ error: message }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }

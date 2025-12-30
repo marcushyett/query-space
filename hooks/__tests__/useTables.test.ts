@@ -32,7 +32,7 @@ describe('useTables', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Reset connection store
-    useConnectionStore.setState({ connectionString: null })
+    useConnectionStore.setState({ connectionString: null, organizationId: null })
   })
 
   afterEach(() => {
@@ -71,7 +71,7 @@ describe('useTables', () => {
 
   describe('fetchTables with connection', () => {
     beforeEach(() => {
-      useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
+      useConnectionStore.setState({ connectionString: 'configured-in-org-settings', organizationId: 'org-123' })
     })
 
     it('should fetch tables successfully', async () => {
@@ -152,14 +152,14 @@ describe('useTables', () => {
       expect(mockFetch).toHaveBeenCalledWith('/api/tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionString: 'postgresql://localhost/testdb' }),
+        body: JSON.stringify({ organizationId: 'org-123' }),
       })
     })
   })
 
   describe('refreshTables', () => {
     it('should call fetchTables', async () => {
-      useConnectionStore.setState({ connectionString: 'postgresql://localhost/testdb' })
+      useConnectionStore.setState({ connectionString: 'configured-in-org-settings', organizationId: 'org-123' })
 
       mockFetch.mockResolvedValue({
         ok: true,

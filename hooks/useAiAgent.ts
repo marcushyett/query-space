@@ -82,7 +82,7 @@ export function useAiAgent() {
   // Execute a query (for when agent finalizes)
   const executeQuery = useCallback(
     async (sql: string): Promise<{ success: boolean; result?: QueryResult; error?: string }> => {
-      if (!connectionString) {
+      if (!connectionString || !organizationId) {
         return { success: false, error: 'No database connection' };
       }
 
@@ -92,7 +92,7 @@ export function useAiAgent() {
         const response = await fetch('/api/query', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ connectionString, sql }),
+          body: JSON.stringify({ organizationId, sql }),
         });
 
         const data = await response.json();
@@ -119,7 +119,7 @@ export function useAiAgent() {
         setIsExecuting(false);
       }
     },
-    [connectionString, setIsExecuting, setQueryResults, addToHistory]
+    [connectionString, organizationId, setIsExecuting, setQueryResults, addToHistory]
   );
 
   // Send a message to the agent
@@ -159,7 +159,6 @@ export function useAiAgent() {
           body: JSON.stringify({
             prompt: prompt.trim(),
             organizationId,
-            connectionString,
             schema: tables,
             previousSql: currentSql,
           }),
@@ -610,7 +609,6 @@ export function useAiAgent() {
         body: JSON.stringify({
           prompt: continuePrompt,
           organizationId,
-          connectionString,
           schema: tables,
           previousSql: currentSql,
           previousContext: context,
@@ -998,7 +996,6 @@ IMPORTANT: You are resuming a previous session. Review the todo list and continu
           body: JSON.stringify({
             prompt: resumePrompt,
             organizationId,
-            connectionString,
             schema: tables,
             previousSql: session.currentSql,
             previousContext: session.resumptionContext,
