@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Typography, Grid, Spin } from 'antd';
+import { Button, Typography, Grid } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -34,14 +34,12 @@ const TABLE_BROWSER_WIDTH_MOBILE = 200;
 
 export function HomePage() {
   const router = useRouter();
-  const { connectionString, setConnectionString, setOrganizationId } = useConnectionStore();
+  const { connectionString } = useConnectionStore();
   const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer } = useUiStore();
   const { currentQuery, isExecuting } = useQueryStore();
   const { isOpen: aiChatOpen, setOpen: setAiChatOpen } = useAiChatStore();
   const { executeQuery } = useQuery();
   const screens = useBreakpoint();
-  const [isLoadingConnection, setIsLoadingConnection] = useState(true);
-  const hasLoadedSettings = React.useRef(false);
 
   // Fetch schema for autocomplete (automatically triggered when connected)
   useSchema();
@@ -50,43 +48,6 @@ export function HomePage() {
   const isMobile = !screens.md;
 
   useKeyboardShortcuts();
-
-  // Load connection from org settings on mount
-  useEffect(() => {
-    if (hasLoadedSettings.current) return;
-    hasLoadedSettings.current = true;
-
-    const loadConnectionFromOrg = async () => {
-      try {
-        // Fetch organizations
-        const orgsRes = await fetch('/api/organizations');
-        const orgsData = await orgsRes.json();
-
-        if (!orgsData.organizations?.length) {
-          setIsLoadingConnection(false);
-          return;
-        }
-
-        const org = orgsData.organizations[0];
-        setOrganizationId(org.id);
-
-        // Fetch org settings to check for database URL
-        const settingsRes = await fetch(`/api/organizations/${org.id}/settings`);
-        const settingsData = await settingsRes.json();
-
-        if (settingsRes.ok && settingsData.settings?.hasDatabaseUrl) {
-          // Mark as connected - the actual connection string is used server-side
-          setConnectionString('configured-in-org-settings');
-        }
-      } catch (err) {
-        console.error('Failed to load organization settings:', err);
-      } finally {
-        setIsLoadingConnection(false);
-      }
-    };
-
-    loadConnectionFromOrg();
-  }, [setConnectionString, setOrganizationId]);
 
   const handleRunQuery = () => {
     if (currentQuery) {
@@ -106,17 +67,6 @@ export function HomePage() {
   const handleToggleAiChat = () => {
     setAiChatOpen(!aiChatOpen);
   };
-
-  // Show loading spinner while checking org settings
-  if (isLoadingConnection) {
-    return (
-      <div className="app-container">
-        <div className="loading-state-large">
-          <Spin size="large" />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="app-container">

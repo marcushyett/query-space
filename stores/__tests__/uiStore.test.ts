@@ -11,7 +11,6 @@ describe('uiStore', () => {
       connectionDialogOpen: false,
       tableDetailDrawerOpen: false,
       selectedTable: null,
-      aiModalOpen: false,
     })
   })
 
@@ -44,11 +43,6 @@ describe('uiStore', () => {
     it('should have no selected table by default', () => {
       const state = useUiStore.getState()
       expect(state.selectedTable).toBeNull()
-    })
-
-    it('should have AI modal closed by default', () => {
-      const state = useUiStore.getState()
-      expect(state.aiModalOpen).toBe(false)
     })
   })
 
@@ -172,23 +166,6 @@ describe('uiStore', () => {
 
       const state = useUiStore.getState()
       expect(state.selectedTable).toBe('public.orders')
-    })
-  })
-
-  describe('setAiModalOpen', () => {
-    it('should set AI modal open', () => {
-      useUiStore.getState().setAiModalOpen(true)
-
-      const state = useUiStore.getState()
-      expect(state.aiModalOpen).toBe(true)
-    })
-
-    it('should set AI modal closed', () => {
-      useUiStore.setState({ aiModalOpen: true })
-      useUiStore.getState().setAiModalOpen(false)
-
-      const state = useUiStore.getState()
-      expect(state.aiModalOpen).toBe(false)
     })
   })
 
