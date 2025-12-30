@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth'
-import type { OAuthConfig, OAuthUserConfig } from 'next-auth/providers'
+import type { OAuthConfig } from 'next-auth/providers'
 import type { TokenSet } from '@auth/core/types'
+import type { Account } from 'next-auth'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import GitHub from 'next-auth/providers/github'
 import Credentials from 'next-auth/providers/credentials'
@@ -10,14 +11,14 @@ import { z } from 'zod'
 import { authConfig } from './config.edge'
 
 // Vercel profile type from userinfo endpoint
+// Based on https://vercel.com/docs/sign-in-with-vercel/authorization-server-api#user-info-endpoint
 interface VercelProfile {
   sub: string
-  email: string
+  email?: string
+  email_verified?: boolean
   name?: string
+  preferred_username?: string
   picture?: string
-  // Vercel-specific fields
-  user_id?: string
-  username?: string
 }
 
 // Vercel OAuth provider (custom implementation using Vercel's authorization server)
@@ -26,45 +27,101 @@ const VercelProvider: OAuthConfig<VercelProfile> = {
   id: 'vercel',
   name: 'Vercel',
   type: 'oauth',
+  // Vercel uses OpenID Connect - discovery URL for well-known config
+  wellKnown: 'https://vercel.com/.well-known/openid-configuration',
   authorization: {
     url: 'https://vercel.com/oauth/authorize',
-    // Use Vercel's supported scopes: profile, email, teams, billing
-    // Don't use 'openid' as Vercel uses its own scope format
-    params: { scope: 'profile email' },
+    // Vercel requires OpenID Connect scopes
+    // openid: required for OIDC
+    // email: get user email
+    // profile: get user profile info
+    params: {
+      scope: 'openid email profile',
+      response_type: 'code',
+    },
   },
   token: {
     url: 'https://api.vercel.com/login/oauth/token',
+    // Vercel requires form-urlencoded body with grant_type
+    async request({
+      params,
+      checks,
+      provider,
+    }: {
+      params: { code?: string; redirect_uri?: string }
+      checks: { code_verifier?: string }
+      provider: { clientId?: string; clientSecret?: string }
+    }): Promise<{ tokens: TokenSet }> {
+      const response = await fetch('https://api.vercel.com/login/oauth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: provider.clientId ?? '',
+          client_secret: provider.clientSecret ?? '',
+          code: params.code ?? '',
+          code_verifier: checks.code_verifier ?? '',
+          redirect_uri: params.redirect_uri ?? '',
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[Vercel OAuth] Token exchange failed:', response.status, errorText)
+        throw new Error(`Token exchange failed: ${response.status} ${errorText}`)
+      }
+
+      const tokens: TokenSet = await response.json()
+      console.log('[Vercel OAuth] Token exchange successful, received tokens:', {
+        hasAccessToken: !!tokens.access_token,
+        hasIdToken: !!tokens.id_token,
+        hasRefreshToken: !!tokens.refresh_token,
+        tokenType: tokens.token_type,
+        scope: tokens.scope,
+      })
+      return { tokens }
+    },
   },
   userinfo: {
     url: 'https://api.vercel.com/login/oauth/userinfo',
-    async request({ tokens, provider }: { tokens: TokenSet; provider: OAuthUserConfig<VercelProfile> }) {
-      // Fetch userinfo with access token
-      const userinfoUrl = typeof provider.userinfo === 'object' ? provider.userinfo.url : provider.userinfo
-      const response = await fetch(userinfoUrl as string, {
+    async request({ tokens }: { tokens: TokenSet }): Promise<VercelProfile> {
+      // Vercel userinfo endpoint uses POST with Bearer token
+      const response = await fetch('https://api.vercel.com/login/oauth/userinfo', {
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${tokens.access_token}`,
         },
       })
       if (!response.ok) {
-        throw new Error(`Failed to fetch userinfo: ${response.status}`)
+        const errorText = await response.text()
+        console.error('[Vercel OAuth] Userinfo fetch failed:', response.status, errorText)
+        throw new Error(`Failed to fetch userinfo: ${response.status} ${errorText}`)
       }
-      return response.json()
+      const profile: VercelProfile = await response.json()
+      console.log('[Vercel OAuth] Userinfo fetched successfully:', {
+        sub: profile.sub,
+        email: profile.email,
+        name: profile.name,
+        hasImage: !!profile.picture,
+      })
+      return profile
     },
   },
-  profile(profile) {
+  profile(profile: VercelProfile) {
+    console.log('[Vercel OAuth] Mapping profile:', profile)
     return {
-      id: profile.sub || profile.user_id || profile.email,
-      email: profile.email,
-      name: profile.name ?? profile.username ?? profile.email,
-      image: profile.picture,
+      id: profile.sub,
+      email: profile.email ?? '',
+      name: profile.name ?? profile.preferred_username ?? profile.email ?? '',
+      image: profile.picture ?? null,
     }
   },
-  // Use state for CSRF protection
-  // Note: Removed PKCE as Vercel's OAuth may not fully support it
-  checks: ['state'],
+  // PKCE with S256 is REQUIRED by Vercel OAuth
+  // state provides CSRF protection
+  checks: ['pkce', 'state'],
   // Use client_secret_post to send credentials in request body
-  // instead of default client_secret_basic (Authorization header)
-  // This is required by Vercel's token endpoint
   client: {
     token_endpoint_auth_method: 'client_secret_post',
   },
@@ -129,6 +186,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     ...authConfig.callbacks,
     async signIn({ user, account }) {
+      console.log('[Auth] signIn callback called:', {
+        provider: account?.provider,
+        userId: user?.id,
+        userEmail: user?.email,
+        accountType: account?.type,
+      })
+
       // For OAuth providers, handle account linking
       if (account && account.provider !== 'credentials' && user.email) {
         // Check if a user with this email already exists
@@ -140,7 +204,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (existingUser) {
           // Check if this OAuth account is already linked
           const existingAccount = existingUser.accounts.find(
-            (acc) => acc.provider === account.provider && acc.providerAccountId === account.providerAccountId
+            (acc: { provider: string; providerAccountId: string }) =>
+              acc.provider === account.provider && acc.providerAccountId === account.providerAccountId
           )
 
           if (!existingAccount) {
