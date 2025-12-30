@@ -26,7 +26,7 @@ const jetbrainsMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Query Space",
+  title: "Queryspace",
   description: "SQL analytics tool for PostgreSQL databases",
 };
 
