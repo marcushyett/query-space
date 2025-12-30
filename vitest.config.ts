@@ -15,7 +15,6 @@ export default defineConfig({
     // Vitest 4 pool configuration (options are now top-level)
     pool: 'threads',
     maxWorkers: 4,
-    minWorkers: 1,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
