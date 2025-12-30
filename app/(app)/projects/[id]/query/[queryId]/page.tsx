@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   Button,
-  Spin,
   Input,
   message,
   Typography,
@@ -13,6 +12,7 @@ import {
   Form,
   Grid,
 } from 'antd'
+import { TechSpinner } from '@/components/TechSpinner'
 import {
   ArrowLeftOutlined,
   PlayCircleOutlined,
@@ -293,7 +293,7 @@ export default function QueryEditorPage() {
   if (loading) {
     return (
       <div className="loading-state-large">
-        <Spin size="large" />
+        <TechSpinner size="large" />
       </div>
     )
   }

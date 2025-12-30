@@ -8,7 +8,6 @@ import {
   CodeOutlined,
   SearchOutlined,
   CheckCircleOutlined,
-  LoadingOutlined,
   CloseCircleOutlined,
   EditOutlined,
   PlayCircleOutlined,
@@ -18,6 +17,7 @@ import {
 } from '@ant-design/icons';
 import type { ToolCallInfo, AgentTodoItem } from '@/stores/aiChatStore';
 import { AgentTodoList } from './AgentTodoList';
+import { TechSpinner } from './TechSpinner';
 
 const { Text } = Typography;
 
@@ -62,7 +62,7 @@ function getToolLabel(toolName: string): string {
 function getStatusIcon(status: ToolCallInfo['status']): React.ReactNode {
   switch (status) {
     case 'running':
-      return <LoadingOutlined spin style={{ color: '#1890ff' }} />;
+      return <TechSpinner size="small" />;
     case 'success':
       return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
     case 'error':

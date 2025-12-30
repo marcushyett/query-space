@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   Tabs,
   Button,
-  Spin,
   Input,
   Empty,
   Modal,
@@ -15,6 +14,7 @@ import {
   Dropdown,
   Popconfirm,
 } from 'antd'
+import { TechSpinner } from '@/components/TechSpinner'
 import {
   ArrowLeftOutlined,
   PlusOutlined,
@@ -250,7 +250,7 @@ export default function ProjectPage() {
   if (loading) {
     return (
       <div className="loading-state-large">
-        <Spin size="large" />
+        <TechSpinner size="large" />
       </div>
     )
   }
@@ -378,7 +378,7 @@ export default function ProjectPage() {
                 <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
                   {queriesLoading ? (
                     <div className="loading-state">
-                      <Spin />
+                      <TechSpinner />
                     </div>
                   ) : queries.length === 0 ? (
                     <div className="empty-state-action">
@@ -507,7 +507,7 @@ export default function ProjectPage() {
                 <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
                   {chatsLoading ? (
                     <div className="loading-state">
-                      <Spin />
+                      <TechSpinner />
                     </div>
                   ) : chats.length === 0 ? (
                     <div className="empty-state-action">

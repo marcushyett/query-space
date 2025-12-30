@@ -4,12 +4,12 @@ import React from 'react';
 import { Typography, Space, Tag } from 'antd';
 import {
   CheckCircleOutlined,
-  LoadingOutlined,
   ClockCircleOutlined,
   MinusCircleOutlined,
   PlusCircleOutlined,
 } from '@ant-design/icons';
 import type { AgentTodoItem } from '@/stores/aiChatStore';
+import { TechSpinner } from './TechSpinner';
 
 const { Text } = Typography;
 
@@ -23,7 +23,7 @@ function getStatusIcon(status: AgentTodoItem['status']) {
     case 'completed':
       return <CheckCircleOutlined className="todo-icon todo-icon-completed" />;
     case 'in_progress':
-      return <LoadingOutlined className="todo-icon todo-icon-in-progress" spin />;
+      return <TechSpinner size="small" />;
     case 'skipped':
       return <MinusCircleOutlined className="todo-icon todo-icon-skipped" />;
     default:

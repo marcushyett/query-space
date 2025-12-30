@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Input, Typography, Grid, Space, Spin, Empty } from 'antd';
+import { Button, Input, Typography, Grid, Space, Empty } from 'antd';
 import {
   SendOutlined,
   CloseOutlined,
@@ -18,6 +18,7 @@ import { useQueryStore } from '@/stores/queryStore';
 import { useAiAgent } from '@/hooks/useAiAgent';
 import { ChatMessage } from './ChatMessage';
 import { AgentProgress } from './AgentProgress';
+import { TechSpinner } from './TechSpinner';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -255,9 +256,9 @@ export function AiChatPanel() {
           )}
 
           {isWorking && !agentProgress?.isRunning && (
-            <div className="p-4 text-center">
-              <Spin size="small" />
-              <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+            <div className="p-4 text-center" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <TechSpinner size="small" />
+              <Text type="secondary" style={{ fontSize: 12 }}>
                 {isExecuting ? 'Running...' : 'Generating...'}
               </Text>
             </div>

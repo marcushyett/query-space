@@ -8,7 +8,6 @@ import {
   Input,
   Button,
   Alert,
-  Spin,
   Tag,
   Modal,
   Select,
@@ -16,6 +15,7 @@ import {
   Popconfirm,
   message,
 } from 'antd'
+import { TechSpinner } from '@/components/TechSpinner'
 import {
   DatabaseOutlined,
   UserOutlined,
@@ -365,7 +365,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="loading-state-large">
-        <Spin size="large" />
+        <TechSpinner size="large" />
       </div>
     )
   }

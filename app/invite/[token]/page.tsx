@@ -3,7 +3,8 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { Button, Card, Typography, Spin, Alert } from 'antd'
+import { Button, Card, Typography, Alert } from 'antd'
+import { TechSpinner } from '@/components/TechSpinner'
 import { TeamOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 
@@ -90,7 +91,7 @@ export default function InvitePage({
       <div className="auth-layout">
         <div className="auth-container">
           <Card style={{ textAlign: 'center', background: '#0a0a0a', border: '1px solid #333' }}>
-            <Spin size="large" />
+            <TechSpinner size="large" />
             <Text type="secondary" style={{ display: 'block', marginTop: 16 }}>
               Loading invite...
             </Text>
