@@ -182,12 +182,38 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <nav className="app-nav">
             <div className="app-nav-left">
               {/* Logo/Title */}
-              <span
-                style={{ fontWeight: 600, fontSize: 16, cursor: 'pointer' }}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  cursor: 'pointer',
+                  fontSize: 16,
+                }}
                 onClick={() => router.push('/')}
               >
-                Query Space
-              </span>
+                <div
+                  style={{
+                    width: 24,
+                    height: 24,
+                    backgroundColor: '#000',
+                    borderRadius: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+                    fontWeight: 700,
+                    fontSize: 16,
+                    color: '#fff',
+                  }}
+                >
+                  Q
+                </div>
+                <span>
+                  <span style={{ fontWeight: 700 }}>Query</span>
+                  <span style={{ fontWeight: 400 }}>space</span>
+                </span>
+              </div>
 
               {/* Organization Selector */}
               {organizations.length > 0 && (

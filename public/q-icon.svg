@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#000000"/>
+  <text
+    x="256"
+    y="380"
+    font-family="ui-monospace, 'SF Mono', 'Fira Code', 'JetBrains Mono', Consolas, monospace"
+    font-weight="700"
+    font-size="420"
+    fill="#FFFFFF"
+    text-anchor="middle">Q</text>
+</svg>
