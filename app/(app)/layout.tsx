@@ -3,7 +3,8 @@
 import { useState, useEffect, createContext, useContext } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { ConfigProvider, Dropdown, Avatar, Spin, message } from 'antd'
+import { ConfigProvider, Dropdown, Avatar, message } from 'antd'
+import { TechSpinner } from '@/components/TechSpinner'
 import type { MenuProps } from 'antd'
 import {
   SettingOutlined,
@@ -164,7 +165,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <ConfigProvider theme={darkTheme}>
         <div className="app-shell">
           <div className="loading-state-large">
-            <Spin size="large" />
+            <TechSpinner size="large" />
           </div>
         </div>
       </ConfigProvider>

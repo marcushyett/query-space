@@ -2,7 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Button, Alert, Typography, Spin } from 'antd'
+import { Button, Alert, Typography } from 'antd'
+import { TechSpinner } from '@/components/TechSpinner'
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 
@@ -51,7 +52,7 @@ function VerifyEmailContent() {
   if (loading) {
     return (
       <div className="auth-form" style={{ textAlign: 'center' }}>
-        <Spin size="large" />
+        <TechSpinner size="large" />
         <Text type="secondary" style={{ display: 'block', marginTop: 24 }}>
           Verifying your email...
         </Text>
@@ -107,7 +108,7 @@ export default function VerifyEmailPage() {
     <Suspense
       fallback={
         <div className="auth-form" style={{ textAlign: 'center' }}>
-          <Spin size="large" />
+          <TechSpinner size="large" />
         </div>
       }
     >

@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   Button,
-  Spin,
   Input,
   message,
   Typography,
@@ -12,6 +11,7 @@ import {
   Modal,
   Grid,
 } from 'antd'
+import { TechSpinner } from '@/components/TechSpinner'
 import {
   ArrowLeftOutlined,
   SendOutlined,
@@ -338,7 +338,7 @@ export default function ChatPage() {
   if (loading) {
     return (
       <div className="loading-state-large">
-        <Spin size="large" />
+        <TechSpinner size="large" />
       </div>
     )
   }

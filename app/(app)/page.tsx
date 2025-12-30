@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation'
 import {
   Input,
   Button,
-  Spin,
   Empty,
   Modal,
   Form,
   message,
   Typography,
 } from 'antd'
+import { TechSpinner } from '@/components/TechSpinner'
 import {
   SearchOutlined,
   PlusOutlined,
@@ -122,7 +122,7 @@ export default function ProjectsPage() {
   if (orgLoading) {
     return (
       <div className="loading-state-large">
-        <Spin size="large" />
+        <TechSpinner size="large" />
       </div>
     )
   }
@@ -159,7 +159,7 @@ export default function ProjectsPage() {
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
         {loading ? (
           <div className="loading-state">
-            <Spin />
+            <TechSpinner />
           </div>
         ) : projects.length === 0 ? (
           <div className="empty-state-action">

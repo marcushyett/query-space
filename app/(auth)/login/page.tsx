@@ -3,7 +3,8 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
-import { Button, Form, Input, Divider, Alert, Typography, Spin } from 'antd'
+import { Button, Form, Input, Divider, Alert, Typography } from 'antd'
+import { TechSpinner } from '@/components/TechSpinner'
 import { GithubOutlined, MailOutlined, LockOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 
@@ -183,7 +184,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="auth-form"><Spin size="large" /></div>}>
+    <Suspense fallback={<div className="auth-form"><TechSpinner size="large" /></div>}>
       <LoginForm />
     </Suspense>
   )
