@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Typography, Grid } from 'antd';
+import { Button, Typography, Grid, Layout, Flex } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -28,9 +28,12 @@ import { useSchema } from '@/hooks/useSchema';
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
+const { Header, Sider, Content } = Layout;
 
 const TABLE_BROWSER_WIDTH = 260;
 const TABLE_BROWSER_WIDTH_MOBILE = 200;
+const HEADER_HEIGHT = 48; // Main nav header
+const TOOLBAR_HEIGHT = 48; // Secondary toolbar
 
 export function HomePage() {
   const router = useRouter();
@@ -68,28 +71,43 @@ export function HomePage() {
     setAiChatOpen(!aiChatOpen);
   };
 
+  // Calculate available height for main content (viewport - header - toolbar)
+  const mainHeight = `calc(100vh - ${HEADER_HEIGHT}px)`;
+
   return (
-    <div className="app-container">
-      <header className="app-header">
-        <div className="flex items-center gap-4">
+    <Layout style={{ width: '100%', height: mainHeight }}>
+      {/* Secondary Toolbar */}
+      <Header
+        style={{
+          height: TOOLBAR_HEIGHT,
+          lineHeight: `${TOOLBAR_HEIGHT}px`,
+          padding: '0 16px',
+          background: '#000',
+          borderBottom: '1px solid #222',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Flex align="center" gap={16}>
           <Button
             type="text"
             icon={tableBrowserOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
             onClick={toggleTableBrowser}
             aria-label={tableBrowserOpen ? 'Hide sidebar' : 'Show sidebar'}
           />
-          <Title level={4} className="app-title">
+          <Title level={4} style={{ margin: 0, fontSize: 16 }}>
             Query Space
           </Title>
-        </div>
-        <div className="flex items-center gap-4">
+        </Flex>
+        <Flex align="center" gap={16}>
           {organizationId && !isMobile && (
-            <div className="flex items-center gap-2">
-              <DatabaseOutlined className="icon-muted" />
-              <Text type="secondary" className="text-sm">
+            <Flex align="center" gap={8}>
+              <DatabaseOutlined style={{ color: '#666' }} />
+              <Text type="secondary" style={{ fontSize: 13 }}>
                 Connected
               </Text>
-            </div>
+            </Flex>
           )}
           {!organizationId && (
             <Button
@@ -131,38 +149,48 @@ export function HomePage() {
             aria-label="Query History"
           />
           {!isMobile && (
-            <Text type="secondary" className="text-xs">
+            <Text type="secondary" style={{ fontSize: 11 }}>
               Cmd+Enter to run
             </Text>
           )}
-        </div>
-      </header>
+        </Flex>
+      </Header>
 
-      <main className="app-main">
-        <aside
-          className={tableBrowserOpen ? 'sidebar' : 'sidebar sidebar-hidden'}
-          style={{ width: tableBrowserOpen ? sidebarWidth : 0 }}
+      <Layout style={{ flex: 1, overflow: 'hidden' }}>
+        {/* Sidebar with Table Browser */}
+        <Sider
+          width={sidebarWidth}
+          collapsed={!tableBrowserOpen}
+          collapsedWidth={0}
+          trigger={null}
+          style={{
+            background: '#000',
+            borderRight: tableBrowserOpen ? '1px solid #222' : 'none',
+            overflow: 'hidden',
+          }}
         >
           {tableBrowserOpen && <TableBrowser />}
-        </aside>
+        </Sider>
 
-        <div className="main-content-area">
-          <div className="editor-results-container">
-            <div className="editor-pane">
+        {/* Main Content Area */}
+        <Content style={{ display: 'flex', overflow: 'hidden' }}>
+          {/* Editor and Results */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ height: '40%', minHeight: 200, borderBottom: '1px solid #222' }}>
               <SqlEditor />
             </div>
-            <div className="results-pane">
+            <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
               <QueryResults />
             </div>
           </div>
 
           {/* AI Chat Panel */}
           <AiChatPanel />
-        </div>
-      </main>
+        </Content>
+      </Layout>
 
       <TableDetailDrawer />
       <QueryHistoryDrawer />
-    </div>
+    </Layout>
   );
 }

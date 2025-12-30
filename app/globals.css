@@ -199,44 +199,7 @@ body {
 .text-muted { color: #666; }
 .text-secondary { color: #888; }
 
-/* App-specific layout components */
-.app-container {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  width: 100%;
-  min-width: 0;
-  height: calc(100vh - 48px); /* Height minus top navbar */
-  overflow: hidden;
-}
-
-.app-header {
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 48px;
-  background: #000;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  flex-shrink: 0;
-}
-
-.app-title {
-  margin: 0 !important;
-  color: #fff !important;
-  font-size: 16px !important;
-}
-
-.app-main {
-  flex: 1;
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-}
+/* App-specific layout - minimal overrides for Ant Design Layout */
 
 .panel {
   display: flex;
@@ -264,30 +227,7 @@ body {
   text-align: center;
 }
 
-.sidebar {
-  border-right: 1px solid var(--border-color);
-  overflow: hidden;
-  transition: width 0.2s ease-in-out;
-  flex-shrink: 0;
-  height: 100%;
-}
-
-.sidebar-hidden {
-  width: 0;
-  border-right: none;
-}
-
-.editor-pane {
-  height: 40%;
-  min-height: 200px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.results-pane {
-  flex: 1;
-  overflow: auto;
-  min-height: 0;
-}
+/* Panel and results styling */
 
 .results-header {
   padding: 8px 16px;
@@ -563,16 +503,6 @@ body {
 
 /* Responsive adjustments for mobile */
 @media (max-width: 767px) {
-  .app-header {
-    padding: 8px 12px;
-    gap: 8px;
-  }
-
-  .editor-pane {
-    height: 35%;
-    min-height: 150px;
-  }
-
   .chart-container {
     min-height: 200px;
     padding: 8px;
@@ -741,7 +671,7 @@ body {
 
 .ai-chat-panel-mobile {
   position: fixed;
-  top: 48px;
+  top: 96px; /* Account for both main header (48px) and toolbar (48px) */
   left: 0;
   right: 0;
   width: 100%;
@@ -750,8 +680,8 @@ body {
   z-index: 100;
   border-left: none;
   /* Use dvh for proper mobile viewport handling - falls back to vh */
-  height: calc(100vh - 48px);
-  height: calc(100dvh - 48px);
+  height: calc(100vh - 96px);
+  height: calc(100dvh - 96px);
   /* Ensure footer stays visible on mobile */
   overflow: hidden;
 }
@@ -934,10 +864,6 @@ body {
 }
 
 @media (max-width: 767px) {
-  .main-content-area {
-    flex-direction: column;
-  }
-
   .ai-chat-panel:not(.ai-chat-panel-mobile) {
     display: none;
   }
@@ -1595,44 +1521,21 @@ body {
    APP SHELL STYLES
    ===================================================== */
 
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+/* Ant Design Layout theme overrides */
+.ant-layout {
+  background: #000 !important;
 }
 
-.app-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  height: 48px;
-  border-bottom: 1px solid var(--border-color);
-  background: #0a0a0a;
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+.ant-layout-header {
+  background: #0a0a0a !important;
 }
 
-.app-nav-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.ant-layout-sider {
+  background: #000 !important;
 }
 
-.app-nav-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.app-body {
-  display: flex;
-  flex: 1;
-  overflow: visible;
-  width: 100%;
+.ant-layout-content {
+  background: #000 !important;
 }
 
 /* Project sidebar */
@@ -2133,45 +2036,7 @@ body {
   color: #fff !important;
 }
 
-/* Mobile navigation adjustments */
-@media (max-width: 767px) {
-  .app-nav {
-    padding: 0 12px;
-  }
-
-  .app-nav-left {
-    gap: 8px;
-  }
-
-  .app-nav-right {
-    gap: 4px;
-  }
-
-  /* Hide org name on mobile, show only icon */
-  .org-selector-name,
-  .org-selector > span:last-child {
-    display: none;
-  }
-
-  .org-selector {
-    padding: 6px 8px;
-  }
-
-  /* Larger touch targets for mobile */
-  .user-menu-trigger {
-    padding: 8px;
-    min-width: 44px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .user-avatar {
-    width: 32px;
-    height: 32px;
-  }
-}
+/* Mobile navigation adjustments - handled by Ant Design responsive components */
 
 /* Database connection status */
 .connection-status {

@@ -3,7 +3,7 @@
 import { useState, useEffect, createContext, useContext } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { ConfigProvider, Dropdown, Avatar, message } from 'antd'
+import { ConfigProvider, Dropdown, Avatar, message, Layout, Flex } from 'antd'
 import { TechSpinner } from '@/components/TechSpinner'
 import type { MenuProps } from 'antd'
 import {
@@ -12,11 +12,12 @@ import {
   UserOutlined,
   TeamOutlined,
   DownOutlined,
-  FolderOutlined,
   PlusOutlined,
 } from '@ant-design/icons'
 import { darkTheme } from '@/config/theme'
 import { useConnectionStore } from '@/stores/connectionStore'
+
+const { Header, Content } = Layout
 
 interface Organization {
   id: string
@@ -163,11 +164,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (status === 'loading' || loading) {
     return (
       <ConfigProvider theme={darkTheme}>
-        <div className="app-shell">
-          <div className="loading-state-large">
+        <Layout style={{ minHeight: '100vh', background: '#000' }}>
+          <Flex justify="center" align="center" style={{ flex: 1 }}>
             <TechSpinner size="large" />
-          </div>
-        </div>
+          </Flex>
+        </Layout>
       </ConfigProvider>
     )
   }
@@ -177,19 +178,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <OrganizationContext.Provider
         value={{ currentOrg, organizations, switchOrganization, loading }}
       >
-        <div className="app-shell">
-          {/* Navigation Bar */}
-          <nav className="app-nav">
-            <div className="app-nav-left">
+        <Layout style={{ minHeight: '100vh' }}>
+          {/* Navigation Bar - Ant Design Header with sticky positioning */}
+          <Header
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 100,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0 16px',
+              height: 48,
+              lineHeight: '48px',
+              background: '#0a0a0a',
+              borderBottom: '1px solid #222',
+            }}
+          >
+            <Flex align="center" gap={16}>
               {/* Logo/Title */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
-                  fontSize: 16,
-                }}
+              <Flex
+                align="center"
+                gap={8}
+                style={{ cursor: 'pointer', fontSize: 16 }}
                 onClick={() => router.push('/')}
               >
                 <div
@@ -213,28 +224,35 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <span style={{ fontWeight: 700 }}>Query</span>
                   <span style={{ fontWeight: 400 }}>space</span>
                 </span>
-              </div>
+              </Flex>
 
               {/* Organization Selector */}
               {organizations.length > 0 && (
                 <Dropdown menu={{ items: orgMenuItems }} trigger={['click']}>
-                  <div className="org-selector">
-                    <div className="org-selector-icon">
-                      <TeamOutlined style={{ fontSize: 12, color: '#fff' }} />
-                    </div>
-                    <span className="org-selector-name">
+                  <Flex
+                    align="center"
+                    gap={8}
+                    style={{
+                      cursor: 'pointer',
+                      padding: '4px 12px',
+                      borderRadius: 6,
+                      background: '#1a1a1a',
+                      border: '1px solid #333',
+                    }}
+                  >
+                    <TeamOutlined style={{ fontSize: 12, color: '#fff' }} />
+                    <span style={{ color: '#fff', fontSize: 13 }}>
                       {currentOrg?.name || 'My Organization'}
                     </span>
                     <DownOutlined style={{ fontSize: 10, color: '#666' }} />
-                  </div>
+                  </Flex>
                 </Dropdown>
               )}
-            </div>
+            </Flex>
 
-            <div className="app-nav-right">
+            <Flex align="center" gap={12}>
               {/* Settings Link */}
-              <button
-                className="nav-icon-button"
+              <div
                 style={{
                   background: 'none',
                   border: 'none',
@@ -244,33 +262,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  minWidth: 44,
-                  minHeight: 44,
                   borderRadius: 6,
                 }}
                 onClick={() => router.push('/settings')}
+                role="button"
                 aria-label="Settings"
               >
                 <SettingOutlined style={{ fontSize: 18 }} />
-              </button>
+              </div>
 
               {/* User Menu */}
               <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
-                <div className="user-menu-trigger">
+                <div style={{ cursor: 'pointer' }}>
                   <Avatar
                     src={session?.user?.image}
                     icon={!session?.user?.image && <UserOutlined />}
                     size={28}
-                    className="user-avatar"
                   />
                 </div>
               </Dropdown>
-            </div>
-          </nav>
+            </Flex>
+          </Header>
 
           {/* Main Content */}
-          <main className="app-body">{children}</main>
-        </div>
+          <Content style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            {children}
+          </Content>
+        </Layout>
       </OrganizationContext.Provider>
     </ConfigProvider>
   )
