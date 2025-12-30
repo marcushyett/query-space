@@ -64,9 +64,9 @@ function getStatusIcon(status: ToolCallInfo['status']): React.ReactNode {
     case 'running':
       return <TechSpinner size="small" />;
     case 'success':
-      return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+      return <CheckCircleOutlined style={{ color: '#888' }} />;
     case 'error':
-      return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />;
+      return <CloseCircleOutlined style={{ color: '#888' }} />;
     default:
       return null;
   }
@@ -107,7 +107,8 @@ export function AgentProgress({ currentStep, maxSteps, toolCalls, streamingText,
         percent={percent}
         size="small"
         showInfo={false}
-        strokeColor="#1890ff"
+        strokeColor="#555"
+        trailColor="#1a1a1a"
         style={{ marginBottom: 12 }}
       />
 
@@ -133,7 +134,7 @@ export function AgentProgress({ currentStep, maxSteps, toolCalls, streamingText,
               label: (
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   {toolCalls.length} tool call{toolCalls.length !== 1 ? 's' : ''}
-                  {finalQueryCall && <TrophyOutlined style={{ marginLeft: 6, color: '#faad14' }} />}
+                  {finalQueryCall && <TrophyOutlined style={{ marginLeft: 6, color: '#888' }} />}
                 </Text>
               ),
               children: (
@@ -145,15 +146,14 @@ export function AgentProgress({ currentStep, maxSteps, toolCalls, streamingText,
                         <Space size={4} style={{ flexWrap: 'wrap' }}>
                           {isFinalQuery ? (
                             <Tooltip title="Goal completed">
-                              <TrophyOutlined style={{ color: '#faad14' }} />
+                              <TrophyOutlined style={{ color: '#888' }} />
                             </Tooltip>
                           ) : (
                             getStatusIcon(call.status)
                           )}
                           <Tag
                             icon={getToolIcon(call.toolName)}
-                            color={isFinalQuery ? 'gold' : call.status === 'error' ? 'error' : call.status === 'success' ? 'success' : 'processing'}
-                            style={{ fontSize: 10, margin: 0 }}
+                            style={{ fontSize: 10, margin: 0, background: '#1a1a1a', borderColor: '#333', color: '#aaa' }}
                           >
                             {isFinalQuery ? 'Final Query' : getToolLabel(call.toolName)}
                           </Tag>
@@ -266,7 +266,7 @@ function ToolResult({ result, toolName, args, onLoadQuery, isFinalQuery }: ToolR
       <div style={{ marginTop: 4 }}>
         <Space size={4}>
           <Text
-            type={isValid ? 'success' : 'danger'}
+            type="secondary"
             style={{ fontSize: 10 }}
           >
             {statusText}
