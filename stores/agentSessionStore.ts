@@ -2,6 +2,16 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AgentTodoItem, ToolCallInfo } from './aiChatStore';
 
+// Lightweight chat message for persistence
+export interface PersistedChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: number;
+  sql?: string;
+  explanation?: string;
+  summary?: string;
+}
+
 export interface AgentSession {
   id: string;
   goal: string;
@@ -32,12 +42,11 @@ export interface AgentSession {
   // Context for resumption - what the agent was doing
   resumptionContext: string;
 
-  // Chat messages for context (just user/assistant messages)
-  chatHistory: Array<{
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: number;
-  }>;
+  // Chat messages for context (user/assistant/system messages)
+  chatHistory: PersistedChatMessage[];
+
+  // Final query name if set
+  queryName?: string;
 }
 
 interface AgentSessionStore {
@@ -68,6 +77,12 @@ interface AgentSessionStore {
 
   // Clear all sessions
   clearAllSessions: () => void;
+
+  // Add chat message to session
+  addChatMessage: (sessionId: string, message: PersistedChatMessage) => void;
+
+  // Get completed sessions that can be resumed for follow-up
+  getCompletedSessions: () => AgentSession[];
 }
 
 // Generate a unique session ID
@@ -301,6 +316,38 @@ export const useAgentSessionStore = create<AgentSessionStore>()(
           currentSessionId: null,
           sessions: {},
         });
+      },
+
+      addChatMessage: (sessionId: string, message: PersistedChatMessage) => {
+        set((state) => {
+          const session = state.sessions[sessionId];
+          if (!session) return state;
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [sessionId]: {
+                ...session,
+                chatHistory: [...session.chatHistory, message],
+                updatedAt: Date.now(),
+              },
+            },
+          };
+        });
+      },
+
+      getCompletedSessions: () => {
+        const { sessions } = get();
+        const now = Date.now();
+        const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+        return Object.values(sessions)
+          .filter((s) =>
+            s.status === 'completed' &&
+            (now - s.updatedAt) < maxAge &&
+            s.chatHistory.length > 0
+          )
+          .sort((a, b) => b.updatedAt - a.updatedAt);
       },
     }),
     {

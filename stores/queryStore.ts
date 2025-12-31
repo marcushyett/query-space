@@ -13,6 +13,9 @@ export interface SavedQuery {
   timestamp: number;
   rowCount: number | null;
   executionTime: number | null;
+  // AI session link for resuming conversations
+  aiSessionId?: string;
+  queryName?: string;
 }
 
 interface QueryStore {
@@ -26,7 +29,7 @@ interface QueryStore {
   clearResults: () => void;
   // Session-based history (not persisted to localStorage)
   queryHistory: SavedQuery[];
-  addToHistory: (sql: string, rowCount: number | null, executionTime: number | null) => void;
+  addToHistory: (sql: string, rowCount: number | null, executionTime: number | null, aiSessionId?: string, queryName?: string) => void;
   removeFromHistory: (id: string) => void;
   clearHistory: () => void;
   isExecuting: boolean;
@@ -62,13 +65,15 @@ export const useQueryStore = create<QueryStore>((set) => ({
     set({ queryResults: null, lastError: null });
   },
 
-  addToHistory: (sql: string, rowCount: number | null, executionTime: number | null) => {
+  addToHistory: (sql: string, rowCount: number | null, executionTime: number | null, aiSessionId?: string, queryName?: string) => {
     const newQuery: SavedQuery = {
       id: Date.now().toString(),
       sql,
       timestamp: Date.now(),
       rowCount,
       executionTime,
+      aiSessionId,
+      queryName,
     };
 
     set((state) => {

@@ -26,8 +26,11 @@ export function useAiAgent() {
     pauseSession,
     completeSession: completeSessionStore,
     getResumableSessions,
+    getCompletedSessions,
     getCurrentSession,
+    getSession,
     cleanupOldSessions,
+    addChatMessage,
   } = useAgentSessionStore();
 
   const {
@@ -81,7 +84,7 @@ export function useAiAgent() {
 
   // Execute a query (for when agent finalizes)
   const executeQuery = useCallback(
-    async (sql: string): Promise<{ success: boolean; result?: QueryResult; error?: string }> => {
+    async (sql: string, sessionId?: string, queryName?: string): Promise<{ success: boolean; result?: QueryResult; error?: string }> => {
       // Only require organizationId - connectionString is deprecated
       if (!organizationId) {
         return { success: false, error: 'No database connection' };
@@ -110,7 +113,7 @@ export function useAiAgent() {
         };
 
         setQueryResults(result);
-        addToHistory(sql, data.rowCount, data.executionTime);
+        addToHistory(sql, data.rowCount, data.executionTime, sessionId, queryName);
 
         return { success: true, result };
       } catch (err) {
@@ -148,6 +151,13 @@ export function useAiAgent() {
       // Create a new session for tracking
       const sessionId = createSession(prompt, currentSql || undefined);
       sessionIdRef.current = sessionId;
+
+      // Add user message to session history
+      addChatMessage(sessionId, {
+        role: 'user',
+        content: prompt,
+        timestamp: Date.now(),
+      });
 
       try {
         const response = await fetch('/api/ai-agent', {
@@ -263,6 +273,18 @@ export function useAiAgent() {
                         confidence: args.confidence as 'high' | 'medium' | 'low',
                         suggestions: args.suggestions,
                       });
+
+                      // Add to session history
+                      if (sessionIdRef.current) {
+                        addChatMessage(sessionIdRef.current, {
+                          role: 'assistant',
+                          content: args.explanation,
+                          timestamp: Date.now(),
+                          sql: args.sql,
+                          explanation: args.explanation,
+                          summary: args.summary,
+                        });
+                      }
 
                       setCurrentQuery(args.sql);
                       setCurrentSql(args.sql);
@@ -446,6 +468,9 @@ export function useAiAgent() {
 
         completeAgent(reachedLimit);
 
+        // Save session ID before completing (so we can link to history)
+        const completedSessionId = sessionIdRef.current;
+
         // Complete the session
         if (sessionIdRef.current) {
           if (reachedLimit) {
@@ -459,7 +484,9 @@ export function useAiAgent() {
 
         // If we got a final SQL, execute it
         if (finalSql) {
-          const result = await executeQuery(finalSql);
+          // Get query name from store (set by set_query_name tool)
+          const currentQueryName = useQueryStore.getState().queryName;
+          const result = await executeQuery(finalSql, completedSessionId || undefined, currentQueryName || undefined);
           if (result.success && result.result) {
             message.success(`Query ready (${result.result.executionTime}ms)`);
           }
@@ -1420,6 +1447,54 @@ IMPORTANT: You are resuming a previous session. Review the todo list and continu
     setCurrentQuery('');
   }, [startNewConversation, setCurrentQuery]);
 
+  // Load a conversation from a saved query's session
+  const loadConversationFromSession = useCallback((sessionId: string) => {
+    const session = getSession(sessionId);
+    if (!session) {
+      message.warning('Session not found');
+      return false;
+    }
+
+    // Clear current conversation
+    startNewConversation();
+
+    // Restore chat messages from session
+    session.chatHistory.forEach((msg) => {
+      if (msg.role === 'user') {
+        addUserMessage(msg.content);
+      } else if (msg.role === 'assistant') {
+        addAssistantMessage({
+          content: msg.content,
+          sql: msg.sql,
+          explanation: msg.explanation,
+          summary: msg.summary,
+        });
+      } else if (msg.role === 'system') {
+        addSystemMessage(msg.content);
+      }
+    });
+
+    // Restore todos if any
+    if (session.todos.length > 0) {
+      setAgentTodos(session.todos);
+      addTodoMessage(session.todos);
+    }
+
+    // Set current SQL if available
+    if (session.currentSql) {
+      setCurrentQuery(session.currentSql);
+      setCurrentSql(session.currentSql);
+      setIsAiGenerated(true);
+    }
+
+    // Set query name if available
+    if (session.queryName) {
+      setQueryName(session.queryName);
+    }
+
+    return true;
+  }, [getSession, startNewConversation, addUserMessage, addAssistantMessage, addSystemMessage, setAgentTodos, addTodoMessage, setCurrentQuery, setCurrentSql, setIsAiGenerated, setQueryName, message]);
+
   return {
     messages,
     currentSql,
@@ -1436,5 +1511,7 @@ IMPORTANT: You are resuming a previous session. Review the todo list and continu
     // Session resumption
     resumeSession,
     resumableSessions: getResumableSessions(),
+    // Load conversation from saved query
+    loadConversationFromSession,
   };
 }

@@ -796,7 +796,151 @@ The tool provides a quality score (0-100) and specific issues to address.`,
       },
     }),
 
-    // Tool 9: Set query name
+    // Tool 9: Review results for statistical validity
+    review_results: tool({
+      description: `Review query results for statistical validity and detect trivial or misleading results.
+Use this tool after execute_query when dealing with proportion/percentage queries or rankings.
+
+IMPORTANT: Use this tool when:
+- Query uses percentages, ratios, or proportions
+- Query ranks or orders by aggregated values
+- Results might include outliers due to small sample sizes
+- User asks for "top N" or "highest/lowest" based on calculated metrics
+
+This tool helps detect:
+- Low sample sizes that make percentages meaningless (e.g., 1 student with 100% A grades)
+- Outliers that don't represent the "spirit" of the question
+- Results that need minimum thresholds to be meaningful
+
+Returns analysis with recommendations for query refinement.`,
+      inputSchema: z.object({
+        data: z.array(z.record(z.string(), z.unknown())).describe('The query result rows to analyze'),
+        countColumn: z.string().optional().describe('The column containing the sample size/count (e.g., "total_students", "num_transactions")'),
+        proportionColumn: z.string().optional().describe('The column containing the proportion/percentage (e.g., "percentage", "rate", "ratio")'),
+        minimumSampleSize: z.number().optional().describe('Minimum sample size to consider valid. Defaults to 30 for statistical significance.'),
+        queryType: z.enum(['percentage', 'ranking', 'aggregation', 'other']).optional().describe('The type of query being analyzed'),
+      }),
+      execute: async ({ data, countColumn, proportionColumn, minimumSampleSize = 30, queryType = 'other' }) => {
+        if (!data || data.length === 0) {
+          return {
+            success: true,
+            isValid: true,
+            issues: [],
+            recommendations: [],
+            message: 'No data to analyze.',
+          };
+        }
+
+        const issues: string[] = [];
+        const recommendations: string[] = [];
+        let filteredCount = 0;
+        let hasLowSampleSize = false;
+
+        // Detect count column if not specified
+        let detectedCountColumn = countColumn;
+        if (!detectedCountColumn) {
+          const countKeywords = ['count', 'total', 'num', 'n_', 'number', 'qty', 'quantity', 'size', 'sample'];
+          const columns = Object.keys(data[0]);
+          detectedCountColumn = columns.find(col =>
+            countKeywords.some(kw => col.toLowerCase().includes(kw))
+          );
+        }
+
+        // Detect proportion column if not specified
+        let detectedProportionColumn = proportionColumn;
+        if (!detectedProportionColumn) {
+          const propKeywords = ['percent', 'pct', 'rate', 'ratio', 'proportion', 'share', 'fraction'];
+          const columns = Object.keys(data[0]);
+          detectedProportionColumn = columns.find(col =>
+            propKeywords.some(kw => col.toLowerCase().includes(kw))
+          );
+        }
+
+        // Analyze for low sample sizes
+        if (detectedCountColumn) {
+          const lowSampleRows = data.filter(row => {
+            const count = Number(row[detectedCountColumn!]);
+            return !isNaN(count) && count < minimumSampleSize;
+          });
+
+          if (lowSampleRows.length > 0) {
+            hasLowSampleSize = true;
+            filteredCount = lowSampleRows.length;
+
+            const exampleRow = lowSampleRows[0];
+            const exampleCount = exampleRow[detectedCountColumn];
+            const entityColumn = Object.keys(exampleRow).find(k => k !== detectedCountColumn && k !== detectedProportionColumn);
+            const entityName = entityColumn ? String(exampleRow[entityColumn]) : 'entity';
+
+            issues.push(
+              `Found ${filteredCount} result(s) with sample size below ${minimumSampleSize}. ` +
+              `Example: "${entityName}" has only ${exampleCount} samples, which may not be statistically meaningful.`
+            );
+
+            // Check if top results are all low sample size
+            const topRows = data.slice(0, 5);
+            const lowSampleInTop = topRows.filter(row => {
+              const count = Number(row[detectedCountColumn!]);
+              return !isNaN(count) && count < minimumSampleSize;
+            });
+
+            if (lowSampleInTop.length >= 3) {
+              issues.push(
+                `${lowSampleInTop.length} of the top 5 results have low sample sizes. ` +
+                `This suggests the ranking may not reflect meaningful patterns.`
+              );
+              recommendations.push(
+                `Add a HAVING clause to filter: HAVING ${detectedCountColumn} >= ${minimumSampleSize}`
+              );
+              recommendations.push(
+                `This will exclude statistical outliers and show results that better represent the "spirit" of the question.`
+              );
+            }
+          }
+        }
+
+        // Check for extreme proportions that might be outliers
+        if (detectedProportionColumn) {
+          const extremeRows = data.filter(row => {
+            const prop = Number(row[detectedProportionColumn!]);
+            return !isNaN(prop) && (prop === 100 || prop === 0);
+          });
+
+          if (extremeRows.length > 0 && detectedCountColumn) {
+            const extremeWithLowSample = extremeRows.filter(row => {
+              const count = Number(row[detectedCountColumn!]);
+              return !isNaN(count) && count < minimumSampleSize;
+            });
+
+            if (extremeWithLowSample.length > 0) {
+              issues.push(
+                `Found ${extremeWithLowSample.length} result(s) with 0% or 100% proportions AND low sample sizes. ` +
+                `These are likely trivial outliers.`
+              );
+            }
+          }
+        }
+
+        const needsRefinement = issues.length > 0;
+
+        return {
+          success: true,
+          isValid: !needsRefinement,
+          issues,
+          recommendations,
+          detectedCountColumn: detectedCountColumn || null,
+          detectedProportionColumn: detectedProportionColumn || null,
+          filteredCount,
+          hasLowSampleSize,
+          suggestedMinimumSampleSize: minimumSampleSize,
+          message: needsRefinement
+            ? `Found ${issues.length} statistical validity issue(s). Consider refining the query to exclude trivial outliers.`
+            : 'Results appear statistically valid.',
+        };
+      },
+    }),
+
+    // Tool 10: Set query name
     set_query_name: tool({
       description: `Set a descriptive name for the current query.
 Use this tool to give the query a clear, concise name that describes what it does.

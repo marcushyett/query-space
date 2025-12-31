@@ -40,7 +40,11 @@ const PG_FUNCTIONS = [
   'GREATEST', 'LEAST', 'COALESCE', 'NULLIF',
 ];
 
-export function SqlEditor() {
+interface SqlEditorProps {
+  disabled?: boolean;
+}
+
+export function SqlEditor({ disabled = false }: SqlEditorProps) {
   const { message } = App.useApp();
   const { currentQuery, setCurrentQuery } = useQueryStore();
   const tables = useSchemaStore((state) => state.tables);
@@ -272,12 +276,37 @@ export function SqlEditor() {
 
   return (
     <div className="sql-editor-container" style={{ position: 'relative' }}>
+      {/* Disabled overlay when AI agent is working */}
+      {disabled && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.3)',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'all',
+        }}>
+          <div style={{
+            background: '#1a1a1a',
+            padding: '8px 16px',
+            borderRadius: 4,
+            border: '1px solid #333',
+          }}>
+            <span style={{ fontSize: 12, color: '#888' }}>AI Agent is generating query...</span>
+          </div>
+        </div>
+      )}
       <Editor
         height="100%"
         language="sql"
         theme="vs-dark"
         value={currentQuery}
-        onChange={handleChange}
+        onChange={disabled ? undefined : handleChange}
         onMount={handleEditorMount}
         options={{
           minimap: { enabled: false },
@@ -291,8 +320,9 @@ export function SqlEditor() {
           renderWhitespace: 'selection',
           tabSize: 2,
           insertSpaces: true,
-          quickSuggestions: true,
-          suggestOnTriggerCharacters: true,
+          quickSuggestions: !disabled,
+          suggestOnTriggerCharacters: !disabled,
+          readOnly: disabled,
         }}
       />
       <Button
