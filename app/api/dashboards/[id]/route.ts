@@ -118,6 +118,7 @@ export async function GET(
           width: w.width,
           height: w.height,
           title: w.title,
+          config: w.config,
           chart: w.chart
             ? {
                 id: w.chart.id,
