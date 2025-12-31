@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createQueryAgentTools, type SchemaInfo, type ToolContext } from '../tools'
 
 // Type definitions for tool results
-type TableSchemaResult = { tableCount: number; tables: Array<{ name: string; type: string; columns: Array<{ name: string; type: string; isPrimaryKey: boolean }> }>; error: null; hint: string }
 type JsonKeysResult = { table: string; column: string; nestedPath: string | null; keys: string[] | null; keyCount: number; sampleValues: Record<string, unknown[]> | null; hint: string; error: string | null; suggestion: string | null }
 type ExecuteQueryResult = { success: boolean; error?: string; suggestion?: string; rowCount: number | null; executionTime?: number; columns: string[] | null; rows: Record<string, unknown>[] | null; hasMoreRows: boolean | null; warning: string | null; emptyColumns: string[] | null; title: string; description: string; dataQuality?: unknown }
 type ValidateQueryResult = { isValid: boolean; message?: string; error?: string; suggestion?: string }

@@ -138,9 +138,6 @@ export function SankeyChart({
     targetY: number,
     targetHeight: number
   ) => {
-    const sourceMidY = sourceY + sourceHeight / 2;
-    const targetMidY = targetY + targetHeight / 2;
-    const curvature = 0.5;
     const xi = (sourceX + targetX) / 2;
 
     return `

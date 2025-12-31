@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Typography, Collapse, Space, Table, Button, Tooltip, Tag } from 'antd';
+import { Typography, Collapse, Space, Table, Button, Tooltip } from 'antd';
 import {
   CodeOutlined,
   DownOutlined,
@@ -21,7 +21,8 @@ interface ExpandableQueryProps {
   compact?: boolean;
 }
 
-export function ExpandableQuery({ queryMetadata, onLoadQuery, compact = false }: ExpandableQueryProps) {
+export function ExpandableQuery({ queryMetadata, onLoadQuery, compact: _compact = false }: ExpandableQueryProps) {
+  void _compact; // Reserved for compact mode styling
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 

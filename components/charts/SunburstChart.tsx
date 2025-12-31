@@ -109,8 +109,9 @@ export function SunburstChart({
       node: SunburstNode,
       depth: number,
       startAngle: number,
-      angleRange: number
+      _angleRange: number
     ) => {
+      void _angleRange; // Reserved for future use
       if (!node.children) return;
 
       let currentAngle = startAngle;

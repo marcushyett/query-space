@@ -166,7 +166,7 @@ export function TimelineChart({
       rowPositions: positions,
       totalHeightCalc: currentY + margin.top + margin.bottom,
     };
-  }, [groupedEvents, barHeight]);
+  }, [groupedEvents, barHeight, margin.top, margin.bottom]);
 
   if (events.length === 0) {
     return (

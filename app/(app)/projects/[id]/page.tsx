@@ -60,7 +60,8 @@ export default function ProjectPage() {
   const screens = useBreakpoint()
   const isMobile = !screens.md
   const projectId = params.id as string
-  const { currentOrg } = useOrganization()
+  const { currentOrg: _currentOrg } = useOrganization()
+  void _currentOrg // Reserved for org-specific features
 
   const [project, setProject] = useState<Project | null>(null)
   const [canWrite, setCanWrite] = useState(false)
@@ -145,7 +146,7 @@ export default function ProjectPage() {
       setProject((prev) => prev ? { ...prev, ...data.project } : null)
       message.success('Project updated')
       setEditModalOpen(false)
-    } catch (err) {
+    } catch {
       message.error('Failed to update project')
     } finally {
       setSaving(false)

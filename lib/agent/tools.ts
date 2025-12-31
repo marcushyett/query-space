@@ -2,12 +2,6 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { Client } from 'pg';
 import {
-  detectChartType,
-  suggestXAxis,
-  suggestYAxes,
-  isNumericType,
-  isDateType,
-  isTextType,
   type ChartType,
   type ChartConfig,
 } from '@/lib/chart-utils';
@@ -15,8 +9,6 @@ import {
   analyzeDataQuality,
   filterGarbageData,
   summarizeDataQuality,
-  type DataQualityReport,
-  type DataQualityIssue,
 } from './dataQuality';
 
 // Dangerous SQL patterns that should NEVER be allowed
@@ -939,7 +931,8 @@ Returns analysis with recommendations for query refinement.`,
         minimumSampleSize: z.number().optional().describe('Minimum sample size to consider valid. Defaults to 30 for statistical significance.'),
         queryType: z.enum(['percentage', 'ranking', 'aggregation', 'other']).optional().describe('The type of query being analyzed'),
       }),
-      execute: async ({ data, countColumn, proportionColumn, minimumSampleSize = 30, queryType = 'other' }) => {
+      execute: async ({ data, countColumn, proportionColumn, minimumSampleSize = 30, queryType: _queryType = 'other' }) => {
+        void _queryType; // Reserved for future query-type-specific validation
         if (!data || data.length === 0) {
           return {
             success: true,

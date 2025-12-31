@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { getChartColors, formatNumber, truncateLabel } from '@/lib/chart-utils';
+import { getChartColors, formatNumber } from '@/lib/chart-utils';
 
 interface BubbleChartProps {
   data: Record<string, unknown>[];

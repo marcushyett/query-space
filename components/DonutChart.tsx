@@ -41,31 +41,6 @@ export function DonutChart({
   // Calculate total for percentage and center label
   const total = pieData.reduce((sum, item) => sum + (item.value as number), 0);
 
-  // Custom center label
-  const renderCenterLabel = () => {
-    if (!showCenterLabel) return null;
-
-    const label = centerLabelType === 'total' ? formatNumber(total) : '100%';
-    const subLabel = centerLabelType === 'total' ? 'Total' : 'of Total';
-
-    return (
-      <text
-        x="50%"
-        y="50%"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        style={{ fill: '#fff', fontSize: 24, fontWeight: 'bold' }}
-      >
-        <tspan x="50%" dy="-0.5em">
-          {label}
-        </tspan>
-        <tspan x="50%" dy="1.5em" style={{ fontSize: 12, fill: '#888' }}>
-          {subLabel}
-        </tspan>
-      </text>
-    );
-  };
-
   return (
     <ResponsiveContainer width="100%" height="100%">
       <RechartsPieChart>

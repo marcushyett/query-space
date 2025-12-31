@@ -5,7 +5,7 @@
  * configuration schemas, and usage guidance for AI agents.
  */
 
-import type { ColorPaletteName, ThemeMode } from './chart-settings';
+// Note: ColorPaletteName and ThemeMode are available from ./chart-settings when needed
 
 // =============================================================================
 // CHART TYPE DEFINITIONS

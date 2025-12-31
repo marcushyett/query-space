@@ -336,7 +336,7 @@ export default function SettingsPage() {
 
       setInvites(invites.filter((i) => i.id !== inviteId))
       message.success('Invite cancelled')
-    } catch (err) {
+    } catch {
       message.error('Failed to cancel invite')
     }
   }

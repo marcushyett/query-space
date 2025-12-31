@@ -58,7 +58,7 @@ export function AgentTodoList({ todos, compact = false }: AgentTodoListProps) {
 
       {/* Todo items */}
       <div className="agent-todo-items">
-        {todos.map((todo, index) => (
+        {todos.map((todo) => (
           <div
             key={todo.id}
             className={`agent-todo-item agent-todo-item-${todo.status} ${

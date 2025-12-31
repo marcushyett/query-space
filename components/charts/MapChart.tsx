@@ -4,13 +4,6 @@ import { useMemo, useState, useRef } from 'react';
 import { useDimensions } from '@/hooks/useDimensions';
 import { getChartColors, formatNumber } from '@/lib/chart-utils';
 
-interface MapDataPoint {
-  region: string;
-  value: number;
-  lat?: number;
-  lon?: number;
-}
-
 interface MapChartProps {
   data: Record<string, unknown>[];
   regionColumn: string;
@@ -79,9 +72,12 @@ export function MapChart({
   displayMode = 'choropleth',
   showLabels = true,
   colorScale = 'sequential',
-  latColumn,
-  lonColumn,
+  latColumn: _latColumn,
+  lonColumn: _lonColumn,
 }: MapChartProps) {
+  // Future: latColumn and lonColumn will be used for point-based maps
+  void _latColumn;
+  void _lonColumn;
   const colors = getChartColors();
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -147,8 +143,6 @@ export function MapChart({
     }
     return null;
   };
-
-  const regions = mapType === 'usa' ? US_STATES : WORLD_REGIONS;
 
   if (!width || !height) {
     return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;

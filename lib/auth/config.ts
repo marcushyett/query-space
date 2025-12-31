@@ -1,7 +1,6 @@
 import NextAuth from 'next-auth'
 import type { OAuthConfig } from 'next-auth/providers'
 import type { TokenSet } from '@auth/core/types'
-import type { Account } from 'next-auth'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import GitHub from 'next-auth/providers/github'
 import Credentials from 'next-auth/providers/credentials'

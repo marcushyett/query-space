@@ -35,7 +35,6 @@ import {
   ResponsiveContainer,
   ScatterChart as RechartsScatterChart,
   Scatter,
-  ZAxis,
   FunnelChart as RechartsFunnelChart,
   Funnel,
   LabelList,
@@ -336,7 +335,7 @@ export function InlineChatChart({ chartData, compact = false }: InlineChatChartP
       case 'waterfall':
         // Prepare waterfall data with cumulative values
         let cumulative = 0;
-        const waterfallData = data.map((item, index) => {
+        const waterfallData = data.map((item) => {
           const value = Number(item[yAxisKeys[0]]) || 0;
           const start = cumulative;
           cumulative += value;

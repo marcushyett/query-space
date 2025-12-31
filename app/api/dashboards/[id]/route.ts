@@ -51,7 +51,7 @@ export async function GET(
       )
     }
 
-    const { dashboard, access } = result
+    const { access } = result
 
     // Get full dashboard data with widgets
     const fullDashboard = await prisma.dashboard.findUnique({

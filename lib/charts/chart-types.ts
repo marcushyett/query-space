@@ -5,7 +5,7 @@
  * and easy extensibility.
  */
 
-import type { ChartType, ConfigOption } from './chart-registry';
+import type { ChartType } from './chart-registry';
 import type { ColorPaletteName, ThemeMode, GlobalChartSettings } from './chart-settings';
 
 // =============================================================================
