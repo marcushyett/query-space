@@ -182,7 +182,7 @@ export function DashboardWidget({ widget }: DashboardWidgetProps) {
 
           {(isEditMode || isHovered) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              {!isEditMode && widget.type !== 'TEXT' && (
+              {!isEditMode && (
                 <button
                   onClick={handleRefresh}
                   style={{

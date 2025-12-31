@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useRef, useEffect, useState } from 'react';
-import GridLayout, { Layout } from 'react-grid-layout';
-import { useDashboardStore } from '@/stores/dashboardStore';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
+import GridLayout from 'react-grid-layout';
+import { useDashboardStore, GridLayoutItem } from '@/stores/dashboardStore';
 import { DashboardWidget } from './DashboardWidget';
 import { Empty } from 'antd';
 import { AppstoreAddOutlined } from '@ant-design/icons';
@@ -43,7 +43,7 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
   const layout = getGridLayout();
 
   const handleLayoutChange = useCallback(
-    (newLayout: Layout[]) => {
+    (newLayout: GridLayoutItem[]) => {
       updateFromGridLayout(newLayout);
       // Debounce save
       if (onSaveLayout) {
@@ -114,27 +114,30 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
         background: '#0a0a0a',
       }}
     >
-      <GridLayout
-        className="dashboard-grid"
-        layout={layout}
-        cols={12}
-        rowHeight={80}
-        width={gridWidth}
-        margin={[16, 16]}
-        containerPadding={[0, 0]}
-        isDraggable={isEditMode}
-        isResizable={isEditMode}
-        onLayoutChange={handleLayoutChange}
-        draggableHandle=".widget-drag-handle"
-        useCSSTransforms
-        compactType="vertical"
-      >
-        {dashboard.widgets.map((widget) => (
+      {React.createElement(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        GridLayout as any,
+        {
+          className: 'dashboard-grid',
+          layout: layout,
+          cols: 12,
+          rowHeight: 80,
+          width: gridWidth,
+          margin: [16, 16],
+          containerPadding: [0, 0],
+          isDraggable: isEditMode,
+          isResizable: isEditMode,
+          onLayoutChange: handleLayoutChange,
+          draggableHandle: '.widget-drag-handle',
+          useCSSTransforms: true,
+          compactType: 'vertical',
+        },
+        dashboard.widgets.map((widget) => (
           <div key={widget.id} className="dashboard-widget-container">
             <DashboardWidget widget={widget} />
           </div>
-        ))}
-      </GridLayout>
+        ))
+      )}
 
       <style jsx global>{`
         .dashboard-grid {

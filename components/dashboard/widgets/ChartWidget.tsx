@@ -22,6 +22,8 @@ import {
   prepareHeatmapData,
   prepareRadarData,
   isDateType,
+  type ChartConfig,
+  type ChartType,
 } from '@/lib/chart-utils';
 
 interface ChartWidgetProps {
@@ -103,14 +105,15 @@ export function ChartWidget({ widget }: ChartWidgetProps) {
     fetchData();
   }, [isRefreshing, widget.id, widget.chart?.query?.sql, setWidgetData]);
 
-  const chartConfig = useMemo(() => {
+  const chartConfig = useMemo((): ChartConfig | null => {
     if (!widget.chart?.config) return null;
-    return widget.chart.config as {
-      type: string;
-      xAxis: string | null;
-      yAxes: string[];
-      stacked?: boolean;
-      breakdownBy?: string | null;
+    const config = widget.chart.config as Record<string, unknown>;
+    return {
+      type: (config.type as ChartType) || 'column',
+      xAxis: (config.xAxis as string) || null,
+      yAxes: (config.yAxes as string[]) || [],
+      stacked: config.stacked as boolean | undefined,
+      breakdownBy: config.breakdownBy as string | null | undefined,
     };
   }, [widget.chart?.config]);
 

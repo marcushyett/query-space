@@ -1,5 +1,17 @@
 import { create } from 'zustand';
-import type { Layout } from 'react-grid-layout';
+
+// Grid layout item type (compatible with react-grid-layout)
+export interface GridLayoutItem {
+  i: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  minH?: number;
+  maxW?: number;
+  maxH?: number;
+}
 
 export type WidgetType = 'CHART' | 'TABLE' | 'KPI' | 'TEXT';
 
@@ -100,10 +112,10 @@ interface DashboardStore {
   setEditingWidgetId: (id: string | null) => void;
 
   // Convert dashboard widgets to react-grid-layout format
-  getGridLayout: () => Layout[];
+  getGridLayout: () => GridLayoutItem[];
 
   // Update widget positions from layout change
-  updateFromGridLayout: (layout: Layout[]) => void;
+  updateFromGridLayout: (layout: GridLayoutItem[]) => void;
 
   // Add a widget to the current dashboard
   addWidget: (widget: DashboardWidget) => void;
