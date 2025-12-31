@@ -147,7 +147,7 @@ export function ChartSelector({
           }}
           style={{ minWidth: 150, maxWidth: 300 }}
           placeholder="Select columns"
-          maxTagCount="responsive"
+          maxTagCount={1}
           options={yAxisOptions}
           popupMatchSelectWidth={false}
         />

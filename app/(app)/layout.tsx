@@ -173,7 +173,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (status === 'loading' || loading) {
     return (
       <ConfigProvider theme={darkTheme}>
-        <Layout style={{ minHeight: '100vh', background: '#000' }}>
+        <Layout style={{ height: '100vh', background: '#000', overflow: 'hidden' }}>
           <Flex justify="center" align="center" style={{ flex: 1 }}>
             <TechSpinner size="large" />
           </Flex>
@@ -187,7 +187,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <OrganizationContext.Provider
         value={{ currentOrg, organizations, switchOrganization, loading }}
       >
-        <Layout style={{ minHeight: '100vh' }}>
+        <Layout style={{ height: '100vh', overflow: 'hidden' }}>
           {/* Navigation Bar - Ant Design Header with sticky positioning */}
           <Header
             style={{
