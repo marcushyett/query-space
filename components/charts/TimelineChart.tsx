@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef } from 'react';
 import { useDimensions } from '@/hooks/useDimensions';
-import { getChartColors, formatNumber, truncateLabel } from '@/lib/chart-utils';
+import { getChartColors, truncateLabel } from '@/lib/chart-utils';
 
 interface TimelineEvent {
   id: string;
@@ -48,6 +48,9 @@ export function TimelineChart({
   const [hoveredEvent, setHoveredEvent] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { width, height } = useDimensions(containerRef);
+
+  // Store current time in state with lazy initializer
+  const [today] = useState(() => Date.now());
 
   // Process data into timeline events
   const { events, categories, timeRange } = useMemo(() => {
@@ -143,6 +146,28 @@ export function TimelineChart({
     });
   };
 
+  // Calculate row positions - must be before any early returns
+  const margin = { top: 40, right: 20, bottom: 40, left: 150 };
+  const { rowPositions, totalHeightCalc } = useMemo(() => {
+    let currentY = 0;
+    const positions: Array<{ event: TimelineEvent; y: number }> = [];
+
+    groupedEvents.forEach((group) => {
+      group.events.forEach((event) => {
+        positions.push({ event, y: currentY });
+        currentY += barHeight + 8;
+      });
+      if (group.category) {
+        currentY += 16; // Extra space between categories
+      }
+    });
+
+    return {
+      rowPositions: positions,
+      totalHeightCalc: currentY + margin.top + margin.bottom,
+    };
+  }, [groupedEvents, barHeight]);
+
   if (events.length === 0) {
     return (
       <div ref={containerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#888' }}>
@@ -155,25 +180,8 @@ export function TimelineChart({
     return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
   }
 
-  const margin = { top: 40, right: 20, bottom: 40, left: 150 };
   const chartWidth = width - margin.left - margin.right;
-
-  // Calculate row positions
-  let currentY = 0;
-  const rowPositions = groupedEvents.flatMap((group) => {
-    const positions = group.events.map((event) => {
-      const y = currentY;
-      currentY += barHeight + 8;
-      return { event, y };
-    });
-    if (group.category) {
-      currentY += 16; // Extra space between categories
-    }
-    return positions;
-  });
-
-  const totalHeight = currentY + margin.top + margin.bottom;
-  const svgHeight = Math.max(height, totalHeight);
+  const svgHeight = Math.max(height, totalHeightCalc);
 
   // Time scale
   const timeScale = (time: number) => {
@@ -342,35 +350,28 @@ export function TimelineChart({
         })}
 
         {/* Today marker */}
-        {(() => {
-          const today = Date.now();
-          if (today >= timeRange.min && today <= timeRange.max) {
-            const todayX = timeScale(today);
-            return (
-              <g>
-                <line
-                  x1={todayX}
-                  y1={margin.top}
-                  x2={todayX}
-                  y2={svgHeight - margin.bottom}
-                  stroke="#ff4d4f"
-                  strokeWidth={2}
-                  strokeDasharray="4 4"
-                />
-                <text
-                  x={todayX}
-                  y={svgHeight - margin.bottom + 15}
-                  textAnchor="middle"
-                  fill="#ff4d4f"
-                  fontSize={10}
-                >
-                  Today
-                </text>
-              </g>
-            );
-          }
-          return null;
-        })()}
+        {today >= timeRange.min && today <= timeRange.max && (
+          <g>
+            <line
+              x1={timeScale(today)}
+              y1={margin.top}
+              x2={timeScale(today)}
+              y2={svgHeight - margin.bottom}
+              stroke="#ff4d4f"
+              strokeWidth={2}
+              strokeDasharray="4 4"
+            />
+            <text
+              x={timeScale(today)}
+              y={svgHeight - margin.bottom + 15}
+              textAnchor="middle"
+              fill="#ff4d4f"
+              fontSize={10}
+            >
+              Today
+            </text>
+          </g>
+        )}
       </svg>
     </div>
   );

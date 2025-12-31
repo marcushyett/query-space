@@ -49,7 +49,7 @@ export function ScatterChart({
   const seriesNames = Object.keys(groupedData);
 
   // Calculate size range if sizeKey is provided
-  const sizeRange: { min: number; max: number } = sizeKey
+  const _sizeRange: { min: number; max: number } = sizeKey
     ? data.reduce<{ min: number; max: number }>(
         (range, item) => {
           const size = Number(item[sizeKey]) || 0;
@@ -61,6 +61,7 @@ export function ScatterChart({
         { min: Infinity, max: -Infinity }
       )
     : { min: 60, max: 60 };
+  void _sizeRange; // Used for potential future ZAxis range
 
   return (
     <ResponsiveContainer width="100%" height="100%">

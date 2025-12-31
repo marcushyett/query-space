@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Treemap, ResponsiveContainer, Tooltip } from 'recharts';
 import { getChartColors, formatNumber, truncateLabel } from '@/lib/chart-utils';
 
@@ -10,6 +10,81 @@ interface TreemapNode {
   children?: TreemapNode[];
   color?: string;
   [key: string]: unknown;
+}
+
+interface TreemapContentProps {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  name: string;
+  value?: number;
+  depth: number;
+  showLabels: boolean;
+  labelMinSize: number;
+  getNodeColor: (node: TreemapNode, depth: number) => string;
+}
+
+// Extracted outside component to prevent recreation on each render
+function TreemapContent({
+  x,
+  y,
+  width,
+  height,
+  name,
+  value,
+  depth,
+  showLabels,
+  labelMinSize,
+  getNodeColor,
+}: TreemapContentProps) {
+  const showLabel = showLabels && width >= labelMinSize && height >= 20;
+  const nodeData: TreemapNode = { name, value };
+
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={getNodeColor(nodeData, depth)}
+        stroke="#1a1a1a"
+        strokeWidth={2}
+        rx={4}
+        style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
+      />
+      {showLabel && (
+        <>
+          <text
+            x={x + width / 2}
+            y={y + height / 2 - (value !== undefined ? 6 : 0)}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="#fff"
+            fontSize={12}
+            fontWeight={500}
+            style={{ pointerEvents: 'none' }}
+          >
+            {truncateLabel(name, Math.floor(width / 8))}
+          </text>
+          {value !== undefined && height >= 40 && (
+            <text
+              x={x + width / 2}
+              y={y + height / 2 + 10}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="rgba(255,255,255,0.7)"
+              fontSize={10}
+              style={{ pointerEvents: 'none' }}
+            >
+              {formatNumber(value)}
+            </text>
+          )}
+        </>
+      )}
+    </g>
+  );
 }
 
 interface TreemapChartProps {
@@ -69,20 +144,13 @@ export function TreemapChart({
             child.value = (child.value || 0) + value;
             delete child.children;
           } else {
-            // Add as a child with value
-            const leafNode: TreemapNode = {
-              name: nodeName,
-              value,
-              color: child.color,
-            };
-            child.children = child.children || [];
             // Check if a leaf with this exact name/value combo exists
-            const existingLeaf = child.children.find(
+            const existingLeaf = child.children?.find(
               (c) => c.name === nodeName && c.value !== undefined
             );
             if (existingLeaf) {
               existingLeaf.value = (existingLeaf.value || 0) + value;
-            } else if (child.children.length === 0) {
+            } else if (!child.children || child.children.length === 0) {
               child.value = (child.value || 0) + value;
               delete child.children;
             }
@@ -107,7 +175,7 @@ export function TreemapChart({
   }, [data, pathColumns, valueColumn, colors]);
 
   // Calculate color based on value if colorByValue is enabled
-  const getNodeColor = (node: TreemapNode, depth: number) => {
+  const getNodeColor = useCallback((node: TreemapNode, depth: number) => {
     if (colorByValue && node.value !== undefined) {
       const allValues = data.map((row) => {
         const v = row[valueColumn];
@@ -125,74 +193,23 @@ export function TreemapChart({
       return `rgb(${r}, ${g}, ${b})`;
     }
     return node.color || colors[depth % colors.length];
-  };
+  }, [colorByValue, data, valueColumn, colors]);
 
-  // Custom content renderer for treemap cells
-  const CustomContent = ({
-    x,
-    y,
-    width,
-    height,
-    name,
-    value,
-    depth,
-  }: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    name: string;
-    value?: number;
-    depth: number;
-  }) => {
-    const showLabel = showLabels && width >= labelMinSize && height >= 20;
-    const nodeData: TreemapNode = { name, value };
-
-    return (
-      <g>
-        <rect
-          x={x}
-          y={y}
-          width={width}
-          height={height}
-          fill={getNodeColor(nodeData, depth)}
-          stroke="#1a1a1a"
-          strokeWidth={2}
-          rx={4}
-          style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
-        />
-        {showLabel && (
-          <>
-            <text
-              x={x + width / 2}
-              y={y + height / 2 - (value !== undefined ? 6 : 0)}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill="#fff"
-              fontSize={12}
-              fontWeight={500}
-              style={{ pointerEvents: 'none' }}
-            >
-              {truncateLabel(name, Math.floor(width / 8))}
-            </text>
-            {value !== undefined && height >= 40 && (
-              <text
-                x={x + width / 2}
-                y={y + height / 2 + 10}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="rgba(255,255,255,0.7)"
-                fontSize={10}
-                style={{ pointerEvents: 'none' }}
-              >
-                {formatNumber(value)}
-              </text>
-            )}
-          </>
-        )}
-      </g>
-    );
-  };
+  // Content renderer that passes stable props
+  const renderContent = useCallback((props: Record<string, unknown>) => (
+    <TreemapContent
+      x={props.x as number}
+      y={props.y as number}
+      width={props.width as number}
+      height={props.height as number}
+      name={props.name as string}
+      value={props.value as number | undefined}
+      depth={props.depth as number}
+      showLabels={showLabels}
+      labelMinSize={labelMinSize}
+      getNodeColor={getNodeColor}
+    />
+  ), [showLabels, labelMinSize, getNodeColor]);
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -201,7 +218,7 @@ export function TreemapChart({
         dataKey="value"
         aspectRatio={4 / 3}
         stroke="#1a1a1a"
-        content={<CustomContent x={0} y={0} width={0} height={0} name="" depth={0} />}
+        content={renderContent}
       >
         <Tooltip
           contentStyle={{

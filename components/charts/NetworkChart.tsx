@@ -1,7 +1,13 @@
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { useDimensions } from '@/hooks/useDimensions';
+import {
+  useChartContainer,
+  chartContainerStyle,
+  chartEmptyStyle,
+  chartLoadingStyle,
+  chartLegendStyle,
+} from '@/hooks/useChartContainer';
 import { getChartColors, truncateLabel } from '@/lib/chart-utils';
 
 interface NetworkNode {
@@ -55,11 +61,10 @@ export function NetworkChart({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const animationRef = useRef<number | null>(null);
   const iterationRef = useRef(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { width, height } = useDimensions(containerRef);
+  const { containerRef, width, height, isReady } = useChartContainer();
 
   // Process data into nodes and links
-  const { initialNodes, links, nodeConnections } = useMemo(() => {
+  const { initialNodes, links } = useMemo(() => {
     const nodeMap = new Map<string, { connections: number; group: string }>();
     const linkList: NetworkLink[] = [];
 
@@ -106,14 +111,14 @@ export function NetworkChart({
     return {
       initialNodes: nodeArray,
       links: linkList,
-      nodeConnections: nodeMap,
     };
   }, [data, sourceColumn, targetColumn, weightColumn]);
 
-  // Force simulation (simplified)
+  // Force simulation (async animation)
   useEffect(() => {
+    // For non-force layouts, set nodes directly in the animation frame
     if (layout !== 'force' || initialNodes.length === 0) {
-      setNodes(initialNodes);
+      requestAnimationFrame(() => setNodes(initialNodes));
       return;
     }
 
@@ -187,13 +192,6 @@ export function NetworkChart({
     };
   }, [initialNodes, links, layout, linkDistance]);
 
-  // Handle circular layout
-  useEffect(() => {
-    if (layout === 'circular') {
-      setNodes(initialNodes);
-    }
-  }, [layout, initialNodes]);
-
   // Get node size based on connections
   const getNodeSize = (node: NetworkNode) => {
     if (!sizeByConnections) return nodeSize;
@@ -220,14 +218,14 @@ export function NetworkChart({
 
   if (nodes.length === 0) {
     return (
-      <div ref={containerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#888' }}>
+      <div ref={containerRef} style={chartEmptyStyle}>
         No network data available
       </div>
     );
   }
 
-  if (!width || !height) {
-    return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+  if (!isReady) {
+    return <div ref={containerRef} style={chartLoadingStyle} />;
   }
 
   // Scale nodes to fit viewport
@@ -245,7 +243,7 @@ export function NetworkChart({
     margin + ((y - minY) / (maxY - minY || 1)) * (height - 2 * margin);
 
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div ref={containerRef} style={chartContainerStyle}>
       <svg width={width} height={height}>
         {/* Links */}
         {links.map((link, index) => {
@@ -314,19 +312,7 @@ export function NetworkChart({
       </svg>
 
       {/* Legend */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 10,
-          left: 10,
-          backgroundColor: 'rgba(31, 31, 31, 0.9)',
-          border: '1px solid #333',
-          borderRadius: 4,
-          padding: '8px 12px',
-          fontSize: 11,
-          color: '#888',
-        }}
-      >
+      <div style={chartLegendStyle}>
         <div>Nodes: {nodes.length}</div>
         <div>Links: {links.length}</div>
       </div>

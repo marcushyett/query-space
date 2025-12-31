@@ -25,7 +25,6 @@ interface FunnelChartProps {
 export function FunnelChart({
   data,
   showPercentage = true,
-  showLegend = true,
 }: FunnelChartProps) {
   const colors = getChartColors();
 
@@ -80,7 +79,7 @@ export function FunnelChart({
             fill="#fff"
             stroke="none"
             dataKey="name"
-            content={({ x, y, value, index }) => {
+            content={({ x, y, index }) => {
               const item = dataWithConversion[index as number];
               if (!item) return null;
               const displayName = truncateLabel(item.name, 15);
