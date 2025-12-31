@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ChartConfig, ChartType } from '@/lib/chart-utils';
+import type { ChartConfig } from '@/lib/chart-utils';
 
 export interface QueryResultInfo {
   rowCount: number;
@@ -150,7 +150,7 @@ interface AiChatStore {
   addAgentTodo: (todo: Omit<AgentTodoItem, 'id' | 'createdAt'>) => void;
 }
 
-export const useAiChatStore = create<AiChatStore>((set, get) => ({
+export const useAiChatStore = create<AiChatStore>((set) => ({
   messages: [],
   isOpen: false,
   isGenerating: false,

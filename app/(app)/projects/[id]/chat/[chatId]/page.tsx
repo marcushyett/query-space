@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   Button,
@@ -102,7 +102,7 @@ export default function ChatPage() {
         } else {
           setSchemaError('Failed to fetch schema')
         }
-      } catch (err) {
+      } catch {
         setSchemaError('Failed to fetch schema')
       } finally {
         setSchemaLoading(false)
@@ -303,7 +303,7 @@ export default function ChatPage() {
 
       message.success('Chat deleted')
       router.push(`/projects/${projectId}`)
-    } catch (err) {
+    } catch {
       message.error('Failed to delete chat')
     }
   }
@@ -325,7 +325,7 @@ export default function ChatPage() {
       setChatData(prev => prev ? { ...prev, title: newTitle.trim() } : null)
       setEditTitleModalOpen(false)
       message.success('Title updated')
-    } catch (err) {
+    } catch {
       message.error('Failed to update title')
     }
   }

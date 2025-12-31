@@ -23,14 +23,13 @@ import {
   MenuUnfoldOutlined,
   RobotOutlined,
   HomeOutlined,
-  FolderOutlined,
 } from '@ant-design/icons'
 import { SqlEditor } from '@/components/SqlEditor'
 import { QueryResults } from '@/components/QueryResults'
 import { TableBrowser } from '@/components/TableBrowser'
 import { AiChatPanel } from '@/components/AiChatPanel'
 import { useOrganization } from '../../../../layout'
-import { useQueryStore, QueryResult } from '@/stores/queryStore'
+import { useQueryStore } from '@/stores/queryStore'
 import { useSchemaStore } from '@/stores/schemaStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useAiChatStore } from '@/stores/aiChatStore'
@@ -68,9 +67,12 @@ export default function QueryEditorPage() {
   const [queryData, setQueryData] = useState<QueryData | null>(null)
   const [queryName, setQueryName] = useState('')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [_editModalOpen, _setEditModalOpen] = useState(false)
   const [projectName, setProjectName] = useState<string>('')
-  const [form] = Form.useForm()
+  const [_form] = Form.useForm()
+  void _editModalOpen;
+  void _setEditModalOpen;
+  void _form;
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSavedSqlRef = useRef<string>('')
   const [autoSaving, setAutoSaving] = useState(false)
@@ -84,7 +86,7 @@ export default function QueryEditorPage() {
     if (storeQueryName && storeQueryName !== queryName) {
       setQueryName(storeQueryName)
     }
-  }, [storeQueryName])
+  }, [storeQueryName, queryName])
 
   // Keep store in sync when user edits the name
   const handleQueryNameChange = (name: string) => {
@@ -111,7 +113,7 @@ export default function QueryEditorPage() {
         } else {
           setSchemaError('Failed to fetch schema')
         }
-      } catch (err) {
+      } catch {
         setSchemaError('Failed to fetch schema')
       } finally {
         setSchemaLoading(false)
@@ -274,7 +276,7 @@ export default function QueryEditorPage() {
     }
   }, [currentQuery, currentOrg, setIsExecuting, setQueryResults, setCurrentQuery])
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!currentQuery) {
       message.error('Query cannot be empty')
       return
@@ -360,12 +362,12 @@ export default function QueryEditorPage() {
         setHasUnsavedChanges(false)
         message.success('Query updated')
       }
-    } catch (err) {
+    } catch {
       message.error('Failed to save query')
     } finally {
       setSaving(false)
     }
-  }
+  }, [currentQuery, queryData, queryName, currentOrg, isNew, projectId, queryId, queryResults, router])
 
   const handleDelete = async () => {
     try {
@@ -379,7 +381,7 @@ export default function QueryEditorPage() {
 
       message.success('Query deleted')
       router.push(`/projects/${projectId}`)
-    } catch (err) {
+    } catch {
       message.error('Failed to delete query')
     }
   }

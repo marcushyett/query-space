@@ -20,13 +20,11 @@ export function useAiAgent() {
 
   // Session persistence
   const {
-    currentSessionId,
     createSession,
     updateSession,
     pauseSession,
     completeSession: completeSessionStore,
     getResumableSessions,
-    getCompletedSessions,
     getCurrentSession,
     getSession,
     cleanupOldSessions,
@@ -610,6 +608,7 @@ export function useAiAgent() {
       addChartMessage,
       addQueryMessage,
       addTodoMessage,
+      addThinkingMessage,
       addToolActivityMessage,
       updateLatestToolActivityMessage,
       startAgent,
@@ -622,12 +621,14 @@ export function useAiAgent() {
       setCurrentSql,
       setIsAiGenerated,
       setAgentTodos,
+      setQueryName,
       executeQuery,
       message,
       createSession,
       updateSession,
       pauseSession,
       completeSessionStore,
+      addChatMessage,
     ]
   );
 
@@ -1102,8 +1103,10 @@ Instructions:
     setCurrentSql,
     setIsAiGenerated,
     setAgentTodos,
+    setQueryName,
     executeQuery,
     message,
+    agentProgress,
   ]);
 
   // Stop the agent
@@ -1562,6 +1565,7 @@ If you encounter an error or need help, explain what went wrong.`;
       setCurrentSql,
       setIsAiGenerated,
       setAgentTodos,
+      setQueryName,
       executeQuery,
       message,
       updateSession,

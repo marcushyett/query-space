@@ -3,7 +3,6 @@ import { z } from 'zod'
 import { prisma } from '@/lib/db/prisma'
 import {
   requireUser,
-  requireOrganizationAccess,
   requireOrganizationWrite,
   getUserOrganizations,
 } from '@/lib/auth/session'

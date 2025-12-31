@@ -2,12 +2,6 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { Client } from 'pg';
 import {
-  detectChartType,
-  suggestXAxis,
-  suggestYAxes,
-  isNumericType,
-  isDateType,
-  isTextType,
   type ChartType,
   type ChartConfig,
 } from '@/lib/chart-utils';
@@ -15,8 +9,6 @@ import {
   analyzeDataQuality,
   filterGarbageData,
   summarizeDataQuality,
-  type DataQualityReport,
-  type DataQualityIssue,
 } from './dataQuality';
 
 // Dangerous SQL patterns that should NEVER be allowed
@@ -440,16 +432,53 @@ IMPORTANT: Always document assumptions made during analysis, especially:
     generate_chart: tool({
       description: `Generate a chart visualization for query results.
 Use this after executing a query when the results would benefit from a visual representation.
+
+CHART TYPE SELECTION GUIDE (20+ chart types available):
+
+BASIC CHARTS:
+- **column/bar**: Compare categories (sales by region, counts by status)
+- **line**: Trends over time (daily revenue, monthly users)
+- **area**: Volume/magnitude over time, stacked comparisons
+- **pie/donut**: Parts of a whole with ≤10 categories (market share, distribution)
+
+CORRELATION & DISTRIBUTION:
+- **scatter**: Correlation between 2 numeric variables (price vs quantity)
+- **bubble**: 3-variable analysis with size dimension (revenue vs cost vs volume)
+- **histogram**: Frequency distribution of continuous data (age distribution, price ranges)
+- **boxplot**: Statistical distribution showing quartiles and outliers
+
+HIERARCHICAL & FLOW:
+- **treemap**: Hierarchical part-to-whole with nested rectangles
+- **sunburst**: Hierarchical data as concentric rings
+- **sankey**: Flow between nodes (user journeys, resource allocation)
+- **funnel**: Conversion/drop-off analysis (signup flow, sales pipeline)
+
+COMPARISON & KPI:
+- **radar**: Multiple metrics across categories (product features, performance scores)
+- **gauge**: Single value against target with thresholds (KPI, progress)
+- **bullet**: Value vs target with qualitative ranges
+- **waterfall**: Cumulative effect of sequential values (profit breakdown)
+
+RELATIONSHIP & NETWORK:
+- **network**: Node-link diagrams for relationships (social networks, dependencies)
+- **chord**: Interconnections between entities (migration flows, dependencies)
+- **heatmap**: 2D patterns and correlations (activity by day/hour, correlation matrix)
+
+GEOGRAPHIC & TIME:
+- **map**: Geographic distribution (regional sales, population density)
+- **timeline**: Time-based events or tasks (project timeline, Gantt charts)
+
 Good candidates for charts:
-- Aggregated data with GROUP BY (counts, sums, averages)
-- Time series data (data over time)
-- Comparisons between categories
-- Distribution of values
+- Aggregated data with GROUP BY
+- Time series data
+- Category comparisons
+- Statistical distributions
+- Flow and process analysis
+- Hierarchical breakdowns
 
 Do NOT use for:
 - Single row results
 - Raw data without aggregation
-- Results with many columns but few numeric values
 - Text-only results
 
 REQUIRED: Always provide a title and description so users understand the visualization.`,
@@ -461,12 +490,44 @@ REQUIRED: Always provide a title and description so users understand the visuali
         })).describe('Column metadata from the query result'),
         title: z.string().describe('Short title for the chart (e.g., "Monthly Revenue Trend", "Users by Country")'),
         description: z.string().describe('Brief explanation of what the visualization shows and key insights (1-2 sentences)'),
-        chartType: z.enum(['column', 'line', 'area', 'pie']).optional().describe('Override automatic chart type detection'),
-        xAxis: z.string().optional().describe('Override X-axis column selection'),
-        yAxes: z.array(z.string()).optional().describe('Override Y-axis columns selection'),
-        stacked: z.boolean().optional().describe('Whether to stack the chart (for column/area charts)'),
+        chartType: z.enum([
+          'column', 'bar', 'line', 'area', 'pie', 'donut',
+          'scatter', 'bubble', 'histogram', 'boxplot',
+          'treemap', 'sunburst', 'sankey', 'funnel',
+          'radar', 'gauge', 'bullet', 'waterfall',
+          'network', 'chord', 'heatmap',
+          'map', 'timeline'
+        ]).optional().describe('Chart type. Auto-detected if not specified. See guide above for recommendations.'),
+        xAxis: z.string().optional().describe('X-axis column (category/time axis)'),
+        yAxes: z.array(z.string()).optional().describe('Y-axis columns (value axes)'),
+        stacked: z.boolean().optional().describe('Stack bars/areas (for column/area charts)'),
+        // Common options
+        showLabels: z.boolean().optional().describe('Show data labels on chart'),
+        showLegend: z.boolean().optional().describe('Show chart legend'),
+        // Specific chart options
+        sizeColumn: z.string().optional().describe('Column for bubble/node size'),
+        colorColumn: z.string().optional().describe('Column for color grouping'),
+        valueColumn: z.string().optional().describe('Column for values (treemap, sankey, heatmap)'),
+        categoryColumn: z.string().optional().describe('Column for categories (boxplot, funnel)'),
+        pathColumns: z.array(z.string()).optional().describe('Hierarchy path columns (treemap, sunburst)'),
+        sourceColumn: z.string().optional().describe('Source column (sankey, network, chord)'),
+        targetColumn: z.string().optional().describe('Target column (sankey, network, chord)'),
+        startColumn: z.string().optional().describe('Start date column (timeline)'),
+        endColumn: z.string().optional().describe('End date column (timeline)'),
+        regionColumn: z.string().optional().describe('Region/location column (map)'),
+        showPercentage: z.boolean().optional().describe('Show percentage labels (funnel/donut)'),
+        showTotal: z.boolean().optional().describe('Show total bar (waterfall)'),
+        // Gauge-specific
+        gaugeMin: z.number().optional().describe('Gauge minimum value'),
+        gaugeMax: z.number().optional().describe('Gauge maximum value'),
+        gaugeTarget: z.number().optional().describe('Gauge target value'),
       }),
-      execute: async ({ data, columns, title, description, chartType, xAxis, yAxes, stacked = false }) => {
+      execute: async ({
+        data, columns, title, description, chartType, xAxis, yAxes, stacked = false,
+        showLabels, showLegend, sizeColumn, colorColumn, valueColumn, categoryColumn,
+        pathColumns, sourceColumn, targetColumn, startColumn, endColumn, regionColumn,
+        showPercentage = true, showTotal = true, gaugeMin, gaugeMax, gaugeTarget
+      }) => {
         if (!data || data.length === 0) {
           return {
             success: false,
@@ -478,84 +539,134 @@ REQUIRED: Always provide a title and description so users understand the visuali
           };
         }
 
-        // Build a mock result structure for chart utils
-        const mockFields = columns.map(col => ({
-          name: col.name,
-          dataTypeID: col.type === 'numeric' ? 23 : col.type === 'date' ? 1082 : 25,
-        }));
-
-        const mockResult = {
-          rows: data,
-          fields: mockFields,
-          rowCount: data.length,
-          executionTime: 0,
-        };
-
-        // Determine chart type
-        let detectedType: ChartType = chartType || 'column';
+        // Determine chart type with smart auto-detection
+        let detectedType: ChartType = chartType as ChartType || 'column';
         if (!chartType) {
-          // Auto-detect based on data
           const hasDate = columns.some(c => c.type === 'date');
           const numericCount = columns.filter(c => c.type === 'numeric').length;
           const textCount = columns.filter(c => c.type === 'text').length;
 
-          if (hasDate && numericCount >= 1) {
+          // Scatter/Bubble: 2+ numeric columns, no text/date
+          if (numericCount >= 3 && textCount === 0 && !hasDate) {
+            detectedType = 'scatter'; // Could be bubble if sizeColumn provided
+          } else if (numericCount >= 2 && textCount === 0 && !hasDate) {
+            detectedType = 'scatter';
+          }
+          // Line: date column with numeric values (time series)
+          else if (hasDate && numericCount >= 1) {
             detectedType = 'line';
-          } else if (textCount === 1 && numericCount === 1 && data.length <= 10) {
-            detectedType = 'pie';
-          } else if (textCount >= 1 && numericCount >= 1) {
+          }
+          // Donut/Pie: few categories with single value
+          else if (textCount === 1 && numericCount === 1 && data.length <= 10) {
+            detectedType = 'donut';
+          }
+          // Heatmap: 2 text columns and 1 numeric (2D matrix)
+          else if (textCount >= 2 && numericCount >= 1 && data.length >= 4) {
+            detectedType = 'heatmap';
+          }
+          // Radar: multiple numeric columns with 1 category (multi-metric)
+          else if (textCount === 1 && numericCount >= 3 && data.length >= 3 && data.length <= 15) {
+            detectedType = 'radar';
+          }
+          // Default to column for category comparisons
+          else if (textCount >= 1 && numericCount >= 1) {
             detectedType = 'column';
           }
         }
 
-        // Determine axes
+        // Determine axes based on chart type
         let finalXAxis = xAxis;
         let finalYAxes = yAxes || [];
 
         if (!finalXAxis) {
-          // Prefer date > text > first column
           const dateCol = columns.find(c => c.type === 'date');
           const textCol = columns.find(c => c.type === 'text');
           finalXAxis = dateCol?.name || textCol?.name || columns[0]?.name;
         }
 
         if (finalYAxes.length === 0) {
-          // Use all numeric columns not used as X-axis
           finalYAxes = columns
             .filter(c => c.type === 'numeric' && c.name !== finalXAxis)
             .map(c => c.name);
         }
 
-        if (!finalXAxis || finalYAxes.length === 0) {
+        // Build extended chart config with all options
+        const chartConfig: ChartConfig & Record<string, unknown> = {
+          type: detectedType,
+          xAxis: finalXAxis || null,
+          yAxes: finalYAxes,
+          stacked,
+          title,
+          showPercentage,
+          showTotal,
+          // Extended options for new chart types
+          sizeColumn: sizeColumn || null,
+          colorColumn: colorColumn || null,
+          valueColumn: valueColumn || finalYAxes[0] || null,
+          categoryColumn: categoryColumn || finalXAxis || null,
+          pathColumns: pathColumns || null,
+          sourceColumn: sourceColumn || null,
+          targetColumn: targetColumn || null,
+          startColumn: startColumn || null,
+          endColumn: endColumn || null,
+          regionColumn: regionColumn || null,
+          showLabels: showLabels ?? true,
+          showLegend: showLegend ?? true,
+          // Gauge options
+          gaugeMin: gaugeMin ?? 0,
+          gaugeMax: gaugeMax ?? 100,
+          gaugeTarget: gaugeTarget ?? undefined,
+        };
+
+        // Prepare chart data with all columns
+        const chartData = data.map(row => {
+          const transformed: Record<string, unknown> = {};
+          // Copy all columns to allow flexible rendering
+          for (const col of columns) {
+            const value = row[col.name];
+            if (col.type === 'numeric') {
+              transformed[col.name] = typeof value === 'number' ? value : parseFloat(String(value)) || 0;
+            } else {
+              transformed[col.name] = value;
+            }
+          }
+          return transformed;
+        });
+
+        // Validate requirements for specific chart types
+        const validationErrors: string[] = [];
+        if (['sankey', 'network', 'chord'].includes(detectedType)) {
+          if (!sourceColumn && !targetColumn) {
+            validationErrors.push(`${detectedType} chart requires sourceColumn and targetColumn`);
+          }
+        }
+        if (['treemap', 'sunburst'].includes(detectedType)) {
+          if (!pathColumns && !finalXAxis) {
+            validationErrors.push(`${detectedType} chart requires pathColumns for hierarchy`);
+          }
+        }
+        if (detectedType === 'timeline') {
+          if (!startColumn || !endColumn) {
+            validationErrors.push('Timeline chart requires startColumn and endColumn');
+          }
+        }
+        if (detectedType === 'map') {
+          if (!regionColumn && !finalXAxis) {
+            validationErrors.push('Map chart requires regionColumn');
+          }
+        }
+
+        if (validationErrors.length > 0) {
           return {
             success: false,
-            error: 'Cannot determine chart axes. Need at least one category column and one numeric column.',
+            error: validationErrors.join('; '),
             chartConfig: null,
             chartData: null,
-            hint: 'Ensure your query returns at least one text/date column for the X-axis and one numeric column for values.',
+            hint: 'Provide the required columns for this chart type.',
             title: title ?? null,
             description: description ?? null,
           };
         }
-
-        // Prepare chart data
-        const chartData = data.map(row => {
-          const transformed: Record<string, unknown> = {};
-          transformed[finalXAxis!] = row[finalXAxis!];
-          finalYAxes.forEach(yKey => {
-            const value = row[yKey];
-            transformed[yKey] = typeof value === 'number' ? value : parseFloat(String(value)) || 0;
-          });
-          return transformed;
-        });
-
-        const chartConfig: ChartConfig = {
-          type: detectedType,
-          xAxis: finalXAxis,
-          yAxes: finalYAxes,
-          stacked,
-          title,
-        };
 
         return {
           success: true,
@@ -820,7 +931,8 @@ Returns analysis with recommendations for query refinement.`,
         minimumSampleSize: z.number().optional().describe('Minimum sample size to consider valid. Defaults to 30 for statistical significance.'),
         queryType: z.enum(['percentage', 'ranking', 'aggregation', 'other']).optional().describe('The type of query being analyzed'),
       }),
-      execute: async ({ data, countColumn, proportionColumn, minimumSampleSize = 30, queryType = 'other' }) => {
+      execute: async ({ data, countColumn, proportionColumn, minimumSampleSize = 30, queryType: _queryType = 'other' }) => {
+        void _queryType; // Reserved for future query-type-specific validation
         if (!data || data.length === 0) {
           return {
             success: true,

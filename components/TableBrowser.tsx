@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Tree, Input, Typography, Empty, Button, Alert, Grid, Tooltip } from 'antd';
+import { Input, Typography, Empty, Button, Alert, Grid } from 'antd';
 import { TechSpinner } from './TechSpinner';
 import {
   TableOutlined,
@@ -24,7 +24,6 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useQueryStore } from '@/stores/queryStore';
 import type { TableInfo } from '@/app/api/tables/route';
-import type { DataNode } from 'antd/es/tree';
 import Link from 'next/link';
 
 const { Text } = Typography;
@@ -45,7 +44,9 @@ export function TableBrowser({ onTableSelect, isMobileFullScreen, onClose }: Tab
   const { tableInfo, isLoading: tableInfoLoading, fetchTableInfo, clearTableInfo } = useTableInfo();
   const { organizationId } = useConnectionStore();
   const { setCurrentQuery, currentQuery } = useQueryStore();
-  const { tableBrowserOpen, setTableBrowserOpen } = useUiStore();
+  const { tableBrowserOpen: _tableBrowserOpen, setTableBrowserOpen: _setTableBrowserOpen } = useUiStore();
+  void _tableBrowserOpen;
+  void _setTableBrowserOpen;
 
   const [searchValue, setSearchValue] = useState('');
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);

@@ -28,7 +28,8 @@ const TOOL_LABELS: Record<string, string> = {
   manage_todo: 'Planning',
 };
 
-export function AgentProgress({ currentStep, maxSteps, toolCalls, streamingText, todos = [], onStop }: AgentProgressProps) {
+export function AgentProgress({ currentStep, maxSteps, toolCalls, streamingText: _streamingText, todos = [], onStop }: AgentProgressProps) {
+  void _streamingText; // Reserved for future streaming indicator
   // Check if there's a final query (update_query_ui was called)
   const finalQueryCall = toolCalls.find(tc => tc.toolName === 'update_query_ui' && tc.status === 'success');
 

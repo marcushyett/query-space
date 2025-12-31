@@ -6,11 +6,22 @@ import { ColumnChart } from './ColumnChart';
 import { LineChart } from './LineChart';
 import { AreaChart } from './AreaChart';
 import { PieChart } from './PieChart';
+import { DonutChart } from './DonutChart';
+import { ScatterChart } from './ScatterChart';
+import { FunnelChart } from './FunnelChart';
+import { WaterfallChart } from './WaterfallChart';
+import { HeatmapChart } from './HeatmapChart';
+import { RadarChart } from './RadarChart';
 import { ChartSelector } from './ChartSelector';
 import {
   isChartable,
   suggestChartConfig,
   prepareChartData,
+  prepareScatterData,
+  prepareFunnelData,
+  prepareWaterfallData,
+  prepareHeatmapData,
+  prepareRadarData,
   isNumericType,
   isDateType,
   getBreakdownColumns,
@@ -157,6 +168,115 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
   }
 
   const renderChart = () => {
+    // Handle special chart types that need different data preparation
+    if (chartConfig.type === 'scatter' && queryResult) {
+      const scatterData = prepareScatterData(queryResult, chartConfig);
+      if (!scatterData) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select X and Y axes (both numeric) for scatter plot
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <ScatterChart
+          data={scatterData.data}
+          xAxisKey={scatterData.xKey}
+          yAxisKey={scatterData.yKey}
+          sizeKey={scatterData.sizeKey}
+          colorKey={scatterData.colorKey}
+        />
+      );
+    }
+
+    if (chartConfig.type === 'funnel' && queryResult) {
+      const funnelData = prepareFunnelData(queryResult, chartConfig);
+      if (!funnelData) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select category and value columns for funnel chart
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <FunnelChart
+          data={funnelData.data}
+          showPercentage={chartConfig.showPercentage}
+        />
+      );
+    }
+
+    if (chartConfig.type === 'waterfall' && queryResult) {
+      const waterfallData = prepareWaterfallData(queryResult, chartConfig);
+      if (!waterfallData) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select category and value columns for waterfall chart
+              </Text>
+            }
+          />
+        );
+      }
+      return <WaterfallChart data={waterfallData.data} />;
+    }
+
+    if (chartConfig.type === 'heatmap' && queryResult) {
+      const heatmapData = prepareHeatmapData(queryResult, chartConfig);
+      if (!heatmapData) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select X-axis, Y-axis, and value columns for heatmap
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <HeatmapChart
+          data={heatmapData.data}
+          xValues={heatmapData.xValues}
+          yValues={heatmapData.yValues}
+          minValue={heatmapData.minValue}
+          maxValue={heatmapData.maxValue}
+        />
+      );
+    }
+
+    if (chartConfig.type === 'radar' && queryResult) {
+      const radarData = prepareRadarData(queryResult, chartConfig);
+      if (!radarData) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select subject column and metrics for radar chart
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <RadarChart
+          data={radarData.data}
+          subjectKey="subject"
+          series={radarData.series}
+        />
+      );
+    }
+
+    // Standard charts use prepareChartData
     if (!chartData) {
       return (
         <Empty
@@ -192,6 +312,14 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
       case 'pie':
         return (
           <PieChart
+            data={chartData.data}
+            nameKey={chartData.xAxisKey}
+            valueKey={chartData.yAxisKeys[0]}
+          />
+        );
+      case 'donut':
+        return (
+          <DonutChart
             data={chartData.data}
             nameKey={chartData.xAxisKey}
             valueKey={chartData.yAxisKeys[0]}

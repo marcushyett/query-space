@@ -485,7 +485,7 @@ interface EmbedTokenPayload {
 ### 6.1 Statistical Charts
 
 **Features:**
-- [ ] **Scatter Plot**
+- [x] **Scatter Plot**
   - X/Y axis with continuous variables
   - Point size for third dimension
   - Color coding by category
@@ -513,7 +513,7 @@ interface EmbedTokenPayload {
 ### 6.2 Part-to-Whole Charts
 
 **Features:**
-- [ ] **Donut Chart**
+- [x] **Donut Chart**
   - Pie chart with center cutout
   - Center label (total, percentage)
   - Multiple ring support
@@ -540,7 +540,7 @@ interface EmbedTokenPayload {
   - Interactive highlighting
   - Multi-level flows (source → intermediate → target)
 
-- [ ] **Funnel Chart**
+- [x] **Funnel Chart**
   - Conversion/drop-off visualization
   - Percentage labels
   - Horizontal or vertical orientation
@@ -554,7 +554,7 @@ interface EmbedTokenPayload {
 ### 6.4 Trend & Comparison Charts
 
 **Features:**
-- [ ] **Waterfall Chart**
+- [x] **Waterfall Chart**
   - Cumulative effect visualization
   - Positive/negative coloring
   - Subtotal bars
@@ -597,13 +597,13 @@ interface EmbedTokenPayload {
     - Progress bar
   - Threshold zones (red/yellow/green)
 
-- [ ] **Heatmap**
+- [x] **Heatmap**
   - Two-dimensional color matrix
   - Calendar heatmap option
   - Correlation matrix visualization
   - Custom color scales
 
-- [ ] **Radar/Spider Chart**
+- [x] **Radar/Spider Chart**
   - Multi-dimensional comparison
   - Overlapping series
   - Filled or line mode

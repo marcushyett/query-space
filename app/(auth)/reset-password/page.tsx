@@ -9,7 +9,8 @@ import Link from 'next/link'
 const { Title, Text } = Typography
 
 function ResetPasswordForm() {
-  const router = useRouter()
+  const _router = useRouter()
+  void _router // Reserved for future navigation
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
 

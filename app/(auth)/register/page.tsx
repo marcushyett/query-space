@@ -23,7 +23,8 @@ const VercelIcon = () => (
 const { Title, Text } = Typography
 
 export default function RegisterPage() {
-  const router = useRouter()
+  const _router = useRouter()
+  void _router // Reserved for future navigation
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
