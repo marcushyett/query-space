@@ -116,7 +116,12 @@ export function useAiAgent() {
         };
 
         setQueryResults(result);
-        addToHistory(sql, data.rowCount, data.executionTime, sessionId, queryName);
+        addToHistory(sql, data.rowCount, data.executionTime, {
+          source: 'ai',
+          aiSessionId: sessionId,
+          queryName,
+          success: true,
+        });
 
         return { success: true, result };
       } catch (err) {

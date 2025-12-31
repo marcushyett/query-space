@@ -6,9 +6,11 @@ describe('queryStore', () => {
     // Reset store to initial state before each test
     useQueryStore.setState({
       currentQuery: '',
+      queryName: '',
       queryResults: null,
       queryHistory: [],
       isExecuting: false,
+      lastError: null,
     })
   })
 
@@ -121,7 +123,7 @@ describe('queryStore', () => {
   })
 
   describe('addToHistory', () => {
-    it('should add query to history', () => {
+    it('should add query to history with default options', () => {
       useQueryStore.getState().addToHistory('SELECT * FROM users', 10, 42)
 
       const state = useQueryStore.getState()
@@ -129,6 +131,35 @@ describe('queryStore', () => {
       expect(state.queryHistory[0].sql).toBe('SELECT * FROM users')
       expect(state.queryHistory[0].rowCount).toBe(10)
       expect(state.queryHistory[0].executionTime).toBe(42)
+      expect(state.queryHistory[0].source).toBe('manual')
+      expect(state.queryHistory[0].success).toBe(true)
+    })
+
+    it('should add query with custom options', () => {
+      useQueryStore.getState().addToHistory('SELECT * FROM users', 10, 42, {
+        source: 'ai',
+        aiSessionId: 'session-123',
+        queryName: 'Test Query',
+        success: true,
+        projectId: 'project-456',
+      })
+
+      const state = useQueryStore.getState()
+      expect(state.queryHistory[0].source).toBe('ai')
+      expect(state.queryHistory[0].aiSessionId).toBe('session-123')
+      expect(state.queryHistory[0].queryName).toBe('Test Query')
+      expect(state.queryHistory[0].projectId).toBe('project-456')
+    })
+
+    it('should track failed queries', () => {
+      useQueryStore.getState().addToHistory('SELECT * FROM nonexistent', null, null, {
+        success: false,
+        error: 'Table not found',
+      })
+
+      const state = useQueryStore.getState()
+      expect(state.queryHistory[0].success).toBe(false)
+      expect(state.queryHistory[0].error).toBe('Table not found')
     })
 
     it('should add new queries at the beginning', () => {
@@ -142,31 +173,31 @@ describe('queryStore', () => {
       expect(state.queryHistory[2].sql).toBe('SELECT 1')
     })
 
-    it('should limit history to 50 items', () => {
-      // Add 55 queries
-      for (let i = 0; i < 55; i++) {
+    it('should limit history to 500 items', () => {
+      // Add 505 queries
+      for (let i = 0; i < 505; i++) {
         useQueryStore.getState().addToHistory(`SELECT ${i}`, i, i)
       }
 
       const state = useQueryStore.getState()
-      expect(state.queryHistory).toHaveLength(50)
+      expect(state.queryHistory).toHaveLength(500)
       // Most recent should be the last one added
-      expect(state.queryHistory[0].sql).toBe('SELECT 54')
+      expect(state.queryHistory[0].sql).toBe('SELECT 504')
       // Oldest should be removed (0-4 removed)
-      expect(state.queryHistory[49].sql).toBe('SELECT 5')
+      expect(state.queryHistory[499].sql).toBe('SELECT 5')
     })
 
-    it('should generate IDs based on timestamp', async () => {
+    it('should generate unique IDs', async () => {
       useQueryStore.getState().addToHistory('SELECT 1', 1, 10)
       // Small delay to ensure different timestamp
       await new Promise(resolve => setTimeout(resolve, 5))
       useQueryStore.getState().addToHistory('SELECT 2', 1, 10)
 
       const state = useQueryStore.getState()
-      // IDs should be different (timestamp-based)
+      // IDs should be different
       expect(state.queryHistory[0].id).not.toBe(state.queryHistory[1].id)
-      // IDs should look like timestamps (numeric strings)
-      expect(Number(state.queryHistory[0].id)).toBeGreaterThan(0)
+      // IDs should have the new format
+      expect(state.queryHistory[0].id).toMatch(/^query-\d+-[a-z0-9]+$/)
     })
 
     it('should set timestamp', () => {
@@ -185,6 +216,74 @@ describe('queryStore', () => {
       const state = useQueryStore.getState()
       expect(state.queryHistory[0].rowCount).toBeNull()
       expect(state.queryHistory[0].executionTime).toBeNull()
+    })
+  })
+
+  describe('getQueriesBySession', () => {
+    it('should filter queries by session ID', () => {
+      useQueryStore.getState().addToHistory('SELECT 1', 1, 10, { aiSessionId: 'session-1', source: 'ai' })
+      useQueryStore.getState().addToHistory('SELECT 2', 1, 10, { aiSessionId: 'session-2', source: 'ai' })
+      useQueryStore.getState().addToHistory('SELECT 3', 1, 10, { aiSessionId: 'session-1', source: 'ai' })
+
+      const queries = useQueryStore.getState().getQueriesBySession('session-1')
+      expect(queries).toHaveLength(2)
+      expect(queries.every(q => q.aiSessionId === 'session-1')).toBe(true)
+    })
+  })
+
+  describe('getQueriesBySource', () => {
+    it('should filter queries by source', () => {
+      useQueryStore.getState().addToHistory('SELECT 1', 1, 10, { source: 'manual' })
+      useQueryStore.getState().addToHistory('SELECT 2', 1, 10, { source: 'ai' })
+      useQueryStore.getState().addToHistory('SELECT 3', 1, 10, { source: 'manual' })
+
+      const manualQueries = useQueryStore.getState().getQueriesBySource('manual')
+      expect(manualQueries).toHaveLength(2)
+      expect(manualQueries.every(q => q.source === 'manual')).toBe(true)
+
+      const aiQueries = useQueryStore.getState().getQueriesBySource('ai')
+      expect(aiQueries).toHaveLength(1)
+      expect(aiQueries[0].source).toBe('ai')
+    })
+  })
+
+  describe('getSuccessfulQueries', () => {
+    it('should filter only successful queries', () => {
+      useQueryStore.getState().addToHistory('SELECT 1', 1, 10, { success: true })
+      useQueryStore.getState().addToHistory('SELECT 2', null, null, { success: false, error: 'Failed' })
+      useQueryStore.getState().addToHistory('SELECT 3', 1, 10, { success: true })
+
+      const successful = useQueryStore.getState().getSuccessfulQueries()
+      expect(successful).toHaveLength(2)
+      expect(successful.every(q => q.success === true)).toBe(true)
+    })
+  })
+
+  describe('getQueriesByProject', () => {
+    it('should filter queries by project ID', () => {
+      useQueryStore.getState().addToHistory('SELECT 1', 1, 10, { projectId: 'project-1' })
+      useQueryStore.getState().addToHistory('SELECT 2', 1, 10, { projectId: 'project-2' })
+      useQueryStore.getState().addToHistory('SELECT 3', 1, 10, { projectId: 'project-1' })
+
+      const queries = useQueryStore.getState().getQueriesByProject('project-1')
+      expect(queries).toHaveLength(2)
+      expect(queries.every(q => q.projectId === 'project-1')).toBe(true)
+    })
+  })
+
+  describe('removeFromHistory', () => {
+    it('should remove specific query from history', () => {
+      useQueryStore.getState().addToHistory('SELECT 1', 1, 10)
+      useQueryStore.getState().addToHistory('SELECT 2', 1, 10)
+
+      const state = useQueryStore.getState()
+      const idToRemove = state.queryHistory[0].id
+
+      useQueryStore.getState().removeFromHistory(idToRemove)
+
+      const newState = useQueryStore.getState()
+      expect(newState.queryHistory).toHaveLength(1)
+      expect(newState.queryHistory[0].sql).toBe('SELECT 1')
     })
   })
 
