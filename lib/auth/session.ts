@@ -57,7 +57,11 @@ export const getUserOrganizations = cache(async (): Promise<OrganizationWithRole
     orderBy: { createdAt: 'asc' },
   })
 
-  return memberships.map((m) => ({
+  return memberships.map((m: {
+    organization: { id: string; name: string };
+    role: string;
+    accessType: string;
+  }) => ({
     id: m.organization.id,
     name: m.organization.name,
     role: m.role,

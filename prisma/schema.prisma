@@ -305,7 +305,7 @@ model DashboardWidget {
   dashboardId String
   type        WidgetType
 
-  // Reference to either a chart or a query (for table display)
+  // Reference to either a chart or a query (for table/KPI display)
   chartId     String?
   queryId     String?
 
@@ -317,6 +317,9 @@ model DashboardWidget {
 
   // Optional custom title override
   title       String?
+
+  // Widget-specific configuration (e.g., text content, KPI formatting, refresh interval)
+  config      Json?
 
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -333,6 +336,8 @@ model DashboardWidget {
 enum WidgetType {
   CHART
   TABLE
+  KPI
+  TEXT
 }
 
 // ============================================================================

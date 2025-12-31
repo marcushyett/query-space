@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import { checkOrganizationAccess } from '@/lib/auth/session'
 
 const createWidgetSchema = z.object({
-  type: z.enum(['CHART', 'TABLE']),
+  type: z.enum(['CHART', 'TABLE', 'KPI', 'TEXT']),
   chartId: z.string().optional(),
   queryId: z.string().optional(),
   positionX: z.number().min(0).max(11).default(0),
@@ -12,6 +12,7 @@ const createWidgetSchema = z.object({
   width: z.number().min(1).max(12).default(6),
   height: z.number().min(1).max(12).default(4),
   title: z.string().max(200).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 })
 
 const updateWidgetSchema = z.object({
@@ -73,10 +74,10 @@ export async function POST(
       )
     }
 
-    const { type, chartId, queryId, positionX, positionY, width, height, title } =
+    const { type, chartId, queryId, positionX, positionY, width, height, title, config } =
       parsed.data
 
-    // Validate that either chartId or queryId is provided
+    // Validate based on widget type
     if (type === 'CHART' && !chartId) {
       return NextResponse.json(
         { error: 'Chart ID is required for chart widgets' },
@@ -91,17 +92,25 @@ export async function POST(
       )
     }
 
+    if (type === 'KPI' && !queryId) {
+      return NextResponse.json(
+        { error: 'Query ID is required for KPI widgets' },
+        { status: 400 }
+      )
+    }
+
     const widget = await prisma.dashboardWidget.create({
       data: {
         dashboardId,
         type,
         chartId: type === 'CHART' ? chartId : null,
-        queryId: type === 'TABLE' ? queryId : null,
+        queryId: ['TABLE', 'KPI'].includes(type) ? queryId : null,
         positionX,
         positionY,
         width,
         height,
         title,
+        config: config || null,
       },
       select: {
         id: true,
@@ -111,6 +120,7 @@ export async function POST(
         width: true,
         height: true,
         title: true,
+        config: true,
       },
     })
 

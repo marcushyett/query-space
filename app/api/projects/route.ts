@@ -105,7 +105,16 @@ export async function GET(request: NextRequest) {
     ])
 
     return NextResponse.json({
-      projects: projects.map((p) => ({
+      projects: projects.map((p: {
+        id: string;
+        title: string;
+        description: string | null;
+        organizationId: string;
+        organization: { name: string };
+        _count: { queries: number; aiChats: number };
+        createdAt: Date;
+        updatedAt: Date;
+      }) => ({
         id: p.id,
         title: p.title,
         description: p.description,

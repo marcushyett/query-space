@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
 
     // Create user and default organization in a transaction
-    const user = await prisma.$transaction(async (tx) => {
+    const user = await prisma.$transaction(async (tx: typeof prisma) => {
       // Create user
       const newUser = await tx.user.create({
         data: {
