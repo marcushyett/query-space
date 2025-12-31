@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, createContext, useContext } from 'react'
+import { useState, useEffect, createContext, useContext, useLayoutEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { ConfigProvider, Dropdown, Avatar, message, Layout, Flex, Grid } from 'antd'
@@ -55,6 +55,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Scroll to top when navigating to a new page
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
 
   // Initialize connection store when organization changes
   useEffect(() => {

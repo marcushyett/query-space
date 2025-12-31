@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Select, Space, Typography, Switch } from 'antd';
 import {
   BarChartOutlined,
@@ -49,6 +50,31 @@ export function ChartSelector({
   const isPieChart = config.type === 'pie';
   const showBreakdown = !isPieChart && config.yAxes.length === 1 && breakdownColumns.length > 0;
   const showStacked = !isPieChart && (config.yAxes.length > 1 || config.breakdownBy);
+
+  // Memoize options to prevent dropdown flickering on re-render
+  const xAxisOptions = useMemo(() =>
+    availableColumns.map((col) => ({
+      value: col,
+      label: col,
+    })),
+    [availableColumns]
+  );
+
+  const yAxisOptions = useMemo(() =>
+    numericColumns.map((col) => ({
+      value: col,
+      label: col,
+    })),
+    [numericColumns]
+  );
+
+  const breakdownOptions = useMemo(() =>
+    breakdownColumns.map((col) => ({
+      value: col,
+      label: col,
+    })),
+    [breakdownColumns]
+  );
 
   return (
     <Space size="middle" wrap>
@@ -106,10 +132,7 @@ export function ChartSelector({
           onChange={handleXAxisChange}
           style={{ width: 150 }}
           placeholder="Select column"
-          options={availableColumns.map((col) => ({
-            value: col,
-            label: col,
-          }))}
+          options={xAxisOptions}
         />
       </Space>
 
@@ -125,10 +148,8 @@ export function ChartSelector({
           style={{ minWidth: 150, maxWidth: 300 }}
           placeholder="Select columns"
           maxTagCount="responsive"
-          options={numericColumns.map((col) => ({
-            value: col,
-            label: col,
-          }))}
+          options={yAxisOptions}
+          popupMatchSelectWidth={false}
         />
       </Space>
 
@@ -141,10 +162,7 @@ export function ChartSelector({
             style={{ width: 150 }}
             placeholder="None"
             allowClear
-            options={breakdownColumns.map((col) => ({
-              value: col,
-              label: col,
-            }))}
+            options={breakdownOptions}
           />
         </Space>
       )}

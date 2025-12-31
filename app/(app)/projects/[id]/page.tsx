@@ -12,6 +12,7 @@ import {
   Typography,
   Dropdown,
   Breadcrumb,
+  Grid,
 } from 'antd'
 import { TechSpinner } from '@/components/TechSpinner'
 import {
@@ -27,6 +28,7 @@ import {
 import { useOrganization } from '../../layout'
 
 const { Text, Paragraph } = Typography
+const { useBreakpoint } = Grid
 
 interface Project {
   id: string
@@ -55,6 +57,8 @@ interface Query {
 export default function ProjectPage() {
   const params = useParams()
   const router = useRouter()
+  const screens = useBreakpoint()
+  const isMobile = !screens.md
   const projectId = params.id as string
   const { currentOrg } = useOrganization()
 
@@ -184,10 +188,11 @@ export default function ProjectPage() {
     return date.toLocaleDateString()
   }
 
-  const truncateSql = (sql: string, maxLength = 100) => {
+  const truncateSql = (sql: string, maxLength?: number) => {
+    const length = maxLength ?? (isMobile ? 40 : 80)
     const cleaned = sql.replace(/\s+/g, ' ').trim()
-    if (cleaned.length <= maxLength) return cleaned
-    return cleaned.slice(0, maxLength) + '...'
+    if (cleaned.length <= length) return cleaned
+    return cleaned.slice(0, length) + '...'
   }
 
   if (loading) {
@@ -343,9 +348,10 @@ export default function ProjectPage() {
                   key={query.id}
                   className="query-card"
                   onClick={() => router.push(`/projects/${projectId}/query/${query.id}`)}
+                  style={{ maxWidth: isMobile ? '100%' : undefined }}
                 >
                   <div className="query-card-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                       <div style={{
                         width: 36,
                         height: 36,
@@ -358,8 +364,12 @@ export default function ProjectPage() {
                       }}>
                         <CodeOutlined style={{ color: '#888', fontSize: 16 }} />
                       </div>
-                      <div>
-                        <h4 className="query-card-title">
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <h4 className="query-card-title" style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}>
                           {query.name || 'Untitled Query'}
                         </h4>
                         <div className="query-card-meta">
@@ -369,24 +379,41 @@ export default function ProjectPage() {
                     </div>
                   </div>
 
-                  <Text
-                    code
-                    style={{
-                      display: 'block',
-                      fontSize: 11,
-                      marginBottom: 12,
-                      background: 'rgba(255,255,255,0.05)',
-                      padding: '8px 10px',
-                      borderRadius: 4,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {truncateSql(query.sql)}
-                  </Text>
+                  {/* Show description if available, otherwise show truncated SQL */}
+                  {query.description ? (
+                    <Text
+                      type="secondary"
+                      style={{
+                        display: 'block',
+                        fontSize: 12,
+                        marginBottom: 12,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {query.description}
+                    </Text>
+                  ) : (
+                    <Text
+                      code
+                      style={{
+                        display: 'block',
+                        fontSize: 11,
+                        marginBottom: 12,
+                        background: 'rgba(255,255,255,0.05)',
+                        padding: '8px 10px',
+                        borderRadius: 4,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {truncateSql(query.sql)}
+                    </Text>
+                  )}
 
-                  <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#666' }}>
+                  <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#666', flexWrap: 'wrap' }}>
                     {query.rowCount !== null && (
                       <span>{query.rowCount.toLocaleString()} rows</span>
                     )}
