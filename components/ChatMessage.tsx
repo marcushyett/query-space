@@ -10,6 +10,11 @@ import {
   QuestionCircleOutlined,
   BarChartOutlined,
   PlayCircleOutlined,
+  LoadingOutlined,
+  TableOutlined,
+  SearchOutlined,
+  CodeOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import type { ChatMessage as ChatMessageType } from '@/stores/aiChatStore';
@@ -63,7 +68,63 @@ interface ChatMessageProps {
   onResume?: () => void;
 }
 
+// Tool icons for activity messages
+const TOOL_ICONS: Record<string, React.ReactNode> = {
+  get_table_schema: <TableOutlined />,
+  get_json_keys: <SearchOutlined />,
+  execute_query: <CodeOutlined />,
+  validate_query: <CheckCircleOutlined />,
+  update_query_ui: <EditOutlined />,
+  generate_chart: <BarChartOutlined />,
+};
+
 export function ChatMessage({ message, isLatest, onLoadQuery, onResume }: ChatMessageProps) {
+  // Thinking message (inline reasoning)
+  if (message.isThinking) {
+    return (
+      <div className="chat-message chat-message-thinking">
+        <div className="chat-message-icon chat-message-icon-thinking">
+          <RobotOutlined />
+        </div>
+        <div className="chat-message-content">
+          <Text type="secondary" style={{ fontSize: 12, fontStyle: 'italic' }}>
+            {message.content}
+          </Text>
+        </div>
+      </div>
+    );
+  }
+
+  // Tool activity message
+  if (message.toolActivity) {
+    const { toolName, status, description, result } = message.toolActivity;
+    const icon = TOOL_ICONS[toolName] || <CodeOutlined />;
+    const statusIcon = status === 'running' ? <LoadingOutlined spin /> :
+                       status === 'success' ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> :
+                       <CheckCircleOutlined style={{ color: '#ff4d4f' }} />;
+
+    return (
+      <div className="chat-message chat-message-tool-activity">
+        <div className="chat-message-icon chat-message-icon-tool">
+          {icon}
+        </div>
+        <div className="chat-message-content">
+          <Space size={8}>
+            {statusIcon}
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {description}
+            </Text>
+          </Space>
+          {result && (
+            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
+              {result}
+            </Text>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // System message (query results, errors)
   if (message.role === 'system') {
     const isError = message.content.toLowerCase().includes('error');

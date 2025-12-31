@@ -5,7 +5,10 @@ import { requireUser } from '@/lib/auth/session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 120; // 2 minute max for agent execution
+export const maxDuration = 780; // 13 minutes - Vercel's maximum for serverless functions
+
+// Warn before timeout - give 30 seconds buffer for graceful shutdown
+const TIMEOUT_WARNING_MS = 750 * 1000; // 12.5 minutes (750 seconds)
 
 interface AgentRequest {
   prompt: string;
@@ -76,6 +79,9 @@ export async function POST(request: NextRequest) {
     // Stream the response
     const stream = new ReadableStream({
       async start(controller) {
+        const startTime = Date.now();
+        let timeoutWarningSent = false;
+
         try {
           const agentStream = streamQueryAgent(
             prompt,
@@ -91,6 +97,44 @@ export async function POST(request: NextRequest) {
           for await (const event of agentStream) {
             if (abortController.signal.aborted) {
               break;
+            }
+
+            // Check if we're approaching the timeout limit
+            const elapsed = Date.now() - startTime;
+            if (!timeoutWarningSent && elapsed >= TIMEOUT_WARNING_MS) {
+              timeoutWarningSent = true;
+              const timeoutEvent: AgentStreamEvent = {
+                type: 'error',
+                error: 'Approaching execution time limit. The session will be paused automatically. You can resume it to continue.',
+              };
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(timeoutEvent)}\n\n`));
+
+              // Send a complete event with timeout reason so the client knows to pause
+              const completeEvent: AgentStreamEvent = {
+                type: 'complete',
+                state: {
+                  goal: '',
+                  currentStep: 0,
+                  maxSteps: MAX_AGENT_STEPS,
+                  hasCompletedGoal: false,
+                  currentSql: null,
+                  previousSql: null,
+                  lastError: null,
+                  toolCalls: [],
+                  reachedStepLimit: false,
+                  assumptions: [],
+                  dataQualityNotes: null,
+                  alternativeApproaches: [],
+                  todos: [],
+                  hasIncompleteTodos: true,
+                  stopReason: 'timeout',
+                },
+              };
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(completeEvent)}\n\n`));
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+              controller.close();
+              abortController.abort();
+              return;
             }
 
             const data = JSON.stringify(event);

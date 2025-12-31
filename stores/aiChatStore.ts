@@ -76,6 +76,15 @@ export interface ChatMessage {
   summary?: string;
   // For todo list snapshots
   todos?: AgentTodoItem[];
+  // For inline thinking/reasoning messages
+  isThinking?: boolean;
+  // For inline tool activity messages
+  toolActivity?: {
+    toolName: string;
+    status: 'running' | 'success' | 'error';
+    description: string;
+    result?: string;
+  };
 }
 
 export interface AgentProgress {
@@ -88,7 +97,7 @@ export interface AgentProgress {
   toolCalls: ToolCallInfo[];
   streamingText: string;
   todos: AgentTodoItem[];
-  stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | null;
+  stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | 'timeout' | null;
   hasIncompleteTodos: boolean;
 }
 
@@ -116,6 +125,8 @@ interface AiChatStore {
   addChartMessage: (chartData: ChatChartData, explanation?: string) => void;
   addQueryMessage: (queryMetadata: QueryMetadata) => void;
   addTodoMessage: (todos: AgentTodoItem[]) => void;
+  addThinkingMessage: (content: string) => void;
+  addToolActivityMessage: (toolName: string, status: 'running' | 'success' | 'error', description: string, result?: string) => void;
   setCurrentSql: (sql: string | null) => void;
   setIsGenerating: (generating: boolean) => void;
   setIsAiGenerated: (isAiGenerated: boolean) => void;
@@ -272,31 +283,49 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
   },
 
   addTodoMessage: (todos: AgentTodoItem[]) => {
-    set((state) => {
-      // Find existing todo message to update
-      const existingTodoIndex = state.messages.findIndex(m => m.role === 'system' && m.todos);
+    // Always add a new snapshot of the todo list to show progress inline
+    const todoMessage: ChatMessage = {
+      id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      role: 'system',
+      content: '',
+      timestamp: Date.now(),
+      todos: todos.map(t => ({ ...t })),
+    };
+    set((state) => ({
+      messages: [...state.messages, todoMessage],
+    }));
+  },
 
-      if (existingTodoIndex !== -1) {
-        // Update existing todo message in place
-        const updatedMessages = [...state.messages];
-        updatedMessages[existingTodoIndex] = {
-          ...updatedMessages[existingTodoIndex],
-          todos: todos.map(t => ({ ...t })),
-          timestamp: Date.now(),
-        };
-        return { messages: updatedMessages };
-      } else {
-        // Create new todo message only if none exists
-        const todoMessage: ChatMessage = {
-          id: `todo-${Date.now()}`,
-          role: 'system',
-          content: '',
-          timestamp: Date.now(),
-          todos: todos.map(t => ({ ...t })),
-        };
-        return { messages: [...state.messages, todoMessage] };
-      }
-    });
+  addThinkingMessage: (content: string) => {
+    if (!content.trim()) return;
+    const thinkingMessage: ChatMessage = {
+      id: `thinking-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      role: 'assistant',
+      content: content.trim(),
+      timestamp: Date.now(),
+      isThinking: true,
+    };
+    set((state) => ({
+      messages: [...state.messages, thinkingMessage],
+    }));
+  },
+
+  addToolActivityMessage: (toolName: string, status: 'running' | 'success' | 'error', description: string, result?: string) => {
+    const activityMessage: ChatMessage = {
+      id: `tool-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      role: 'system',
+      content: description,
+      timestamp: Date.now(),
+      toolActivity: {
+        toolName,
+        status,
+        description,
+        result,
+      },
+    };
+    set((state) => ({
+      messages: [...state.messages, activityMessage],
+    }));
   },
 
   setCurrentSql: (sql: string | null) => {
