@@ -47,6 +47,7 @@ export function useAiAgent() {
     addTodoMessage,
     addThinkingMessage,
     addToolActivityMessage,
+    updateLatestToolActivityMessage,
     setCurrentSql,
     setIsAiGenerated,
     startNewConversation,
@@ -254,12 +255,20 @@ export function useAiAgent() {
 
                   case 'tool_call_result': {
                     const tc = event.toolCall;
+                    const hasError = !!(tc.result as { error?: string })?.error;
+                    const toolStatus = hasError ? 'error' : 'success';
 
                     // Update the tool call with result
                     updateAgentToolCall(tc.id, {
                       result: tc.result,
-                      status: (tc.result as { error?: string })?.error ? 'error' : 'success',
+                      status: toolStatus,
                     });
+
+                    // Update tool activity message status (for tools that show inline activity)
+                    const toolsWithActivity = ['get_table_schema', 'get_json_keys', 'execute_query', 'validate_query'];
+                    if (toolsWithActivity.includes(tc.toolName)) {
+                      updateLatestToolActivityMessage(tc.toolName, toolStatus);
+                    }
 
                     // Update session with tool call
                     if (sessionIdRef.current) {
@@ -601,6 +610,8 @@ export function useAiAgent() {
       addChartMessage,
       addQueryMessage,
       addTodoMessage,
+      addToolActivityMessage,
+      updateLatestToolActivityMessage,
       startAgent,
       updateAgentStep,
       appendStreamingText,
@@ -812,10 +823,19 @@ Instructions:
 
                 case 'tool_call_result': {
                   const tc = event.toolCall;
+                  const hasError = !!(tc.result as { error?: string })?.error;
+                  const toolStatus = hasError ? 'error' : 'success';
+
                   updateAgentToolCall(tc.id, {
                     result: tc.result,
-                    status: (tc.result as { error?: string })?.error ? 'error' : 'success',
+                    status: toolStatus,
                   });
+
+                  // Update tool activity message status (for tools that show inline activity)
+                  const toolsWithActivity = ['get_table_schema', 'get_json_keys', 'execute_query', 'validate_query'];
+                  if (toolsWithActivity.includes(tc.toolName)) {
+                    updateLatestToolActivityMessage(tc.toolName, toolStatus);
+                  }
 
                   if (tc.toolName === 'update_query_ui') {
                     const args = tc.args as {
@@ -1070,6 +1090,8 @@ Instructions:
     addChartMessage,
     addQueryMessage,
     addTodoMessage,
+    addToolActivityMessage,
+    updateLatestToolActivityMessage,
     startAgent,
     updateAgentStep,
     appendStreamingText,
@@ -1237,10 +1259,19 @@ If you encounter an error or need help, explain what went wrong.`;
 
                   case 'tool_call_result': {
                     const tc = event.toolCall;
+                    const hasError = !!(tc.result as { error?: string })?.error;
+                    const toolStatus = hasError ? 'error' : 'success';
+
                     updateAgentToolCall(tc.id, {
                       result: tc.result,
-                      status: (tc.result as { error?: string })?.error ? 'error' : 'success',
+                      status: toolStatus,
                     });
+
+                    // Update tool activity message status (for tools that show inline activity)
+                    const toolsWithActivity = ['get_table_schema', 'get_json_keys', 'execute_query', 'validate_query'];
+                    if (toolsWithActivity.includes(tc.toolName)) {
+                      updateLatestToolActivityMessage(tc.toolName, toolStatus);
+                    }
 
                     // Update session
                     if (sessionIdRef.current) {
@@ -1519,6 +1550,8 @@ If you encounter an error or need help, explain what went wrong.`;
       addChartMessage,
       addQueryMessage,
       addTodoMessage,
+      addToolActivityMessage,
+      updateLatestToolActivityMessage,
       startAgent,
       updateAgentStep,
       appendStreamingText,

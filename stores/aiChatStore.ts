@@ -127,6 +127,7 @@ interface AiChatStore {
   addTodoMessage: (todos: AgentTodoItem[]) => void;
   addThinkingMessage: (content: string) => void;
   addToolActivityMessage: (toolName: string, status: 'running' | 'success' | 'error', description: string, result?: string) => void;
+  updateLatestToolActivityMessage: (toolName: string, status: 'running' | 'success' | 'error', result?: string) => void;
   setCurrentSql: (sql: string | null) => void;
   setIsGenerating: (generating: boolean) => void;
   setIsAiGenerated: (isAiGenerated: boolean) => void;
@@ -326,6 +327,27 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
     set((state) => ({
       messages: [...state.messages, activityMessage],
     }));
+  },
+
+  updateLatestToolActivityMessage: (toolName: string, status: 'running' | 'success' | 'error', result?: string) => {
+    set((state) => {
+      // Find the most recent tool activity message for this tool name
+      const messages = [...state.messages];
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].toolActivity?.toolName === toolName && messages[i].toolActivity?.status === 'running') {
+          messages[i] = {
+            ...messages[i],
+            toolActivity: {
+              ...messages[i].toolActivity!,
+              status,
+              result: result || messages[i].toolActivity!.result,
+            },
+          };
+          break;
+        }
+      }
+      return { messages };
+    });
   },
 
   setCurrentSql: (sql: string | null) => {
