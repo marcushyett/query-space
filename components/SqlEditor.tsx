@@ -9,7 +9,8 @@ import { useQueryStore } from '@/stores/queryStore';
 import { useSchemaStore } from '@/stores/schemaStore';
 import type { SchemaTable } from '@/app/api/schema/route';
 import { useUrlState } from '@/hooks/useUrlState';
-import { formatSql } from '@/lib/sql-formatter';
+import { formatSql, lintSql } from '@/lib/sql-formatter';
+import { App } from 'antd';
 
 const { useBreakpoint } = Grid;
 
@@ -40,6 +41,7 @@ const PG_FUNCTIONS = [
 ];
 
 export function SqlEditor() {
+  const { message } = App.useApp();
   const { currentQuery, setCurrentQuery } = useQueryStore();
   const tables = useSchemaStore((state) => state.tables);
   const screens = useBreakpoint();
@@ -66,6 +68,13 @@ export function SqlEditor() {
     if (currentQuery) {
       const formatted = formatSql(currentQuery);
       setCurrentQuery(formatted);
+
+      // Lint after formatting and show any errors
+      const lintErrors = lintSql(formatted);
+      const criticalErrors = lintErrors.filter(e => e.severity === 'error');
+      if (criticalErrors.length > 0) {
+        message.error(criticalErrors[0].message);
+      }
     }
   };
 

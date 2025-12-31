@@ -231,11 +231,15 @@ IMPORTANT: Only generate charts for aggregated/analytical queries. Skip charts f
 - Single row results
 - Queries returning only text columns
 
-## FINISHING
+## FINISHING (REQUIRED - FOLLOW EXACTLY)
 1. Call update_query_ui with:
    - The final SQL query
    - A brief explanation of what it does${isFollowUp ? '\n   - What you changed from the previous query' : ''}
-2. ALWAYS call set_query_name immediately after update_query_ui with a descriptive name (2-5 words)`;
+2. **IMMEDIATELY after update_query_ui, you MUST call set_query_name** with a descriptive name
+   - This is REQUIRED - never skip this step!
+   - Name should be 2-5 words describing what the query does
+   - Examples: "Monthly Sales Report", "Active Users by Region", "Top Products Analysis"
+   - The name should help users understand the query at a glance`;
 }
 
 export type AgentStreamEvent =
@@ -288,15 +292,16 @@ export async function* streamQueryAgent(
     const isFollowUp = !!config.previousSql;
 
     // Use Vercel AI SDK's native agent loop with streamText
-    // stopWhen conditions: stop when update_query_ui is called OR max steps reached
+    // stopWhen conditions: stop when set_query_name is called OR max steps reached
+    // We stop on set_query_name (not update_query_ui) so the agent has a chance to name the query
     const result = streamText({
       model,
       system: buildSystemPrompt(state.goal, isFollowUp, config.previousContext),
       messages: [{ role: 'user', content: userContent }],
       tools,
-      // Stop when the agent calls update_query_ui (goal achieved) or after max steps
+      // Stop when the agent calls set_query_name (goal fully achieved) or after max steps
       stopWhen: [
-        hasToolCall('update_query_ui'),
+        hasToolCall('set_query_name'),
         stepCountIs(MAX_AGENT_STEPS),
       ],
       abortSignal: signal,

@@ -34,6 +34,7 @@ import { useQueryStore, QueryResult } from '@/stores/queryStore'
 import { useSchemaStore } from '@/stores/schemaStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useAiChatStore } from '@/stores/aiChatStore'
+import { formatSql, lintSql } from '@/lib/sql-formatter'
 
 const { Text } = Typography
 const { useBreakpoint } = Grid
@@ -146,10 +147,26 @@ export default function QueryEditorPage() {
         setCurrentQuery(data.query.sql)
 
         // Restore sample results if available
-        if (data.query.sampleResults) {
+        if (data.query.sampleResults && data.query.sampleResults.length > 0) {
+          // Infer fields from the sample data
+          const sampleRow = data.query.sampleResults[0]
+          const inferredFields = Object.keys(sampleRow).map((name) => {
+            const value = sampleRow[name]
+            // Infer dataTypeID based on value type
+            let dataTypeID = 25 // Default to text (varchar)
+            if (typeof value === 'number') {
+              dataTypeID = Number.isInteger(value) ? 23 : 701 // int4 or float8
+            } else if (typeof value === 'boolean') {
+              dataTypeID = 16 // bool
+            } else if (value instanceof Date || (typeof value === 'string' && !isNaN(Date.parse(value)) && /^\d{4}-\d{2}-\d{2}/.test(value))) {
+              dataTypeID = 1114 // timestamp
+            }
+            return { name, dataTypeID }
+          })
+
           setQueryResults({
             rows: data.query.sampleResults,
-            fields: [],
+            fields: inferredFields,
             rowCount: data.query.rowCount || 0,
             executionTime: data.query.executionTime || 0,
           })
@@ -204,6 +221,27 @@ export default function QueryEditorPage() {
   const executeQuery = useCallback(async () => {
     if (!currentQuery || !currentOrg) return
 
+    // Auto-format the query before running
+    const formattedQuery = formatSql(currentQuery)
+    if (formattedQuery !== currentQuery) {
+      setCurrentQuery(formattedQuery)
+    }
+
+    // Lint the query before running
+    const lintErrors = lintSql(formattedQuery)
+    const criticalErrors = lintErrors.filter(e => e.severity === 'error')
+
+    if (criticalErrors.length > 0) {
+      message.error(criticalErrors[0].message)
+      return
+    }
+
+    // Show warnings but continue
+    const warnings = lintErrors.filter(e => e.severity === 'warning')
+    if (warnings.length > 0) {
+      message.warning(warnings[0].message)
+    }
+
     setIsExecuting(true)
     try {
       const res = await fetch('/api/query', {
@@ -211,7 +249,7 @@ export default function QueryEditorPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           organizationId: currentOrg.id,
-          sql: currentQuery,
+          sql: formattedQuery,
         }),
       })
 
@@ -234,7 +272,7 @@ export default function QueryEditorPage() {
     } finally {
       setIsExecuting(false)
     }
-  }, [currentQuery, currentOrg, setIsExecuting, setQueryResults])
+  }, [currentQuery, currentOrg, setIsExecuting, setQueryResults, setCurrentQuery])
 
   const handleSave = async () => {
     if (!currentQuery) {
@@ -244,13 +282,46 @@ export default function QueryEditorPage() {
 
     setSaving(true)
     try {
+      // Generate description and name using AI if not already set
+      let description: string | null = queryData?.description ?? null
+      let finalName = queryName
+
+      // Only generate if we're saving a new query or the description is empty
+      if (currentOrg?.id && (!description || !finalName)) {
+        try {
+          const aiRes = await fetch('/api/ai-describe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              organizationId: currentOrg.id,
+              sql: currentQuery,
+              name: finalName || undefined,
+            }),
+          })
+
+          if (aiRes.ok) {
+            const aiData = await aiRes.json()
+            if (!description && aiData.description) {
+              description = aiData.description
+            }
+            if (!finalName && aiData.suggestedName) {
+              finalName = aiData.suggestedName
+              setQueryName(finalName)
+            }
+          }
+        } catch {
+          // Silently continue if AI fails - description is optional
+        }
+      }
+
       if (isNew) {
         // Create new query
         const res = await fetch(`/api/projects/${projectId}/queries`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: queryName || null,
+            name: finalName || null,
+            description,
             sql: currentQuery,
             sampleResults: queryResults?.rows?.slice(0, 10),
             rowCount: queryResults?.rowCount,
@@ -271,7 +342,8 @@ export default function QueryEditorPage() {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: queryName || null,
+            name: finalName || null,
+            description,
             sql: currentQuery,
             sampleResults: queryResults?.rows?.slice(0, 10),
             rowCount: queryResults?.rowCount,
