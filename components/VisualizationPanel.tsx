@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Typography, Empty } from 'antd';
 import { ColumnChart } from './ColumnChart';
+import { BarChart } from './BarChart';
 import { LineChart } from './LineChart';
 import { AreaChart } from './AreaChart';
 import { PieChart } from './PieChart';
@@ -13,6 +14,17 @@ import { WaterfallChart } from './WaterfallChart';
 import { HeatmapChart } from './HeatmapChart';
 import { RadarChart } from './RadarChart';
 import { ChartSelector } from './ChartSelector';
+// Advanced charts
+import { MapChart } from './charts/MapChart';
+import { TreemapChart } from './charts/TreemapChart';
+import { SunburstChart } from './charts/SunburstChart';
+import { SankeyChart } from './charts/SankeyChart';
+import { NetworkChart } from './charts/NetworkChart';
+import { GaugeChart } from './charts/GaugeChart';
+import { BubbleChart } from './charts/BubbleChart';
+import { HistogramChart } from './charts/HistogramChart';
+import { BoxPlotChart } from './charts/BoxPlotChart';
+import { TimelineChart } from './charts/TimelineChart';
 import {
   isChartable,
   suggestChartConfig,
@@ -22,8 +34,14 @@ import {
   prepareWaterfallData,
   prepareHeatmapData,
   prepareRadarData,
+  prepareBubbleData,
+  prepareHistogramData,
+  prepareTreemapData,
+  prepareGaugeData,
+  prepareMapData,
   isNumericType,
   isDateType,
+  isTextType,
   getBreakdownColumns,
   type ChartConfig,
 } from '@/lib/chart-utils';
@@ -83,6 +101,20 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
     if (!queryResult) return [];
     return queryResult.fields
       .filter((f) => isNumericType(f.dataTypeID))
+      .map((f) => f.name);
+  }, [queryResult]);
+
+  const textColumns = useMemo(() => {
+    if (!queryResult) return [];
+    return queryResult.fields
+      .filter((f) => isTextType(f.dataTypeID))
+      .map((f) => f.name);
+  }, [queryResult]);
+
+  const dateColumns = useMemo(() => {
+    if (!queryResult) return [];
+    return queryResult.fields
+      .filter((f) => isDateType(f.dataTypeID))
       .map((f) => f.name);
   }, [queryResult]);
 
@@ -169,6 +201,8 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
 
   const renderChart = () => {
     // Handle special chart types that need different data preparation
+
+    // Scatter chart
     if (chartConfig.type === 'scatter' && queryResult) {
       const scatterData = prepareScatterData(queryResult, chartConfig);
       if (!scatterData) {
@@ -193,6 +227,82 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
       );
     }
 
+    // Bubble chart
+    if (chartConfig.type === 'bubble' && queryResult) {
+      const bubbleData = prepareBubbleData(queryResult, chartConfig);
+      if (!bubbleData) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select X, Y, and size columns for bubble chart
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <BubbleChart
+          data={bubbleData.data}
+          xColumn={bubbleData.xColumn}
+          yColumn={bubbleData.yColumn}
+          sizeColumn={bubbleData.sizeColumn}
+          colorColumn={bubbleData.colorColumn}
+        />
+      );
+    }
+
+    // Histogram chart
+    if (chartConfig.type === 'histogram' && queryResult) {
+      const histogramData = prepareHistogramData(queryResult, chartConfig);
+      if (!histogramData) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select a numeric column for histogram
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <HistogramChart
+          data={histogramData.data}
+          valueColumn={histogramData.valueColumn}
+          binCount={chartConfig.binCount}
+          showNormal={chartConfig.showNormal}
+          cumulative={chartConfig.cumulative}
+        />
+      );
+    }
+
+    // Box Plot chart
+    if (chartConfig.type === 'boxplot' && queryResult) {
+      if (!chartConfig.xAxis || chartConfig.yAxes.length === 0) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select category and value columns for box plot
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <BoxPlotChart
+          data={queryResult.rows}
+          categoryColumn={chartConfig.xAxis}
+          valueColumn={chartConfig.yAxes[0]}
+          showOutliers={chartConfig.showOutliers}
+          showMean={chartConfig.showMean}
+          whiskerType={chartConfig.whiskerType}
+        />
+      );
+    }
+
+    // Funnel chart
     if (chartConfig.type === 'funnel' && queryResult) {
       const funnelData = prepareFunnelData(queryResult, chartConfig);
       if (!funnelData) {
@@ -214,6 +324,7 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
       );
     }
 
+    // Waterfall chart
     if (chartConfig.type === 'waterfall' && queryResult) {
       const waterfallData = prepareWaterfallData(queryResult, chartConfig);
       if (!waterfallData) {
@@ -230,6 +341,7 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
       return <WaterfallChart data={waterfallData.data} />;
     }
 
+    // Heatmap chart
     if (chartConfig.type === 'heatmap' && queryResult) {
       const heatmapData = prepareHeatmapData(queryResult, chartConfig);
       if (!heatmapData) {
@@ -254,6 +366,7 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
       );
     }
 
+    // Radar chart
     if (chartConfig.type === 'radar' && queryResult) {
       const radarData = prepareRadarData(queryResult, chartConfig);
       if (!radarData) {
@@ -276,6 +389,209 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
       );
     }
 
+    // Treemap chart
+    if (chartConfig.type === 'treemap' && queryResult) {
+      const treemapData = prepareTreemapData(queryResult, chartConfig);
+      if (!treemapData) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select category and value columns for treemap
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <TreemapChart
+          data={treemapData.data}
+          pathColumns={treemapData.pathColumns}
+          valueColumn={treemapData.valueColumn}
+          colorByValue={chartConfig.colorByValue}
+          showLabels={chartConfig.showLabels}
+          labelMinSize={chartConfig.labelMinSize}
+        />
+      );
+    }
+
+    // Sunburst chart
+    if (chartConfig.type === 'sunburst' && queryResult) {
+      const sunburstData = prepareTreemapData(queryResult, chartConfig);
+      if (!sunburstData) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select hierarchy columns and value for sunburst
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <SunburstChart
+          data={sunburstData.data}
+          pathColumns={sunburstData.pathColumns}
+          valueColumn={sunburstData.valueColumn}
+          showLabels={chartConfig.showLabels}
+          highlightAncestors={chartConfig.highlightAncestors}
+        />
+      );
+    }
+
+    // Sankey chart
+    if (chartConfig.type === 'sankey' && queryResult) {
+      // Auto-detect source/target columns if not set
+      const sourceCol = chartConfig.sourceColumn || textColumns[0];
+      const targetCol = chartConfig.targetColumn || textColumns[1];
+      const valueCol = chartConfig.yAxes[0] || numericColumns[0];
+
+      if (!sourceCol || !targetCol || !valueCol) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Need source, target, and value columns for Sankey diagram
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <SankeyChart
+          data={queryResult.rows}
+          sourceColumn={sourceCol}
+          targetColumn={targetCol}
+          valueColumn={valueCol}
+          nodeWidth={chartConfig.nodeWidth}
+          nodePadding={chartConfig.nodePadding}
+          linkOpacity={chartConfig.linkOpacity}
+          colorMode={chartConfig.colorMode}
+        />
+      );
+    }
+
+    // Network chart
+    if (chartConfig.type === 'network' && queryResult) {
+      // Auto-detect source/target columns if not set
+      const sourceCol = chartConfig.sourceColumn || textColumns[0];
+      const targetCol = chartConfig.targetColumn || textColumns[1];
+
+      if (!sourceCol || !targetCol) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Need source and target columns for network graph
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <NetworkChart
+          data={queryResult.rows}
+          sourceColumn={sourceCol}
+          targetColumn={targetCol}
+          weightColumn={chartConfig.weightColumn || (numericColumns.length > 0 ? numericColumns[0] : undefined)}
+          nodeSize={chartConfig.nodeSize}
+          sizeByConnections={chartConfig.sizeByConnections}
+          showLabels={chartConfig.showLabels}
+          layout={chartConfig.layout}
+          linkDistance={chartConfig.linkDistance}
+        />
+      );
+    }
+
+    // Gauge chart
+    if (chartConfig.type === 'gauge' && queryResult) {
+      const gaugeData = prepareGaugeData(queryResult, chartConfig);
+      if (!gaugeData) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select a value column for gauge
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <GaugeChart
+          value={gaugeData.value}
+          min={gaugeData.min}
+          max={gaugeData.max}
+          target={gaugeData.target}
+          label={gaugeData.label}
+          gaugeType={chartConfig.gaugeType}
+          thresholds={chartConfig.thresholds}
+        />
+      );
+    }
+
+    // Timeline chart
+    if (chartConfig.type === 'timeline' && queryResult) {
+      // Auto-detect date columns if not set
+      const labelCol = chartConfig.xAxis || textColumns[0];
+      const startCol = chartConfig.startColumn || dateColumns[0];
+      const endCol = chartConfig.endColumn || dateColumns[1] || dateColumns[0];
+
+      if (!labelCol || !startCol || !endCol) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Need label, start date, and end date columns for timeline
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <TimelineChart
+          data={queryResult.rows}
+          labelColumn={labelCol}
+          startColumn={startCol}
+          endColumn={endCol}
+          categoryColumn={chartConfig.categoryColumn || undefined}
+          progressColumn={chartConfig.progressColumn || undefined}
+          showMilestones={chartConfig.showMilestones}
+          showProgress={chartConfig.showProgress}
+          groupByCategory={chartConfig.groupByCategory}
+          barHeight={chartConfig.barHeight}
+        />
+      );
+    }
+
+    // Map chart
+    if (chartConfig.type === 'map' && queryResult) {
+      const mapData = prepareMapData(queryResult, chartConfig);
+      if (!mapData) {
+        return (
+          <Empty
+            description={
+              <Text type="secondary">
+                Select region and value columns for map
+              </Text>
+            }
+          />
+        );
+      }
+      return (
+        <MapChart
+          data={mapData.data}
+          regionColumn={mapData.regionColumn}
+          valueColumn={mapData.valueColumn}
+          mapType={chartConfig.mapType}
+          displayMode={chartConfig.displayMode}
+          showLabels={chartConfig.showLabels}
+          colorScale={chartConfig.colorScale === 'categorical' ? 'sequential' : chartConfig.colorScale}
+        />
+      );
+    }
+
     // Standard charts use prepareChartData
     if (!chartData) {
       return (
@@ -290,6 +606,15 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
     }
 
     switch (chartConfig.type) {
+      case 'bar':
+        return (
+          <BarChart
+            data={chartData.data}
+            xAxisKey={chartData.xAxisKey}
+            yAxisKeys={chartData.yAxisKeys}
+            stacked={chartConfig.stacked}
+          />
+        );
       case 'line':
         return (
           <LineChart
