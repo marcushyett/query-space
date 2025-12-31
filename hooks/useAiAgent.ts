@@ -186,7 +186,7 @@ export function useAiAgent() {
         let buffer = '';
         let finalSql: string | null = null;
         let reachedLimit = false;
-        let stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | null = null;
+        let stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | 'timeout' | null = null;
         let hasIncompleteTodos = false;
 
         while (true) {
@@ -502,7 +502,11 @@ export function useAiAgent() {
         }
 
         // Show appropriate message based on stop reason
-        if (reachedLimit) {
+        if (stopReason === 'timeout') {
+          addSystemMessage(
+            `Agent paused due to execution time limit. Click "Continue" to resume.`
+          );
+        } else if (reachedLimit) {
           addSystemMessage(
             `Agent reached ${MAX_STEPS} step limit. Click "Continue" to let it keep trying.`
           );
@@ -1099,15 +1103,17 @@ ${session.resumptionContext}
 You are resuming a previous session. The todo list already exists with ${completedTodos.length}/${session.todos.length} tasks completed.
 
 ${incompleteTodos.length > 0 ? `INCOMPLETE TASKS (must be completed):
-${incompleteTodos.map(t => `- [${t.status === 'in_progress' ? 'IN PROGRESS' : 'PENDING'}] ${t.text}`).join('\n')}
+${incompleteTodos.map(t => `- [${t.status === 'in_progress' ? 'IN PROGRESS' : 'PENDING'}] id="${t.id}" - ${t.text}`).join('\n')}
 
 Steps to continue:
 1. DO NOT recreate the todo list - it already exists!
-2. Use manage_todo(action="set_current", item_id="...") to mark the next pending task as in progress
+2. Use manage_todo(action="set_current", item_id="<id from list above>") to mark the next pending task as in progress
 3. Complete that task
-4. Use manage_todo(action="complete", item_id="...") to mark it done
+4. Use manage_todo(action="complete", item_id="<id from list above>") to mark it done
 5. Repeat for ALL remaining tasks
-6. ONLY call update_query_ui and set_query_name after ALL todos are completed` : 'All tasks appear complete. Verify the work and finalize.'}
+6. ONLY call update_query_ui and set_query_name after ALL todos are completed
+
+IMPORTANT: Use the EXACT item_id values shown above (e.g., "${incompleteTodos[0]?.id || 'todo-xxx'}"). Do NOT fabricate or guess IDs.` : 'All tasks appear complete. Verify the work and finalize.'}
 
 If you encounter an error or need help, explain what went wrong.`;
 

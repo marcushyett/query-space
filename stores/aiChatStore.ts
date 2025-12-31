@@ -88,7 +88,7 @@ export interface AgentProgress {
   toolCalls: ToolCallInfo[];
   streamingText: string;
   todos: AgentTodoItem[];
-  stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | null;
+  stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | 'timeout' | null;
   hasIncompleteTodos: boolean;
 }
 

@@ -97,7 +97,7 @@ function buildResumptionContext(session: AgentSession): string {
   // Add goal
   parts.push(`Goal: ${session.goal}`);
 
-  // Add todo progress
+  // Add todo progress with IDs for resumption
   if (session.todos.length > 0) {
     const completed = session.todos.filter(t => t.status === 'completed').length;
     const inProgress = session.todos.find(t => t.status === 'in_progress');
@@ -105,12 +105,12 @@ function buildResumptionContext(session: AgentSession): string {
     parts.push(`\nTodo Progress: ${completed}/${session.todos.length} completed`);
 
     if (inProgress) {
-      parts.push(`Currently working on: ${inProgress.text}`);
+      parts.push(`Currently working on (id="${inProgress.id}"): ${inProgress.text}`);
     }
 
     const pending = session.todos.filter(t => t.status === 'pending');
     if (pending.length > 0) {
-      parts.push(`Remaining tasks: ${pending.map(t => t.text).join(', ')}`);
+      parts.push(`Remaining tasks:\n${pending.map(t => `- id="${t.id}": ${t.text}`).join('\n')}`);
     }
   }
 

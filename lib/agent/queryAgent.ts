@@ -22,7 +22,7 @@ export interface AgentState {
   // Todo tracking for completion detection
   todos: { id: string; text: string; status: string }[];
   hasIncompleteTodos: boolean;
-  stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | null;
+  stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | 'timeout' | null;
 }
 
 export interface ToolCallRecord {
