@@ -259,6 +259,12 @@ enum ChartType {
   COLUMN
   AREA
   PIE
+  DONUT
+  SCATTER
+  FUNNEL
+  WATERFALL
+  HEATMAP
+  RADAR
 }
 
 // ============================================================================

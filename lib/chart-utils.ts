@@ -1,6 +1,17 @@
 import type { QueryResult } from '@/stores/queryStore';
 
-export type ChartType = 'column' | 'line' | 'area' | 'pie' | 'none';
+export type ChartType =
+  | 'column'
+  | 'line'
+  | 'area'
+  | 'pie'
+  | 'donut'
+  | 'scatter'
+  | 'funnel'
+  | 'waterfall'
+  | 'heatmap'
+  | 'radar'
+  | 'none';
 
 export interface ChartConfig {
   type: ChartType;
@@ -9,6 +20,17 @@ export interface ChartConfig {
   breakdownBy?: string | null;
   stacked?: boolean;
   title?: string;
+  // Scatter/Bubble chart options
+  sizeColumn?: string | null;
+  colorColumn?: string | null;
+  // Heatmap options
+  valueColumn?: string | null;
+  // Radar chart options
+  categoryColumn?: string | null;
+  // Funnel options
+  showPercentage?: boolean;
+  // Waterfall options
+  showTotal?: boolean;
 }
 
 export interface ChartableData {
@@ -64,9 +86,14 @@ export function detectChartType(result: QueryResult): ChartType {
     return 'none'; // No numeric data to chart
   }
 
-  // If we have few categories and one numeric field, pie chart might be good
+  // If we have 2+ numeric fields and no text/date, suggest scatter plot
+  if (numericFields.length >= 2 && textFields.length === 0 && dateFields.length === 0) {
+    return 'scatter';
+  }
+
+  // If we have few categories and one numeric field, suggest donut chart (enhanced pie)
   if (textFields.length > 0 && numericFields.length === 1 && result.rows.length <= 10) {
-    return 'pie';
+    return 'donut';
   }
 
   // If we have date fields, suggest line chart
@@ -81,6 +108,44 @@ export function detectChartType(result: QueryResult): ChartType {
 
   // Default to column chart if we just have numeric data
   return 'column';
+}
+
+/**
+ * Check if data is suitable for scatter chart
+ */
+export function isSuitableForScatter(result: QueryResult): boolean {
+  if (!result || result.rows.length < 2) return false;
+  const numericFields = result.fields.filter(f => isNumericType(f.dataTypeID));
+  return numericFields.length >= 2;
+}
+
+/**
+ * Check if data is suitable for funnel chart
+ */
+export function isSuitableForFunnel(result: QueryResult): boolean {
+  if (!result || result.rows.length < 2 || result.rows.length > 10) return false;
+  const numericFields = result.fields.filter(f => isNumericType(f.dataTypeID));
+  const textFields = result.fields.filter(f => isTextType(f.dataTypeID));
+  return numericFields.length >= 1 && textFields.length >= 1;
+}
+
+/**
+ * Check if data is suitable for heatmap
+ */
+export function isSuitableForHeatmap(result: QueryResult): boolean {
+  if (!result || result.rows.length < 4) return false;
+  const numericFields = result.fields.filter(f => isNumericType(f.dataTypeID));
+  const textFields = result.fields.filter(f => isTextType(f.dataTypeID));
+  return numericFields.length >= 1 && textFields.length >= 2;
+}
+
+/**
+ * Check if data is suitable for radar chart
+ */
+export function isSuitableForRadar(result: QueryResult): boolean {
+  if (!result || result.rows.length < 3 || result.rows.length > 15) return false;
+  const numericFields = result.fields.filter(f => isNumericType(f.dataTypeID));
+  return numericFields.length >= 1;
 }
 
 /**
@@ -156,6 +221,12 @@ export function suggestChartConfig(result: QueryResult): ChartConfig {
     yAxes,
     stacked: false,
     breakdownBy: null,
+    sizeColumn: null,
+    colorColumn: null,
+    valueColumn: null,
+    categoryColumn: null,
+    showPercentage: true,
+    showTotal: true,
   };
 }
 
@@ -313,4 +384,231 @@ export function truncateLabel(value: unknown, maxLength: number = 15): string {
   const str = String(value ?? '');
   if (str.length <= maxLength) return str;
   return str.substring(0, maxLength - 1) + '\u2026';
+}
+
+/**
+ * Prepare data for scatter chart
+ */
+export function prepareScatterData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: Record<string, unknown>[]; xKey: string; yKey: string; sizeKey?: string; colorKey?: string } | null {
+  if (!config.xAxis || config.yAxes.length === 0) return null;
+
+  const xKey = config.xAxis;
+  const yKey = config.yAxes[0];
+  const sizeKey = config.sizeColumn || undefined;
+  const colorKey = config.colorColumn || undefined;
+
+  const data = result.rows.map((row) => {
+    const point: Record<string, unknown> = {
+      [xKey]: typeof row[xKey] === 'number' ? row[xKey] : parseFloat(String(row[xKey])) || 0,
+      [yKey]: typeof row[yKey] === 'number' ? row[yKey] : parseFloat(String(row[yKey])) || 0,
+    };
+    if (sizeKey && row[sizeKey] !== undefined) {
+      point[sizeKey] = typeof row[sizeKey] === 'number' ? row[sizeKey] : parseFloat(String(row[sizeKey])) || 10;
+    }
+    if (colorKey && row[colorKey] !== undefined) {
+      point[colorKey] = row[colorKey];
+    }
+    return point;
+  });
+
+  return { data, xKey, yKey, sizeKey, colorKey };
+}
+
+/**
+ * Prepare data for funnel chart
+ */
+export function prepareFunnelData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: { name: string; value: number; percentage?: number }[] } | null {
+  if (!config.xAxis || config.yAxes.length === 0) return null;
+
+  const nameKey = config.xAxis;
+  const valueKey = config.yAxes[0];
+
+  const rawData = result.rows.map((row) => ({
+    name: String(row[nameKey] ?? ''),
+    value: typeof row[valueKey] === 'number' ? row[valueKey] : parseFloat(String(row[valueKey])) || 0,
+  }));
+
+  // Sort by value descending for proper funnel appearance
+  rawData.sort((a, b) => (b.value as number) - (a.value as number));
+
+  // Calculate percentages relative to the first (largest) value
+  const maxValue = rawData[0]?.value || 1;
+  const data = rawData.map((item) => ({
+    ...item,
+    percentage: ((item.value as number) / maxValue) * 100,
+  }));
+
+  return { data };
+}
+
+/**
+ * Prepare data for waterfall chart
+ */
+export function prepareWaterfallData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: { name: string; value: number; isTotal?: boolean; start: number; end: number; fill: string }[] } | null {
+  if (!config.xAxis || config.yAxes.length === 0) return null;
+
+  const nameKey = config.xAxis;
+  const valueKey = config.yAxes[0];
+
+  let cumulative = 0;
+  const data: { name: string; value: number; isTotal?: boolean; start: number; end: number; fill: string }[] = [];
+
+  result.rows.forEach((row) => {
+    const value = typeof row[valueKey] === 'number' ? row[valueKey] : parseFloat(String(row[valueKey])) || 0;
+    const name = String(row[nameKey] ?? '');
+    const start = cumulative;
+    cumulative += value;
+
+    data.push({
+      name,
+      value,
+      start,
+      end: cumulative,
+      fill: value >= 0 ? '#52c41a' : '#ff4d4f', // Green for positive, red for negative
+    });
+  });
+
+  // Add total bar if configured
+  if (config.showTotal !== false) {
+    data.push({
+      name: 'Total',
+      value: cumulative,
+      isTotal: true,
+      start: 0,
+      end: cumulative,
+      fill: '#1890ff', // Blue for total
+    });
+  }
+
+  return { data };
+}
+
+/**
+ * Prepare data for heatmap chart
+ */
+export function prepareHeatmapData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: { x: string; y: string; value: number }[]; xValues: string[]; yValues: string[]; minValue: number; maxValue: number } | null {
+  if (!config.xAxis || config.yAxes.length === 0) return null;
+
+  const xKey = config.xAxis;
+  const yKey = config.yAxes[0];
+  const valueKey = config.valueColumn || config.yAxes[1] || config.yAxes[0];
+
+  const data: { x: string; y: string; value: number }[] = [];
+  const xValuesSet = new Set<string>();
+  const yValuesSet = new Set<string>();
+  let minValue = Infinity;
+  let maxValue = -Infinity;
+
+  result.rows.forEach((row) => {
+    const x = String(row[xKey] ?? '');
+    const y = String(row[yKey] ?? '');
+    const value = typeof row[valueKey] === 'number' ? row[valueKey] : parseFloat(String(row[valueKey])) || 0;
+
+    xValuesSet.add(x);
+    yValuesSet.add(y);
+    minValue = Math.min(minValue, value);
+    maxValue = Math.max(maxValue, value);
+
+    data.push({ x, y, value });
+  });
+
+  return {
+    data,
+    xValues: Array.from(xValuesSet),
+    yValues: Array.from(yValuesSet),
+    minValue: minValue === Infinity ? 0 : minValue,
+    maxValue: maxValue === -Infinity ? 0 : maxValue,
+  };
+}
+
+/**
+ * Prepare data for radar chart
+ */
+export function prepareRadarData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: Record<string, unknown>[]; subjects: string[]; series: string[] } | null {
+  if (!config.xAxis || config.yAxes.length === 0) return null;
+
+  const subjectKey = config.xAxis;
+  const seriesKey = config.categoryColumn || config.breakdownBy;
+
+  if (seriesKey) {
+    // Multiple series - pivot data
+    const subjects = [...new Set(result.rows.map((row) => String(row[subjectKey] ?? '')))];
+    const seriesValues = [...new Set(result.rows.map((row) => String(row[seriesKey] ?? '')))];
+    const valueKey = config.yAxes[0];
+
+    const grouped: Record<string, Record<string, number>> = {};
+    subjects.forEach((s) => {
+      grouped[s] = {};
+      seriesValues.forEach((sv) => {
+        grouped[s][sv] = 0;
+      });
+    });
+
+    result.rows.forEach((row) => {
+      const subject = String(row[subjectKey] ?? '');
+      const series = String(row[seriesKey] ?? '');
+      const value = typeof row[valueKey] === 'number' ? row[valueKey] : parseFloat(String(row[valueKey])) || 0;
+      if (grouped[subject]) {
+        grouped[subject][series] = value;
+      }
+    });
+
+    const data = subjects.map((subject) => ({
+      subject,
+      ...grouped[subject],
+    }));
+
+    return { data, subjects, series: seriesValues };
+  } else {
+    // Single series - use yAxes as different metrics
+    const data = result.rows.map((row) => {
+      const point: Record<string, unknown> = {
+        subject: String(row[subjectKey] ?? ''),
+      };
+      config.yAxes.forEach((yKey) => {
+        point[yKey] = typeof row[yKey] === 'number' ? row[yKey] : parseFloat(String(row[yKey])) || 0;
+      });
+      return point;
+    });
+
+    return { data, subjects: data.map((d) => String(d.subject)), series: config.yAxes };
+  }
+}
+
+/**
+ * Get available size columns for bubble/scatter charts
+ */
+export function getSizeColumns(result: QueryResult, xAxis: string | null, yAxes: string[]): string[] {
+  if (!result) return [];
+  return result.fields
+    .filter((f) => f.name !== xAxis && !yAxes.includes(f.name) && isNumericType(f.dataTypeID))
+    .map((f) => f.name);
+}
+
+/**
+ * Get color scale for heatmap
+ */
+export function getHeatmapColorScale(value: number, min: number, max: number): string {
+  if (max === min) return '#1890ff';
+  const ratio = (value - min) / (max - min);
+  // Interpolate from light blue to dark blue
+  const r = Math.round(24 + (144 - 24) * (1 - ratio));
+  const g = Math.round(144 + (238 - 144) * (1 - ratio));
+  const b = Math.round(255);
+  return `rgb(${r}, ${g}, ${b})`;
 }
