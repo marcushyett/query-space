@@ -700,3 +700,263 @@ export function getHeatmapColorScale(value: number, min: number, max: number): s
   const b = Math.round(255);
   return `rgb(${r}, ${g}, ${b})`;
 }
+
+/**
+ * Prepare data for bar chart (horizontal bars)
+ */
+export function prepareBarData(
+  result: QueryResult,
+  config: ChartConfig
+): ChartableData | null {
+  // Bar chart uses the same data structure as column chart
+  return prepareChartData(result, config);
+}
+
+/**
+ * Prepare data for bubble chart
+ */
+export function prepareBubbleData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: Record<string, unknown>[]; xColumn: string; yColumn: string; sizeColumn: string; colorColumn?: string } | null {
+  if (!config.xAxis || config.yAxes.length === 0) return null;
+
+  const xColumn = config.xAxis;
+  const yColumn = config.yAxes[0];
+  const sizeColumn = config.sizeColumn || config.yAxes[1] || config.yAxes[0];
+  const colorColumn = config.colorColumn || undefined;
+
+  const data = result.rows.map((row) => {
+    const point: Record<string, unknown> = {};
+    // Copy all relevant columns
+    point[xColumn] = typeof row[xColumn] === 'number' ? row[xColumn] : parseFloat(String(row[xColumn])) || 0;
+    point[yColumn] = typeof row[yColumn] === 'number' ? row[yColumn] : parseFloat(String(row[yColumn])) || 0;
+    point[sizeColumn] = typeof row[sizeColumn] === 'number' ? row[sizeColumn] : parseFloat(String(row[sizeColumn])) || 10;
+    if (colorColumn) {
+      point[colorColumn] = row[colorColumn];
+    }
+    return point;
+  });
+
+  return { data, xColumn, yColumn, sizeColumn, colorColumn };
+}
+
+/**
+ * Prepare data for histogram chart
+ */
+export function prepareHistogramData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: Record<string, unknown>[]; valueColumn: string } | null {
+  if (config.yAxes.length === 0) return null;
+
+  const valueColumn = config.yAxes[0];
+  const data = result.rows.map((row) => ({
+    [valueColumn]: typeof row[valueColumn] === 'number' ? row[valueColumn] : parseFloat(String(row[valueColumn])) || 0,
+  }));
+
+  return { data, valueColumn };
+}
+
+/**
+ * Prepare data for treemap chart
+ */
+export function prepareTreemapData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: Record<string, unknown>[]; pathColumns: string[]; valueColumn: string } | null {
+  if (!config.xAxis || config.yAxes.length === 0) return null;
+
+  // Use xAxis and any additional categorical columns as path columns
+  const pathColumns = config.pathColumns || [config.xAxis];
+  const valueColumn = config.yAxes[0];
+
+  const data = result.rows.map((row) => {
+    const point: Record<string, unknown> = {};
+    pathColumns.forEach((col) => {
+      point[col] = row[col];
+    });
+    point[valueColumn] = typeof row[valueColumn] === 'number' ? row[valueColumn] : parseFloat(String(row[valueColumn])) || 0;
+    return point;
+  });
+
+  return { data, pathColumns, valueColumn };
+}
+
+/**
+ * Prepare data for sunburst chart
+ */
+export function prepareSunburstData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: Record<string, unknown>[]; pathColumns: string[]; valueColumn: string } | null {
+  // Sunburst uses the same data structure as treemap
+  return prepareTreemapData(result, config);
+}
+
+/**
+ * Prepare data for sankey chart
+ */
+export function prepareSankeyData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: Record<string, unknown>[]; sourceColumn: string; targetColumn: string; valueColumn: string } | null {
+  if (!config.sourceColumn || !config.targetColumn || config.yAxes.length === 0) return null;
+
+  const sourceColumn = config.sourceColumn;
+  const targetColumn = config.targetColumn;
+  const valueColumn = config.yAxes[0];
+
+  const data = result.rows.map((row) => ({
+    [sourceColumn]: row[sourceColumn],
+    [targetColumn]: row[targetColumn],
+    [valueColumn]: typeof row[valueColumn] === 'number' ? row[valueColumn] : parseFloat(String(row[valueColumn])) || 0,
+  }));
+
+  return { data, sourceColumn, targetColumn, valueColumn };
+}
+
+/**
+ * Prepare data for network chart
+ */
+export function prepareNetworkData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: Record<string, unknown>[]; sourceColumn: string; targetColumn: string; weightColumn?: string } | null {
+  if (!config.sourceColumn || !config.targetColumn) return null;
+
+  const sourceColumn = config.sourceColumn;
+  const targetColumn = config.targetColumn;
+  const weightColumn = config.weightColumn || (config.yAxes.length > 0 ? config.yAxes[0] : undefined);
+
+  const data = result.rows.map((row) => {
+    const point: Record<string, unknown> = {
+      [sourceColumn]: row[sourceColumn],
+      [targetColumn]: row[targetColumn],
+    };
+    if (weightColumn) {
+      point[weightColumn] = typeof row[weightColumn] === 'number' ? row[weightColumn] : parseFloat(String(row[weightColumn])) || 1;
+    }
+    return point;
+  });
+
+  return { data, sourceColumn, targetColumn, weightColumn };
+}
+
+/**
+ * Prepare data for gauge chart
+ */
+export function prepareGaugeData(
+  result: QueryResult,
+  config: ChartConfig
+): { value: number; min?: number; max?: number; target?: number; label?: string } | null {
+  if (config.yAxes.length === 0 || result.rows.length === 0) return null;
+
+  const valueColumn = config.yAxes[0];
+  const value = typeof result.rows[0][valueColumn] === 'number'
+    ? result.rows[0][valueColumn]
+    : parseFloat(String(result.rows[0][valueColumn])) || 0;
+
+  // Use config for min/max/target if provided
+  const label = config.xAxis ? String(result.rows[0][config.xAxis] || '') : undefined;
+
+  return {
+    value,
+    min: config.gaugeMin,
+    max: config.gaugeMax,
+    target: config.gaugeTarget,
+    label,
+  };
+}
+
+/**
+ * Prepare data for timeline chart
+ */
+export function prepareTimelineData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: Record<string, unknown>[]; labelColumn: string; startColumn: string; endColumn: string; categoryColumn?: string; progressColumn?: string } | null {
+  if (!config.xAxis || !config.startColumn || !config.endColumn) return null;
+
+  const labelColumn = config.xAxis;
+  const startColumn = config.startColumn;
+  const endColumn = config.endColumn;
+  const categoryColumn = config.categoryColumn || undefined;
+  const progressColumn = config.progressColumn || undefined;
+
+  const data = result.rows.map((row) => {
+    const point: Record<string, unknown> = {
+      [labelColumn]: row[labelColumn],
+      [startColumn]: row[startColumn],
+      [endColumn]: row[endColumn],
+    };
+    if (categoryColumn) {
+      point[categoryColumn] = row[categoryColumn];
+    }
+    if (progressColumn) {
+      point[progressColumn] = row[progressColumn];
+    }
+    return point;
+  });
+
+  return { data, labelColumn, startColumn, endColumn, categoryColumn, progressColumn };
+}
+
+/**
+ * Prepare data for map chart
+ */
+export function prepareMapData(
+  result: QueryResult,
+  config: ChartConfig
+): { data: Record<string, unknown>[]; regionColumn: string; valueColumn: string } | null {
+  if (!config.xAxis || config.yAxes.length === 0) return null;
+
+  const regionColumn = config.regionColumn || config.xAxis;
+  const valueColumn = config.yAxes[0];
+
+  const data = result.rows.map((row) => ({
+    [regionColumn]: row[regionColumn],
+    [valueColumn]: typeof row[valueColumn] === 'number' ? row[valueColumn] : parseFloat(String(row[valueColumn])) || 0,
+  }));
+
+  return { data, regionColumn, valueColumn };
+}
+
+/**
+ * Get source/target columns for flow charts
+ */
+export function getFlowColumns(result: QueryResult): { sourceColumns: string[]; targetColumns: string[] } {
+  if (!result) return { sourceColumns: [], targetColumns: [] };
+
+  // Look for columns that might be source/target
+  const textColumns = result.fields
+    .filter((f) => isTextType(f.dataTypeID))
+    .map((f) => f.name);
+
+  return {
+    sourceColumns: textColumns,
+    targetColumns: textColumns,
+  };
+}
+
+/**
+ * Get path columns for hierarchical charts
+ */
+export function getPathColumns(result: QueryResult): string[] {
+  if (!result) return [];
+
+  return result.fields
+    .filter((f) => isTextType(f.dataTypeID))
+    .map((f) => f.name);
+}
+
+/**
+ * Get date columns for timeline charts
+ */
+export function getDateColumns(result: QueryResult): string[] {
+  if (!result) return [];
+
+  return result.fields
+    .filter((f) => isDateType(f.dataTypeID))
+    .map((f) => f.name);
+}

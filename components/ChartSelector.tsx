@@ -12,6 +12,14 @@ import {
   RadarChartOutlined,
   HeatMapOutlined,
   StockOutlined,
+  GlobalOutlined,
+  ApartmentOutlined,
+  DashboardOutlined,
+  FieldTimeOutlined,
+  BoxPlotOutlined,
+  PartitionOutlined,
+  DeploymentUnitOutlined,
+  BranchesOutlined,
 } from '@ant-design/icons';
 import type { ChartConfig, ChartType } from '@/lib/chart-utils';
 
@@ -58,10 +66,26 @@ export function ChartSelector({
   const isWaterfall = config.type === 'waterfall';
   const isHeatmap = config.type === 'heatmap';
   const isRadar = config.type === 'radar';
-  const isSpecialChart = isScatter || isFunnel || isWaterfall || isHeatmap || isRadar;
+  const isMap = config.type === 'map';
+  const isTreemap = config.type === 'treemap';
+  const isSunburst = config.type === 'sunburst';
+  const isSankey = config.type === 'sankey';
+  const isNetwork = config.type === 'network';
+  const isGauge = config.type === 'gauge';
+  const isBubble = config.type === 'bubble';
+  const isBoxplot = config.type === 'boxplot';
+  const isHistogram = config.type === 'histogram';
+  const isTimeline = config.type === 'timeline';
 
-  const showBreakdown = !isPieOrDonut && !isSpecialChart && config.yAxes.length === 1 && breakdownColumns.length > 0;
-  const showStacked = !isPieOrDonut && !isSpecialChart && (config.yAxes.length > 1 || config.breakdownBy);
+  // Charts that don't support breakdowns at all
+  const noBreakdownChart = isScatter || isFunnel || isWaterfall || isHeatmap || isMap || isTreemap || isSunburst || isSankey || isNetwork || isGauge || isBubble || isBoxplot || isHistogram || isTimeline;
+
+  // Charts that don't support stacking
+  const noStackChart = isScatter || isFunnel || isWaterfall || isHeatmap || isRadar || isMap || isTreemap || isSunburst || isSankey || isNetwork || isGauge || isBubble || isBoxplot || isHistogram || isTimeline;
+
+  // Radar charts support breakdown (creates multiple series)
+  const showBreakdown = !isPieOrDonut && !noBreakdownChart && config.yAxes.length === 1 && breakdownColumns.length > 0;
+  const showStacked = !isPieOrDonut && !noStackChart && (config.yAxes.length > 1 || config.breakdownBy);
 
   // Memoize options to prevent dropdown flickering on re-render
   const xAxisOptions = useMemo(() =>
@@ -107,6 +131,15 @@ export function ChartSelector({
                     <span>
                       <BarChartOutlined style={{ marginRight: 8 }} />
                       Column
+                    </span>
+                  ),
+                },
+                {
+                  value: 'bar',
+                  label: (
+                    <span>
+                      <BarChartOutlined style={{ marginRight: 8, transform: 'rotate(90deg)' }} />
+                      Bar
                     </span>
                   ),
                 },
@@ -160,10 +193,60 @@ export function ChartSelector({
                     </span>
                   ),
                 },
+                {
+                  value: 'bubble',
+                  label: (
+                    <span>
+                      <DotChartOutlined style={{ marginRight: 8 }} />
+                      Bubble
+                    </span>
+                  ),
+                },
+                {
+                  value: 'histogram',
+                  label: (
+                    <span>
+                      <BarChartOutlined style={{ marginRight: 8 }} />
+                      Histogram
+                    </span>
+                  ),
+                },
+                {
+                  value: 'boxplot',
+                  label: (
+                    <span>
+                      <BoxPlotOutlined style={{ marginRight: 8 }} />
+                      Box Plot
+                    </span>
+                  ),
+                },
               ],
             },
             {
-              label: 'Flow & Comparison',
+              label: 'Hierarchical',
+              options: [
+                {
+                  value: 'treemap',
+                  label: (
+                    <span>
+                      <ApartmentOutlined style={{ marginRight: 8 }} />
+                      Treemap
+                    </span>
+                  ),
+                },
+                {
+                  value: 'sunburst',
+                  label: (
+                    <span>
+                      <PartitionOutlined style={{ marginRight: 8 }} />
+                      Sunburst
+                    </span>
+                  ),
+                },
+              ],
+            },
+            {
+              label: 'Flow & Relationships',
               options: [
                 {
                   value: 'funnel',
@@ -183,6 +266,47 @@ export function ChartSelector({
                     </span>
                   ),
                 },
+                {
+                  value: 'sankey',
+                  label: (
+                    <span>
+                      <BranchesOutlined style={{ marginRight: 8 }} />
+                      Sankey
+                    </span>
+                  ),
+                },
+                {
+                  value: 'network',
+                  label: (
+                    <span>
+                      <DeploymentUnitOutlined style={{ marginRight: 8 }} />
+                      Network
+                    </span>
+                  ),
+                },
+              ],
+            },
+            {
+              label: 'Comparison & KPI',
+              options: [
+                {
+                  value: 'radar',
+                  label: (
+                    <span>
+                      <RadarChartOutlined style={{ marginRight: 8 }} />
+                      Radar
+                    </span>
+                  ),
+                },
+                {
+                  value: 'gauge',
+                  label: (
+                    <span>
+                      <DashboardOutlined style={{ marginRight: 8 }} />
+                      Gauge
+                    </span>
+                  ),
+                },
               ],
             },
             {
@@ -198,11 +322,20 @@ export function ChartSelector({
                   ),
                 },
                 {
-                  value: 'radar',
+                  value: 'map',
                   label: (
                     <span>
-                      <RadarChartOutlined style={{ marginRight: 8 }} />
-                      Radar
+                      <GlobalOutlined style={{ marginRight: 8 }} />
+                      Map
+                    </span>
+                  ),
+                },
+                {
+                  value: 'timeline',
+                  label: (
+                    <span>
+                      <FieldTimeOutlined style={{ marginRight: 8 }} />
+                      Timeline
                     </span>
                   ),
                 },

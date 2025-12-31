@@ -126,8 +126,14 @@ export default function QueryEditorPage() {
   // Fetch existing query data
   useEffect(() => {
     if (isNew) {
+      // Reset all state for new query
       setCurrentQuery('')
       setQueryResults(null)
+      setQueryName('')
+      setStoreQueryName('')
+      setQueryData(null)
+      lastSavedSqlRef.current = ''
+      setHasUnsavedChanges(false)
       return
     }
 
