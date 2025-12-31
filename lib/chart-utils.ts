@@ -1,16 +1,36 @@
 import type { QueryResult } from '@/stores/queryStore';
 
 export type ChartType =
+  // Basic charts
   | 'column'
+  | 'bar'
   | 'line'
   | 'area'
   | 'pie'
   | 'donut'
+  // Correlation & Distribution
   | 'scatter'
+  | 'bubble'
+  | 'histogram'
+  | 'boxplot'
+  // Hierarchical & Flow
+  | 'treemap'
+  | 'sunburst'
+  | 'sankey'
   | 'funnel'
-  | 'waterfall'
-  | 'heatmap'
+  // Comparison & KPI
   | 'radar'
+  | 'gauge'
+  | 'bullet'
+  | 'waterfall'
+  // Relationship & Network
+  | 'network'
+  | 'chord'
+  | 'heatmap'
+  // Geographic & Time
+  | 'map'
+  | 'timeline'
+  // Utility
   | 'none';
 
 export interface ChartConfig {
@@ -20,17 +40,85 @@ export interface ChartConfig {
   breakdownBy?: string | null;
   stacked?: boolean;
   title?: string;
+
+  // Common options
+  showLabels?: boolean;
+  showLegend?: boolean;
+
   // Scatter/Bubble chart options
   sizeColumn?: string | null;
   colorColumn?: string | null;
+  minSize?: number;
+  maxSize?: number;
+
   // Heatmap options
   valueColumn?: string | null;
+
   // Radar chart options
   categoryColumn?: string | null;
+  fillOpacity?: number;
+
   // Funnel options
   showPercentage?: boolean;
+  orientation?: 'vertical' | 'horizontal';
+
   // Waterfall options
   showTotal?: boolean;
+  positiveColor?: string;
+  negativeColor?: string;
+
+  // Hierarchical chart options (treemap, sunburst)
+  pathColumns?: string[] | null;
+  colorByValue?: boolean;
+  labelMinSize?: number;
+  highlightAncestors?: boolean;
+
+  // Flow chart options (sankey, network, chord)
+  sourceColumn?: string | null;
+  targetColumn?: string | null;
+  nodeWidth?: number;
+  nodePadding?: number;
+  linkOpacity?: number;
+  colorMode?: 'source' | 'target' | 'gradient';
+
+  // Network/Force graph options
+  weightColumn?: string | null;
+  nodeSize?: number;
+  sizeByConnections?: boolean;
+  layout?: 'force' | 'circular' | 'hierarchical';
+  linkDistance?: number;
+
+  // Statistical chart options (boxplot, histogram)
+  binCount?: number;
+  showNormal?: boolean;
+  cumulative?: boolean;
+  showOutliers?: boolean;
+  showMean?: boolean;
+  whiskerType?: 'iqr' | 'minmax' | 'stddev';
+
+  // Gauge options
+  gaugeMin?: number;
+  gaugeMax?: number;
+  gaugeTarget?: number;
+  gaugeType?: 'arc' | 'semicircle' | 'full';
+  thresholds?: Array<{ value: number; color: string }>;
+
+  // Timeline/Gantt options
+  startColumn?: string | null;
+  endColumn?: string | null;
+  progressColumn?: string | null;
+  showMilestones?: boolean;
+  showProgress?: boolean;
+  groupByCategory?: boolean;
+  barHeight?: number;
+
+  // Map options
+  regionColumn?: string | null;
+  mapType?: 'world' | 'usa' | 'europe' | 'asia';
+  displayMode?: 'choropleth' | 'bubble' | 'both';
+  colorScale?: 'sequential' | 'diverging' | 'categorical';
+  latColumn?: string | null;
+  lonColumn?: string | null;
 }
 
 export interface ChartableData {
