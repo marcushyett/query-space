@@ -186,6 +186,8 @@ export function useAiAgent() {
         let buffer = '';
         let finalSql: string | null = null;
         let reachedLimit = false;
+        let stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | null = null;
+        let hasIncompleteTodos = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -452,12 +454,15 @@ export function useAiAgent() {
                     addSystemMessage(`Error: ${event.error}`);
                     break;
 
-                  case 'complete':
+                  case 'complete': {
                     reachedLimit = event.state.reachedStepLimit;
+                    stopReason = event.state.stopReason;
+                    hasIncompleteTodos = event.state.hasIncompleteTodos;
                     if (!finalSql && event.state.currentSql) {
                       finalSql = event.state.currentSql;
                     }
                     break;
+                  }
                 }
               } catch {
                 // Ignore parse errors for incomplete chunks
@@ -466,14 +471,18 @@ export function useAiAgent() {
           }
         }
 
-        completeAgent(reachedLimit);
+        // Determine canContinue based on stop reason
+        const canContinue = reachedLimit || hasIncompleteTodos;
+
+        // Complete the agent with stop reason info
+        completeAgent(reachedLimit, stopReason, hasIncompleteTodos);
 
         // Save session ID before completing (so we can link to history)
         const completedSessionId = sessionIdRef.current;
 
         // Complete the session
         if (sessionIdRef.current) {
-          if (reachedLimit) {
+          if (canContinue) {
             // Pause the session so it can be resumed
             pauseSession(sessionIdRef.current, '');
           } else {
@@ -482,8 +491,8 @@ export function useAiAgent() {
           sessionIdRef.current = null;
         }
 
-        // If we got a final SQL, execute it
-        if (finalSql) {
+        // If we got a final SQL and goal is complete, execute it
+        if (finalSql && stopReason === 'goal_complete') {
           // Get query name from store (set by set_query_name tool)
           const currentQueryName = useQueryStore.getState().queryName;
           const result = await executeQuery(finalSql, completedSessionId || undefined, currentQueryName || undefined);
@@ -492,9 +501,19 @@ export function useAiAgent() {
           }
         }
 
+        // Show appropriate message based on stop reason
         if (reachedLimit) {
           addSystemMessage(
             `Agent reached ${MAX_STEPS} step limit. Click "Continue" to let it keep trying.`
+          );
+        } else if (hasIncompleteTodos) {
+          // Get incomplete todo count for clear messaging
+          const currentTodos = useAiChatStore.getState().agentProgress?.todos || [];
+          const incompleteTodos = currentTodos.filter(t => t.status === 'pending' || t.status === 'in_progress');
+          const completedCount = currentTodos.filter(t => t.status === 'completed').length;
+
+          addSystemMessage(
+            `Agent stopped with ${incompleteTodos.length} task(s) remaining (${completedCount}/${currentTodos.length} completed). Click "Continue" to finish the remaining tasks.`
           );
         }
 
@@ -578,56 +597,108 @@ export function useAiAgent() {
     ]
   );
 
-  // Build context summary from previous tool calls for continue functionality
+  // Build context summary from previous tool calls and todos for continue functionality
   const buildContextSummary = useCallback((): string => {
-    if (!agentProgress?.toolCalls || agentProgress.toolCalls.length === 0) {
-      return '';
+    const parts: string[] = [];
+
+    // Add todo status
+    if (agentProgress?.todos && agentProgress.todos.length > 0) {
+      const completed = agentProgress.todos.filter(t => t.status === 'completed');
+      const pending = agentProgress.todos.filter(t => t.status === 'pending');
+      const inProgress = agentProgress.todos.filter(t => t.status === 'in_progress');
+
+      parts.push(`## TODO STATUS (${completed.length}/${agentProgress.todos.length} completed)`);
+
+      if (inProgress.length > 0) {
+        parts.push(`Currently working on: ${inProgress.map(t => t.text).join(', ')}`);
+      }
+
+      if (pending.length > 0) {
+        parts.push(`Remaining tasks:`);
+        pending.forEach(t => parts.push(`  - ${t.text}`));
+      }
+
+      if (completed.length > 0) {
+        parts.push(`Completed tasks:`);
+        completed.forEach(t => parts.push(`  - [DONE] ${t.text}`));
+      }
+
+      parts.push('');
     }
 
-    const summaryParts: string[] = [];
+    // Add tool call history
+    if (agentProgress?.toolCalls && agentProgress.toolCalls.length > 0) {
+      const summaryParts: string[] = [];
 
-    for (const tc of agentProgress.toolCalls) {
-      if (tc.toolName === 'get_table_schema') {
-        const result = tc.result as { tables?: { name: string }[]; tableCount?: number };
-        if (result?.tableCount) {
-          summaryParts.push(`- Retrieved schema: ${result.tableCount} tables available`);
+      for (const tc of agentProgress.toolCalls) {
+        if (tc.toolName === 'get_table_schema') {
+          const result = tc.result as { tables?: { name: string }[]; tableCount?: number };
+          if (result?.tableCount) {
+            summaryParts.push(`- Retrieved schema: ${result.tableCount} tables available`);
+          }
+        } else if (tc.toolName === 'get_json_keys') {
+          const result = tc.result as { keys?: string[]; table?: string; column?: string };
+          if (result?.keys) {
+            summaryParts.push(`- Explored JSON keys in ${result.table}.${result.column}: ${result.keys.slice(0, 10).join(', ')}`);
+          }
+        } else if (tc.toolName === 'execute_query') {
+          const result = tc.result as { success: boolean; error?: string; rowCount?: number; sql?: string };
+          const args = tc.args as { sql?: string };
+          if (result.success) {
+            summaryParts.push(`- Query succeeded with ${result.rowCount} rows: ${args.sql?.slice(0, 100)}...`);
+          } else {
+            summaryParts.push(`- Query FAILED: ${result.error}`);
+          }
+        } else if (tc.toolName === 'validate_query') {
+          const result = tc.result as { isValid: boolean; error?: string };
+          if (!result.isValid) {
+            summaryParts.push(`- Validation failed for query: ${result.error}`);
+          }
         }
-      } else if (tc.toolName === 'get_json_keys') {
-        const result = tc.result as { keys?: string[]; table?: string; column?: string };
-        if (result?.keys) {
-          summaryParts.push(`- Explored JSON keys in ${result.table}.${result.column}: ${result.keys.slice(0, 10).join(', ')}`);
-        }
-      } else if (tc.toolName === 'execute_query') {
-        const result = tc.result as { success: boolean; error?: string; rowCount?: number; sql?: string };
-        const args = tc.args as { sql?: string };
-        if (result.success) {
-          summaryParts.push(`- Query succeeded with ${result.rowCount} rows: ${args.sql?.slice(0, 100)}...`);
-        } else {
-          summaryParts.push(`- Query FAILED: ${result.error}`);
-        }
-      } else if (tc.toolName === 'validate_query') {
-        const result = tc.result as { isValid: boolean; error?: string };
-        if (!result.isValid) {
-          summaryParts.push(`- Validation failed for query: ${result.error}`);
-        }
+      }
+
+      if (summaryParts.length > 0) {
+        parts.push(`## PREVIOUS WORK (${agentProgress.toolCalls.length} tool calls)`);
+        parts.push(...summaryParts);
+        parts.push('');
       }
     }
 
-    if (summaryParts.length === 0) {
+    if (parts.length === 0) {
       return '';
     }
 
-    return `You previously made ${agentProgress.toolCalls.length} tool calls:\n${summaryParts.join('\n')}\n\nContinue from where you left off. Do not repeat the same queries that already failed.`;
+    parts.push('IMPORTANT: Continue from where you left off. Complete all remaining tasks before calling update_query_ui.');
+    parts.push('Do NOT recreate the todo list - use manage_todo(action="set_current") to resume the current task.');
+
+    return parts.join('\n');
   }, [agentProgress]);
 
-  // Continue the agent after step limit
+  // Continue the agent after step limit or incomplete todos
   const continueAgent = useCallback(async (): Promise<boolean> => {
     if (!agentProgress?.canContinue) {
       return false;
     }
 
     const context = buildContextSummary();
-    const continuePrompt = `Continue working on the goal: ${agentProgress.goal}`;
+
+    // Build a more explicit continue prompt
+    let continuePrompt = `Continue working on the goal: ${agentProgress.goal}`;
+
+    if (agentProgress.hasIncompleteTodos) {
+      const incompleteTodos = agentProgress.todos.filter(t => t.status === 'pending' || t.status === 'in_progress');
+      continuePrompt += `
+
+CRITICAL: You have ${incompleteTodos.length} incomplete task(s). You MUST complete these before calling update_query_ui:
+${incompleteTodos.map(t => `- ${t.text}`).join('\n')}
+
+Instructions:
+1. Use manage_todo(action="set_current", item_id="...") to mark the next task as in progress
+2. Complete that task
+3. Use manage_todo(action="complete", item_id="...") to mark it done
+4. Repeat until ALL tasks are completed
+5. ONLY THEN call update_query_ui and set_query_name`;
+    }
 
     // Cancel any existing request
     if (abortControllerRef.current) {
@@ -1016,15 +1087,29 @@ export function useAiAgent() {
       }
 
       // Build resume prompt with context
+      // Get incomplete todos from session
+      const incompleteTodos = session.todos.filter(t => t.status === 'pending' || t.status === 'in_progress');
+      const completedTodos = session.todos.filter(t => t.status === 'completed');
+
       const resumePrompt = `Resume working on the goal: ${session.goal}
 
 ${session.resumptionContext}
 
-IMPORTANT: You are resuming a previous session. Review the todo list and continue from where you left off.
-- Check which items are pending or in_progress
-- Do NOT recreate the todo list - it already exists
-- Mark the current task as in_progress with set_current and continue working on it
-- If you need clarification from the user, ask a specific question`;
+## CRITICAL INSTRUCTIONS FOR RESUMPTION
+You are resuming a previous session. The todo list already exists with ${completedTodos.length}/${session.todos.length} tasks completed.
+
+${incompleteTodos.length > 0 ? `INCOMPLETE TASKS (must be completed):
+${incompleteTodos.map(t => `- [${t.status === 'in_progress' ? 'IN PROGRESS' : 'PENDING'}] ${t.text}`).join('\n')}
+
+Steps to continue:
+1. DO NOT recreate the todo list - it already exists!
+2. Use manage_todo(action="set_current", item_id="...") to mark the next pending task as in progress
+3. Complete that task
+4. Use manage_todo(action="complete", item_id="...") to mark it done
+5. Repeat for ALL remaining tasks
+6. ONLY call update_query_ui and set_query_name after ALL todos are completed` : 'All tasks appear complete. Verify the work and finalize.'}
+
+If you encounter an error or need help, explain what went wrong.`;
 
       addUserMessage('Resume session');
       startAgent(session.goal, MAX_STEPS);

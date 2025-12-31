@@ -237,19 +237,25 @@ export function AiChatPanel() {
             />
           )}
 
-          {/* Continue Button when step limit reached */}
+          {/* Continue Button when step limit reached or has incomplete todos */}
           {agentProgress && agentProgress.canContinue && !agentProgress.isRunning && (
             <div className="agent-resume-section" style={{
               background: '#1a1a1a',
-              border: '1px solid #333',
+              border: `1px solid ${agentProgress.hasIncompleteTodos ? '#faad14' : '#333'}`,
               borderRadius: 8,
               padding: 16,
               margin: '8px 0'
             }}>
               <Space direction="vertical" size={12} style={{ width: '100%' }}>
                 <Space>
-                  <HistoryOutlined style={{ color: '#faad14' }} />
-                  <Text strong style={{ fontSize: 13 }}>Agent paused at step limit</Text>
+                  <HistoryOutlined style={{ color: agentProgress.hasIncompleteTodos ? '#faad14' : '#888' }} />
+                  <Text strong style={{ fontSize: 13 }}>
+                    {agentProgress.stopReason === 'step_limit'
+                      ? 'Agent paused at step limit'
+                      : agentProgress.stopReason === 'incomplete_todos'
+                      ? 'Agent stopped with incomplete tasks'
+                      : 'Agent paused'}
+                  </Text>
                 </Space>
 
                 {/* Progress summary */}
@@ -257,13 +263,13 @@ export function AiChatPanel() {
                   {agentProgress.todos.length > 0 && (
                     <div style={{ marginBottom: 8 }}>
                       <Text type="secondary">Progress: </Text>
-                      <Text>
+                      <Text style={{ color: agentProgress.hasIncompleteTodos ? '#faad14' : undefined }}>
                         {agentProgress.todos.filter(t => t.status === 'completed').length}/
                         {agentProgress.todos.length} tasks completed
                       </Text>
                     </div>
                   )}
-                  {agentProgress.todos.length > 0 && (
+                  {agentProgress.todos.length > 0 && agentProgress.hasIncompleteTodos && (
                     <div style={{ marginBottom: 8 }}>
                       <Text type="secondary">Remaining: </Text>
                       <Text>
@@ -277,8 +283,12 @@ export function AiChatPanel() {
                     </div>
                   )}
                   <Text type="secondary" style={{ fontSize: 11 }}>
-                    The agent used {agentProgress.currentStep} steps and needs more to complete the task.
-                    Click Resume to continue from where it left off.
+                    {agentProgress.stopReason === 'step_limit'
+                      ? `The agent used ${agentProgress.currentStep} steps and needs more to complete the task.`
+                      : agentProgress.stopReason === 'incomplete_todos'
+                      ? 'The agent needs to complete remaining tasks before finalizing.'
+                      : `The agent used ${agentProgress.currentStep} steps.`}
+                    {' '}Click Continue to resume from where it left off.
                   </Text>
                 </div>
 
@@ -287,8 +297,9 @@ export function AiChatPanel() {
                   onClick={continueAgent}
                   icon={<PlayCircleOutlined />}
                   block
+                  style={agentProgress.hasIncompleteTodos ? { background: '#faad14', borderColor: '#faad14' } : undefined}
                 >
-                  Resume Agent
+                  Continue ({agentProgress.todos.filter(t => t.status === 'pending' || t.status === 'in_progress').length || 'remaining'} tasks)
                 </Button>
               </Space>
             </div>

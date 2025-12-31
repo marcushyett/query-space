@@ -88,6 +88,8 @@ export interface AgentProgress {
   toolCalls: ToolCallInfo[];
   streamingText: string;
   todos: AgentTodoItem[];
+  stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | null;
+  hasIncompleteTodos: boolean;
 }
 
 interface AiChatStore {
@@ -127,7 +129,7 @@ interface AiChatStore {
   appendStreamingText: (text: string) => void;
   addAgentToolCall: (toolCall: ToolCallInfo) => void;
   updateAgentToolCall: (id: string, update: Partial<ToolCallInfo>) => void;
-  completeAgent: (reachedStepLimit: boolean) => void;
+  completeAgent: (reachedStepLimit: boolean, stopReason?: AgentProgress['stopReason'], hasIncompleteTodos?: boolean) => void;
   resetAgentProgress: () => void;
 
   // Agent todo actions
@@ -347,6 +349,8 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
         toolCalls: [],
         streamingText: '',
         todos: [],
+        stopReason: null,
+        hasIncompleteTodos: false,
       },
       isGenerating: true,
     });
@@ -392,18 +396,25 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
     }));
   },
 
-  completeAgent: (reachedStepLimit: boolean) => {
-    set((state) => ({
-      agentProgress: state.agentProgress
-        ? {
-            ...state.agentProgress,
-            isRunning: false,
-            reachedStepLimit,
-            canContinue: reachedStepLimit,
-          }
-        : null,
-      isGenerating: false,
-    }));
+  completeAgent: (reachedStepLimit: boolean, stopReason?: AgentProgress['stopReason'], hasIncompleteTodos?: boolean) => {
+    set((state) => {
+      // Determine if agent can continue: step limit reached OR has incomplete todos
+      const canContinue = reachedStepLimit || (hasIncompleteTodos ?? false);
+
+      return {
+        agentProgress: state.agentProgress
+          ? {
+              ...state.agentProgress,
+              isRunning: false,
+              reachedStepLimit,
+              canContinue,
+              stopReason: stopReason ?? (reachedStepLimit ? 'step_limit' : null),
+              hasIncompleteTodos: hasIncompleteTodos ?? false,
+            }
+          : null,
+        isGenerating: false,
+      };
+    });
   },
 
   resetAgentProgress: () => {

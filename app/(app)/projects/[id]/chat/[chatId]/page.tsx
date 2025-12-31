@@ -222,6 +222,8 @@ export default function ChatPage() {
       toolCalls: [],
       streamingText: '',
       todos: [],
+      stopReason: null,
+      hasIncompleteTodos: false,
     })
 
     try {

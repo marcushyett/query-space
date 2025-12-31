@@ -19,6 +19,10 @@ export interface AgentState {
   assumptions: string[];
   dataQualityNotes: string | null;
   alternativeApproaches: { approach: string; reason: string }[];
+  // Todo tracking for completion detection
+  todos: { id: string; text: string; status: string }[];
+  hasIncompleteTodos: boolean;
+  stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | null;
 }
 
 export interface ToolCallRecord {
@@ -267,6 +271,14 @@ IMPORTANT: Only generate charts for aggregated/analytical queries. Skip charts f
 - Queries returning only text columns
 
 ## FINISHING (REQUIRED - FOLLOW EXACTLY)
+**CRITICAL: You MUST complete ALL todo items BEFORE calling update_query_ui!**
+
+Before finishing, verify:
+1. Check that ALL todo items are either "completed" or "skipped" (none should be "pending" or "in_progress")
+2. If any todos remain incomplete, continue working on them before proceeding
+3. Mark each todo as "complete" using manage_todo(action="complete") as you finish it
+
+Only when ALL todos are done:
 1. Call update_query_ui with:
    - The final SQL query
    - A brief explanation of what it does${isFollowUp ? '\n   - What you changed from the previous query' : ''}
@@ -274,7 +286,9 @@ IMPORTANT: Only generate charts for aggregated/analytical queries. Skip charts f
    - This is REQUIRED - never skip this step!
    - Name should be 2-5 words describing what the query does
    - Examples: "Monthly Sales Report", "Active Users by Region", "Top Products Analysis"
-   - The name should help users understand the query at a glance`;
+   - The name should help users understand the query at a glance
+
+**NEVER call update_query_ui or set_query_name while todos are still pending!**`;
 }
 
 export type AgentStreamEvent =
@@ -307,6 +321,9 @@ export async function* streamQueryAgent(
     assumptions: [],
     dataQualityNotes: null,
     alternativeApproaches: [],
+    todos: [],
+    hasIncompleteTodos: false,
+    stopReason: null,
   };
 
   // Create tools with context
@@ -418,6 +435,47 @@ export async function* streamQueryAgent(
                 state.lastError = null;
               }
             }
+
+            // Track todo state changes
+            if (record.toolName === 'manage_todo' && record.result) {
+              const todoResult = record.result as {
+                success: boolean;
+                action: string;
+                items?: { id: string; text: string; status: string }[];
+                item_id?: string;
+              };
+
+              if (todoResult.success) {
+                if (todoResult.action === 'create' && todoResult.items) {
+                  state.todos = todoResult.items;
+                } else if (todoResult.action === 'complete' && todoResult.item_id) {
+                  state.todos = state.todos.map(t =>
+                    t.id === todoResult.item_id ? { ...t, status: 'completed' } : t
+                  );
+                } else if (todoResult.action === 'skip' && todoResult.item_id) {
+                  state.todos = state.todos.map(t =>
+                    t.id === todoResult.item_id ? { ...t, status: 'skipped' } : t
+                  );
+                } else if (todoResult.action === 'set_current' && todoResult.item_id) {
+                  state.todos = state.todos.map(t => ({
+                    ...t,
+                    status: t.id === todoResult.item_id
+                      ? 'in_progress'
+                      : (t.status === 'in_progress' ? 'pending' : t.status)
+                  }));
+                } else if (todoResult.action === 'add') {
+                  const addResult = record.result as { item?: { id: string; text: string; status: string } };
+                  if (addResult.item) {
+                    state.todos.push(addResult.item);
+                  }
+                }
+
+                // Check if there are incomplete todos
+                state.hasIncompleteTodos = state.todos.some(
+                  t => t.status === 'pending' || t.status === 'in_progress'
+                );
+              }
+            }
           }
           break;
         }
@@ -428,9 +486,19 @@ export async function* streamQueryAgent(
           break;
 
         case 'finish':
-          // Check if we hit the step limit without completing
+          // Determine stop reason
           if (state.currentStep >= MAX_AGENT_STEPS && !state.hasCompletedGoal) {
             state.reachedStepLimit = true;
+            state.stopReason = 'step_limit';
+          } else if (state.hasCompletedGoal) {
+            // Check if there are incomplete todos even though goal is marked complete
+            if (state.hasIncompleteTodos) {
+              state.stopReason = 'incomplete_todos';
+            } else {
+              state.stopReason = 'goal_complete';
+            }
+          } else if (state.lastError) {
+            state.stopReason = 'error';
           }
           break;
       }
