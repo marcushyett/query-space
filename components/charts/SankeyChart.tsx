@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ResponsiveContainer } from 'recharts';
+import { useMemo, useState, useRef } from 'react';
+import { useDimensions } from '@/hooks/useDimensions';
 import { getChartColors, formatNumber, truncateLabel } from '@/lib/chart-utils';
 
 interface SankeyNode {
@@ -50,6 +50,8 @@ export function SankeyChart({
 }: SankeyChartProps) {
   const colors = getChartColors();
   const [hoveredLink, setHoveredLink] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { width, height } = useDimensions(containerRef);
 
   // Process data into nodes and links
   const { nodes, links } = useMemo(() => {
@@ -87,10 +89,10 @@ export function SankeyChart({
     });
 
     // Convert to array and assign indices
-    const nodeArray = Array.from(nodeMap.entries()).map(([name, data], index) => ({
-      name,
+    const nodeArray = Array.from(nodeMap.entries()).map(([nodeName, nodeData], index) => ({
+      ...nodeData,
+      name: nodeName,
       index,
-      ...data,
     }));
 
     // Create index lookup
@@ -152,126 +154,122 @@ export function SankeyChart({
 
   if (nodes.length === 0) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#888' }}>
+      <div ref={containerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#888' }}>
         No valid flow data available
       </div>
     );
   }
 
+  if (!width || !height || !layout.columns) {
+    return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+  }
+
+  const { columns, margin, maxColumn } = layout;
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+  const columnWidth = chartWidth / (maxColumn + 1);
+
+  // Calculate node heights based on value
+  const maxColumnValue = Math.max(
+    ...columns.map((col) => col.reduce((sum, n) => sum + n.totalValue, 0)),
+    1
+  );
+  const heightScale = (chartHeight - (Math.max(...columns.map((c) => c.length), 1) - 1) * nodePadding) / maxColumnValue;
+
+  // Position nodes
+  const positionedNodes: SankeyNode[] = [];
+  columns.forEach((col, colIndex) => {
+    const x = margin.left + colIndex * columnWidth;
+    let y = margin.top;
+    col.forEach((node) => {
+      const nodeHeight = Math.max(node.totalValue * heightScale / 2, 4);
+      positionedNodes.push({
+        name: node.name,
+        value: node.totalValue,
+        x,
+        y,
+        height: nodeHeight,
+        column: colIndex,
+      });
+      y += nodeHeight + nodePadding;
+    });
+  });
+
+  // Create positioned links
+  const positionedLinks: SankeyLink[] = links.map((link) => {
+    const sourceNode = positionedNodes[link.source];
+    const targetNode = positionedNodes[link.target];
+    return {
+      ...link,
+      sourceNode,
+      targetNode,
+    };
+  });
+
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {({ width, height }) => {
-          if (!width || !height || !layout.columns) return <svg />;
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <svg width={width} height={height}>
+        {/* Links */}
+        {positionedLinks.map((link, index) => {
+          const sourceX = link.sourceNode.x + nodeWidth;
+          const targetX = link.targetNode.x;
+          const linkHeight = Math.max((link.value / link.sourceNode.value) * link.sourceNode.height, 2);
+          const sourceY = link.sourceNode.y;
+          const targetY = link.targetNode.y;
 
-          const { columns, margin, maxColumn } = layout;
-          const chartWidth = width - margin.left - margin.right;
-          const chartHeight = height - margin.top - margin.bottom;
-          const columnWidth = chartWidth / (maxColumn + 1);
+          let fillColor = colors[link.source % colors.length];
+          if (colorMode === 'target') {
+            fillColor = colors[link.target % colors.length];
+          }
 
-          // Calculate node heights based on value
-          const maxColumnValue = Math.max(
-            ...columns.map((col) => col.reduce((sum, n) => sum + n.totalValue, 0)),
-            1
-          );
-          const heightScale = (chartHeight - (Math.max(...columns.map((c) => c.length), 1) - 1) * nodePadding) / maxColumnValue;
-
-          // Position nodes
-          const positionedNodes: SankeyNode[] = [];
-          columns.forEach((col, colIndex) => {
-            const x = margin.left + colIndex * columnWidth;
-            let y = margin.top;
-            col.forEach((node) => {
-              const nodeHeight = Math.max(node.totalValue * heightScale / 2, 4);
-              positionedNodes.push({
-                name: node.name,
-                value: node.totalValue,
-                x,
-                y,
-                height: nodeHeight,
-                column: colIndex,
-              });
-              y += nodeHeight + nodePadding;
-            });
-          });
-
-          // Create positioned links
-          const positionedLinks: SankeyLink[] = links.map((link) => {
-            const sourceNode = positionedNodes[link.source];
-            const targetNode = positionedNodes[link.target];
-            return {
-              ...link,
-              sourceNode,
-              targetNode,
-            };
-          });
+          const isHovered = hoveredLink === index;
+          const opacity = hoveredLink === null ? linkOpacity : isHovered ? 0.8 : 0.2;
 
           return (
-            <svg width={width} height={height}>
-              {/* Links */}
-              {positionedLinks.map((link, index) => {
-                const sourceX = link.sourceNode.x + nodeWidth;
-                const targetX = link.targetNode.x;
-                const linkHeight = Math.max((link.value / link.sourceNode.value) * link.sourceNode.height, 2);
-                const sourceY = link.sourceNode.y;
-                const targetY = link.targetNode.y;
-
-                let fillColor = colors[link.source % colors.length];
-                if (colorMode === 'target') {
-                  fillColor = colors[link.target % colors.length];
-                }
-
-                const isHovered = hoveredLink === index;
-                const opacity = hoveredLink === null ? linkOpacity : isHovered ? 0.8 : 0.2;
-
-                return (
-                  <path
-                    key={`link-${index}`}
-                    d={generateLinkPath(sourceX, sourceY, linkHeight, targetX, targetY, linkHeight)}
-                    fill={fillColor}
-                    opacity={opacity}
-                    style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
-                    onMouseEnter={() => setHoveredLink(index)}
-                    onMouseLeave={() => setHoveredLink(null)}
-                  >
-                    <title>
-                      {link.sourceNode.name} → {link.targetNode.name}: {formatNumber(link.value)}
-                    </title>
-                  </path>
-                );
-              })}
-
-              {/* Nodes */}
-              {positionedNodes.map((node, index) => (
-                <g key={`node-${index}`}>
-                  <rect
-                    x={node.x}
-                    y={node.y}
-                    width={nodeWidth}
-                    height={node.height}
-                    fill={colors[node.column % colors.length]}
-                    stroke="#1a1a1a"
-                    strokeWidth={1}
-                    rx={2}
-                  >
-                    <title>{node.name}: {formatNumber(node.value)}</title>
-                  </rect>
-                  <text
-                    x={node.column === maxColumn ? node.x - 5 : node.x + nodeWidth + 5}
-                    y={node.y + node.height / 2}
-                    textAnchor={node.column === maxColumn ? 'end' : 'start'}
-                    dominantBaseline="middle"
-                    fill="#888"
-                    fontSize={11}
-                  >
-                    {truncateLabel(node.name, 15)}
-                  </text>
-                </g>
-              ))}
-            </svg>
+            <path
+              key={`link-${index}`}
+              d={generateLinkPath(sourceX, sourceY, linkHeight, targetX, targetY, linkHeight)}
+              fill={fillColor}
+              opacity={opacity}
+              style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
+              onMouseEnter={() => setHoveredLink(index)}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              <title>
+                {link.sourceNode.name} → {link.targetNode.name}: {formatNumber(link.value)}
+              </title>
+            </path>
           );
-        }}
-      </ResponsiveContainer>
+        })}
+
+        {/* Nodes */}
+        {positionedNodes.map((node, index) => (
+          <g key={`node-${index}`}>
+            <rect
+              x={node.x}
+              y={node.y}
+              width={nodeWidth}
+              height={node.height}
+              fill={colors[node.column % colors.length]}
+              stroke="#1a1a1a"
+              strokeWidth={1}
+              rx={2}
+            >
+              <title>{node.name}: {formatNumber(node.value)}</title>
+            </rect>
+            <text
+              x={node.column === maxColumn ? node.x - 5 : node.x + nodeWidth + 5}
+              y={node.y + node.height / 2}
+              textAnchor={node.column === maxColumn ? 'end' : 'start'}
+              dominantBaseline="middle"
+              fill="#888"
+              fontSize={11}
+            >
+              {truncateLabel(node.name, 15)}
+            </text>
+          </g>
+        ))}
+      </svg>
     </div>
   );
 }

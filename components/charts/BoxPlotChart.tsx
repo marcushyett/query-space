@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ResponsiveContainer } from 'recharts';
+import { useMemo, useState, useRef } from 'react';
+import { useDimensions } from '@/hooks/useDimensions';
 import { getChartColors, formatNumber, truncateLabel } from '@/lib/chart-utils';
 
 interface BoxPlotStats {
@@ -42,10 +42,11 @@ export function BoxPlotChart({
 }: BoxPlotChartProps) {
   const colors = getChartColors();
   const [hoveredBox, setHoveredBox] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { width, height } = useDimensions(containerRef);
 
   // Calculate box plot statistics for each category
   const boxPlotData = useMemo(() => {
-    // Group data by category
     const grouped = new Map<string, number[]>();
 
     data.forEach((row) => {
@@ -62,7 +63,6 @@ export function BoxPlotChart({
       }
     });
 
-    // Calculate statistics for each category
     const stats: BoxPlotStats[] = [];
 
     grouped.forEach((values, category) => {
@@ -80,7 +80,6 @@ export function BoxPlotChart({
       const q3 = values[q3Index];
       const iqr = q3 - q1;
 
-      // Calculate whisker bounds based on type
       let whiskerMin: number;
       let whiskerMax: number;
 
@@ -102,10 +101,7 @@ export function BoxPlotChart({
           whiskerMax = Math.min(values[n - 1], q3 + 1.5 * iqr);
       }
 
-      // Find outliers
       const outliers = values.filter((v) => v < whiskerMin || v > whiskerMax);
-
-      // Calculate mean if needed
       const mean = showMean ? values.reduce((a, b) => a + b, 0) / n : undefined;
 
       stats.push({
@@ -123,7 +119,6 @@ export function BoxPlotChart({
     return stats;
   }, [data, categoryColumn, valueColumn, showOutliers, showMean, whiskerType]);
 
-  // Calculate value domain
   const allValues = boxPlotData.flatMap((b) => [b.min, b.max, ...b.outliers]);
   const minValue = Math.min(...allValues);
   const maxValue = Math.max(...allValues);
@@ -131,264 +126,137 @@ export function BoxPlotChart({
 
   const isHorizontal = orientation === 'horizontal';
 
+  if (!width || !height) {
+    return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+  }
+
+  const margin = { top: 20, right: 30, bottom: 60, left: 80 };
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+
+  const boxCount = boxPlotData.length;
+  const boxSize = isHorizontal ? chartHeight / boxCount : chartWidth / boxCount;
+  const boxWidth = boxSize * 0.6;
+
+  const valueScale = (value: number) => {
+    const range = maxValue - minValue + 2 * padding;
+    const ratio = (value - minValue + padding) / range;
+    return isHorizontal
+      ? margin.left + ratio * chartWidth
+      : margin.top + (1 - ratio) * chartHeight;
+  };
+
+  const categoryScale = (index: number) => {
+    return isHorizontal
+      ? margin.top + index * boxSize + boxSize / 2
+      : margin.left + index * boxSize + boxSize / 2;
+  };
+
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {({ width, height }) => {
-          if (!width || !height) return <svg />;
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <svg width={width} height={height}>
+        {/* Grid lines */}
+        {Array.from({ length: 5 }).map((_, i) => {
+          const value = minValue - padding + ((maxValue - minValue + 2 * padding) * i) / 4;
+          const pos = valueScale(value);
+          return (
+            <g key={`grid-${i}`}>
+              {isHorizontal ? (
+                <line x1={pos} y1={margin.top} x2={pos} y2={height - margin.bottom} stroke="#333" strokeDasharray="3 3" />
+              ) : (
+                <line x1={margin.left} y1={pos} x2={width - margin.right} y2={pos} stroke="#333" strokeDasharray="3 3" />
+              )}
+              <text
+                x={isHorizontal ? pos : margin.left - 10}
+                y={isHorizontal ? height - margin.bottom + 20 : pos}
+                textAnchor={isHorizontal ? 'middle' : 'end'}
+                dominantBaseline={isHorizontal ? 'hanging' : 'middle'}
+                fill="#888"
+                fontSize={10}
+              >
+                {formatNumber(value)}
+              </text>
+            </g>
+          );
+        })}
 
-          const margin = { top: 20, right: 30, bottom: 60, left: 80 };
-          const chartWidth = width - margin.left - margin.right;
-          const chartHeight = height - margin.top - margin.bottom;
+        {/* Category labels */}
+        {boxPlotData.map((box, index) => (
+          <text
+            key={`label-${index}`}
+            x={isHorizontal ? margin.left - 10 : categoryScale(index)}
+            y={isHorizontal ? categoryScale(index) : height - margin.bottom + 20}
+            textAnchor={isHorizontal ? 'end' : 'middle'}
+            dominantBaseline={isHorizontal ? 'middle' : 'hanging'}
+            fill="#888"
+            fontSize={11}
+            transform={isHorizontal ? undefined : `rotate(-45 ${categoryScale(index)} ${height - margin.bottom + 20})`}
+          >
+            {truncateLabel(box.category, 12)}
+          </text>
+        ))}
 
-          const boxCount = boxPlotData.length;
-          const boxSize = isHorizontal
-            ? chartHeight / boxCount
-            : chartWidth / boxCount;
-          const boxWidth = boxSize * 0.6;
-          const boxPadding = boxSize * 0.2;
+        {/* Box plots */}
+        {boxPlotData.map((box, index) => {
+          const color = colors[index % colors.length];
+          const isHovered = hoveredBox === box.category;
+          const opacity = hoveredBox === null ? 1 : isHovered ? 1 : 0.4;
 
-          // Scale functions
-          const valueScale = (value: number) => {
-            const range = maxValue - minValue + 2 * padding;
-            const ratio = (value - minValue + padding) / range;
-            return isHorizontal
-              ? margin.left + ratio * chartWidth
-              : margin.top + (1 - ratio) * chartHeight;
-          };
-
-          const categoryScale = (index: number) => {
-            return isHorizontal
-              ? margin.top + index * boxSize + boxSize / 2
-              : margin.left + index * boxSize + boxSize / 2;
-          };
+          const boxX = isHorizontal ? valueScale(box.q1) : categoryScale(index) - boxWidth / 2;
+          const boxY = isHorizontal ? categoryScale(index) - boxWidth / 2 : valueScale(box.q3);
+          const boxW = isHorizontal ? valueScale(box.q3) - valueScale(box.q1) : boxWidth;
+          const boxH = isHorizontal ? boxWidth : valueScale(box.q1) - valueScale(box.q3);
 
           return (
-            <svg width={width} height={height}>
-              {/* Grid lines */}
-              {Array.from({ length: 5 }).map((_, i) => {
-                const value = minValue - padding + ((maxValue - minValue + 2 * padding) * i) / 4;
-                const pos = valueScale(value);
-                return (
-                  <g key={`grid-${i}`}>
-                    {isHorizontal ? (
-                      <line
-                        x1={pos}
-                        y1={margin.top}
-                        x2={pos}
-                        y2={height - margin.bottom}
-                        stroke="#333"
-                        strokeDasharray="3 3"
-                      />
-                    ) : (
-                      <line
-                        x1={margin.left}
-                        y1={pos}
-                        x2={width - margin.right}
-                        y2={pos}
-                        stroke="#333"
-                        strokeDasharray="3 3"
-                      />
-                    )}
-                    <text
-                      x={isHorizontal ? pos : margin.left - 10}
-                      y={isHorizontal ? height - margin.bottom + 20 : pos}
-                      textAnchor={isHorizontal ? 'middle' : 'end'}
-                      dominantBaseline={isHorizontal ? 'hanging' : 'middle'}
-                      fill="#888"
-                      fontSize={10}
-                    >
-                      {formatNumber(value)}
-                    </text>
-                  </g>
-                );
-              })}
+            <g
+              key={`box-${index}`}
+              opacity={opacity}
+              style={{ transition: 'opacity 0.2s' }}
+              onMouseEnter={() => setHoveredBox(box.category)}
+              onMouseLeave={() => setHoveredBox(null)}
+            >
+              {/* Whiskers */}
+              {isHorizontal ? (
+                <>
+                  <line x1={valueScale(box.min)} y1={categoryScale(index)} x2={valueScale(box.q1)} y2={categoryScale(index)} stroke={color} strokeWidth={2} />
+                  <line x1={valueScale(box.q3)} y1={categoryScale(index)} x2={valueScale(box.max)} y2={categoryScale(index)} stroke={color} strokeWidth={2} />
+                  <line x1={valueScale(box.min)} y1={categoryScale(index) - boxWidth / 4} x2={valueScale(box.min)} y2={categoryScale(index) + boxWidth / 4} stroke={color} strokeWidth={2} />
+                  <line x1={valueScale(box.max)} y1={categoryScale(index) - boxWidth / 4} x2={valueScale(box.max)} y2={categoryScale(index) + boxWidth / 4} stroke={color} strokeWidth={2} />
+                </>
+              ) : (
+                <>
+                  <line x1={categoryScale(index)} y1={valueScale(box.min)} x2={categoryScale(index)} y2={valueScale(box.q1)} stroke={color} strokeWidth={2} />
+                  <line x1={categoryScale(index)} y1={valueScale(box.q3)} x2={categoryScale(index)} y2={valueScale(box.max)} stroke={color} strokeWidth={2} />
+                  <line x1={categoryScale(index) - boxWidth / 4} y1={valueScale(box.min)} x2={categoryScale(index) + boxWidth / 4} y2={valueScale(box.min)} stroke={color} strokeWidth={2} />
+                  <line x1={categoryScale(index) - boxWidth / 4} y1={valueScale(box.max)} x2={categoryScale(index) + boxWidth / 4} y2={valueScale(box.max)} stroke={color} strokeWidth={2} />
+                </>
+              )}
 
-              {/* Category labels */}
-              {boxPlotData.map((box, index) => (
-                <text
-                  key={`label-${index}`}
-                  x={isHorizontal ? margin.left - 10 : categoryScale(index)}
-                  y={isHorizontal ? categoryScale(index) : height - margin.bottom + 20}
-                  textAnchor={isHorizontal ? 'end' : 'middle'}
-                  dominantBaseline={isHorizontal ? 'middle' : 'hanging'}
-                  fill="#888"
-                  fontSize={11}
-                  transform={
-                    isHorizontal
-                      ? undefined
-                      : `rotate(-45 ${categoryScale(index)} ${height - margin.bottom + 20})`
-                  }
-                >
-                  {truncateLabel(box.category, 12)}
-                </text>
+              {/* Box */}
+              <rect x={boxX} y={boxY} width={Math.abs(boxW)} height={Math.abs(boxH)} fill={color} fillOpacity={0.3} stroke={color} strokeWidth={2} rx={2} style={{ cursor: 'pointer' }} />
+
+              {/* Median line */}
+              {isHorizontal ? (
+                <line x1={valueScale(box.median)} y1={categoryScale(index) - boxWidth / 2} x2={valueScale(box.median)} y2={categoryScale(index) + boxWidth / 2} stroke="#fff" strokeWidth={2} />
+              ) : (
+                <line x1={categoryScale(index) - boxWidth / 2} y1={valueScale(box.median)} x2={categoryScale(index) + boxWidth / 2} y2={valueScale(box.median)} stroke="#fff" strokeWidth={2} />
+              )}
+
+              {/* Mean marker */}
+              {showMean && box.mean !== undefined && (
+                <circle cx={isHorizontal ? valueScale(box.mean) : categoryScale(index)} cy={isHorizontal ? categoryScale(index) : valueScale(box.mean)} r={4} fill="#fff" stroke={color} strokeWidth={2} />
+              )}
+
+              {/* Outliers */}
+              {box.outliers.map((outlier, oIndex) => (
+                <circle key={`outlier-${oIndex}`} cx={isHorizontal ? valueScale(outlier) : categoryScale(index)} cy={isHorizontal ? categoryScale(index) : valueScale(outlier)} r={4} fill="transparent" stroke={color} strokeWidth={2} />
               ))}
 
-              {/* Box plots */}
-              {boxPlotData.map((box, index) => {
-                const color = colors[index % colors.length];
-                const isHovered = hoveredBox === box.category;
-                const opacity = hoveredBox === null ? 1 : isHovered ? 1 : 0.4;
-
-                const boxX = isHorizontal ? valueScale(box.q1) : categoryScale(index) - boxWidth / 2;
-                const boxY = isHorizontal ? categoryScale(index) - boxWidth / 2 : valueScale(box.q3);
-                const boxW = isHorizontal ? valueScale(box.q3) - valueScale(box.q1) : boxWidth;
-                const boxH = isHorizontal ? boxWidth : valueScale(box.q1) - valueScale(box.q3);
-
-                return (
-                  <g
-                    key={`box-${index}`}
-                    opacity={opacity}
-                    style={{ transition: 'opacity 0.2s' }}
-                    onMouseEnter={() => setHoveredBox(box.category)}
-                    onMouseLeave={() => setHoveredBox(null)}
-                  >
-                    {/* Whiskers */}
-                    {isHorizontal ? (
-                      <>
-                        <line
-                          x1={valueScale(box.min)}
-                          y1={categoryScale(index)}
-                          x2={valueScale(box.q1)}
-                          y2={categoryScale(index)}
-                          stroke={color}
-                          strokeWidth={2}
-                        />
-                        <line
-                          x1={valueScale(box.q3)}
-                          y1={categoryScale(index)}
-                          x2={valueScale(box.max)}
-                          y2={categoryScale(index)}
-                          stroke={color}
-                          strokeWidth={2}
-                        />
-                        {/* Whisker caps */}
-                        <line
-                          x1={valueScale(box.min)}
-                          y1={categoryScale(index) - boxWidth / 4}
-                          x2={valueScale(box.min)}
-                          y2={categoryScale(index) + boxWidth / 4}
-                          stroke={color}
-                          strokeWidth={2}
-                        />
-                        <line
-                          x1={valueScale(box.max)}
-                          y1={categoryScale(index) - boxWidth / 4}
-                          x2={valueScale(box.max)}
-                          y2={categoryScale(index) + boxWidth / 4}
-                          stroke={color}
-                          strokeWidth={2}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <line
-                          x1={categoryScale(index)}
-                          y1={valueScale(box.min)}
-                          x2={categoryScale(index)}
-                          y2={valueScale(box.q1)}
-                          stroke={color}
-                          strokeWidth={2}
-                        />
-                        <line
-                          x1={categoryScale(index)}
-                          y1={valueScale(box.q3)}
-                          x2={categoryScale(index)}
-                          y2={valueScale(box.max)}
-                          stroke={color}
-                          strokeWidth={2}
-                        />
-                        {/* Whisker caps */}
-                        <line
-                          x1={categoryScale(index) - boxWidth / 4}
-                          y1={valueScale(box.min)}
-                          x2={categoryScale(index) + boxWidth / 4}
-                          y2={valueScale(box.min)}
-                          stroke={color}
-                          strokeWidth={2}
-                        />
-                        <line
-                          x1={categoryScale(index) - boxWidth / 4}
-                          y1={valueScale(box.max)}
-                          x2={categoryScale(index) + boxWidth / 4}
-                          y2={valueScale(box.max)}
-                          stroke={color}
-                          strokeWidth={2}
-                        />
-                      </>
-                    )}
-
-                    {/* Box */}
-                    <rect
-                      x={boxX}
-                      y={boxY}
-                      width={Math.abs(boxW)}
-                      height={Math.abs(boxH)}
-                      fill={color}
-                      fillOpacity={0.3}
-                      stroke={color}
-                      strokeWidth={2}
-                      rx={2}
-                      style={{ cursor: 'pointer' }}
-                    />
-
-                    {/* Median line */}
-                    {isHorizontal ? (
-                      <line
-                        x1={valueScale(box.median)}
-                        y1={categoryScale(index) - boxWidth / 2}
-                        x2={valueScale(box.median)}
-                        y2={categoryScale(index) + boxWidth / 2}
-                        stroke="#fff"
-                        strokeWidth={2}
-                      />
-                    ) : (
-                      <line
-                        x1={categoryScale(index) - boxWidth / 2}
-                        y1={valueScale(box.median)}
-                        x2={categoryScale(index) + boxWidth / 2}
-                        y2={valueScale(box.median)}
-                        stroke="#fff"
-                        strokeWidth={2}
-                      />
-                    )}
-
-                    {/* Mean marker */}
-                    {showMean && box.mean !== undefined && (
-                      <circle
-                        cx={isHorizontal ? valueScale(box.mean) : categoryScale(index)}
-                        cy={isHorizontal ? categoryScale(index) : valueScale(box.mean)}
-                        r={4}
-                        fill="#fff"
-                        stroke={color}
-                        strokeWidth={2}
-                      />
-                    )}
-
-                    {/* Outliers */}
-                    {box.outliers.map((outlier, oIndex) => (
-                      <circle
-                        key={`outlier-${oIndex}`}
-                        cx={isHorizontal ? valueScale(outlier) : categoryScale(index)}
-                        cy={isHorizontal ? categoryScale(index) : valueScale(outlier)}
-                        r={4}
-                        fill="transparent"
-                        stroke={color}
-                        strokeWidth={2}
-                      />
-                    ))}
-
-                    {/* Tooltip */}
-                    <title>
-                      {`${box.category}\nMin: ${formatNumber(box.min)}\nQ1: ${formatNumber(box.q1)}\nMedian: ${formatNumber(box.median)}\nQ3: ${formatNumber(box.q3)}\nMax: ${formatNumber(box.max)}${box.mean !== undefined ? `\nMean: ${formatNumber(box.mean)}` : ''}${box.outliers.length > 0 ? `\nOutliers: ${box.outliers.length}` : ''}`}
-                    </title>
-                  </g>
-                );
-              })}
-            </svg>
+              <title>{`${box.category}\nMin: ${formatNumber(box.min)}\nQ1: ${formatNumber(box.q1)}\nMedian: ${formatNumber(box.median)}\nQ3: ${formatNumber(box.q3)}\nMax: ${formatNumber(box.max)}${box.mean !== undefined ? `\nMean: ${formatNumber(box.mean)}` : ''}${box.outliers.length > 0 ? `\nOutliers: ${box.outliers.length}` : ''}`}</title>
+            </g>
           );
-        }}
-      </ResponsiveContainer>
+        })}
+      </svg>
     </div>
   );
 }

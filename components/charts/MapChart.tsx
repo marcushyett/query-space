@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ResponsiveContainer } from 'recharts';
+import { useMemo, useState, useRef } from 'react';
+import { useDimensions } from '@/hooks/useDimensions';
 import { getChartColors, formatNumber } from '@/lib/chart-utils';
 
 interface MapDataPoint {
@@ -84,6 +84,8 @@ export function MapChart({
 }: MapChartProps) {
   const colors = getChartColors();
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { width, height } = useDimensions(containerRef);
 
   // Process data
   const processedData = useMemo(() => {
@@ -148,20 +150,19 @@ export function MapChart({
 
   const regions = mapType === 'usa' ? US_STATES : WORLD_REGIONS;
 
+  if (!width || !height) {
+    return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+  }
+
+  const mapWidth = mapType === 'usa' ? 550 : 600;
+  const mapHeight = mapType === 'usa' ? 350 : 320;
+  const scale = Math.min(width / mapWidth, height / mapHeight) * 0.85;
+  const offsetX = (width - mapWidth * scale) / 2;
+  const offsetY = (height - mapHeight * scale) / 2;
+
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {({ width, height }) => {
-          if (!width || !height) return <svg />;
-
-          const mapWidth = mapType === 'usa' ? 550 : 600;
-          const mapHeight = mapType === 'usa' ? 350 : 320;
-          const scale = Math.min(width / mapWidth, height / mapHeight) * 0.85;
-          const offsetX = (width - mapWidth * scale) / 2;
-          const offsetY = (height - mapHeight * scale) / 2;
-
-          return (
-            <svg width={width} height={height}>
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <svg width={width} height={height}>
               <g transform={`translate(${offsetX}, ${offsetY}) scale(${scale})`}>
                 {mapType === 'usa' ? (
                   // US States as circles
@@ -283,10 +284,7 @@ export function MapChart({
               <text x={width - 55} y={120} fill="#888" fontSize={10} textAnchor="end">
                 {formatNumber(minValue)}
               </text>
-            </svg>
-          );
-        }}
-      </ResponsiveContainer>
+      </svg>
 
       {/* Tooltip */}
       {hoveredRegion && (

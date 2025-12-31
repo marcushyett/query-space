@@ -74,22 +74,32 @@ export function FunnelChart({
           dataKey="value"
           data={dataWithConversion}
           isAnimationActive
-          labelLine={false}
         >
           <LabelList
             position="right"
             fill="#fff"
             stroke="none"
-            dataKey={(entry: FunnelDataItem & { conversionRate: string }) => {
-              const name = truncateLabel(entry.name, 15);
-              const value = formatNumber(entry.value);
-              if (showPercentage && entry.percentage !== undefined) {
-                return `${name}: ${value} (${entry.percentage.toFixed(0)}%)`;
-              }
-              return `${name}: ${value}`;
+            dataKey="name"
+            content={({ x, y, value, index }) => {
+              const item = dataWithConversion[index as number];
+              if (!item) return null;
+              const displayName = truncateLabel(item.name, 15);
+              const displayValue = formatNumber(item.value);
+              const text = showPercentage && item.percentage !== undefined
+                ? `${displayName}: ${displayValue} (${item.percentage.toFixed(0)}%)`
+                : `${displayName}: ${displayValue}`;
+              return (
+                <text
+                  x={(x as number) + 10}
+                  y={y as number}
+                  fill="#fff"
+                  fontSize={12}
+                  dominantBaseline="middle"
+                >
+                  {text}
+                </text>
+              );
             }}
-            fontSize={12}
-            offset={10}
           />
           {dataWithConversion.map((_, index) => (
             <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />

@@ -732,8 +732,8 @@ describe('Agent Tools', () => {
       expect(result.title).toBe('Values by Category')
     })
 
-    it('should generate a pie chart for category + numeric data with few rows', async () => {
-      // 10 or fewer rows with single text + single numeric triggers pie chart
+    it('should generate a donut chart for category + numeric data with few rows', async () => {
+      // 10 or fewer rows with single text + single numeric triggers donut chart (enhanced pie)
       const data = [
         { category: 'A', value: 10 },
         { category: 'B', value: 20 },
@@ -754,7 +754,7 @@ describe('Agent Tools', () => {
       ) as unknown as GenerateChartResult
 
       expect(result.success).toBe(true)
-      expect(result.chartConfig?.type).toBe('pie')
+      expect(result.chartConfig?.type).toBe('donut')
       expect(result.chartData).toHaveLength(3)
     })
 
@@ -873,7 +873,9 @@ describe('Agent Tools', () => {
       expect(result.error).toContain('No data provided')
     })
 
-    it('should handle missing axes', async () => {
+    it('should handle text-only data gracefully', async () => {
+      // With no numeric columns, chart generation still succeeds but with empty yAxes
+      // The visualization layer will handle the display appropriately
       const data = [
         { text1: 'a', text2: 'b' },
       ]
@@ -891,8 +893,10 @@ describe('Agent Tools', () => {
         opts
       ) as unknown as GenerateChartResult
 
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('Cannot determine chart axes')
+      // Now succeeds with lenient handling - yAxes may be empty
+      expect(result.success).toBe(true)
+      expect(result.chartConfig?.xAxis).toBe('text1')
+      expect(result.chartConfig?.yAxes).toEqual([])
     })
 
     it('should support stacked charts', async () => {

@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { ResponsiveContainer } from 'recharts';
-import { getChartColors, formatNumber, truncateLabel } from '@/lib/chart-utils';
+import { useDimensions } from '@/hooks/useDimensions';
+import { getChartColors, truncateLabel } from '@/lib/chart-utils';
 
 interface NetworkNode {
   id: string;
@@ -55,6 +55,8 @@ export function NetworkChart({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const animationRef = useRef<number | null>(null);
   const iterationRef = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { width, height } = useDimensions(containerRef);
 
   // Process data into nodes and links
   const { initialNodes, links, nodeConnections } = useMemo(() => {
@@ -218,102 +220,98 @@ export function NetworkChart({
 
   if (nodes.length === 0) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#888' }}>
+      <div ref={containerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#888' }}>
         No network data available
       </div>
     );
   }
 
+  if (!width || !height) {
+    return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+  }
+
+  // Scale nodes to fit viewport
+  const xValues = nodes.map((n) => n.x);
+  const yValues = nodes.map((n) => n.y);
+  const minX = Math.min(...xValues);
+  const maxX = Math.max(...xValues);
+  const minY = Math.min(...yValues);
+  const maxY = Math.max(...yValues);
+
+  const margin = 50;
+  const scaleX = (x: number) =>
+    margin + ((x - minX) / (maxX - minX || 1)) * (width - 2 * margin);
+  const scaleY = (y: number) =>
+    margin + ((y - minY) / (maxY - minY || 1)) * (height - 2 * margin);
+
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {({ width, height }) => {
-          if (!width || !height) return <svg />;
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <svg width={width} height={height}>
+        {/* Links */}
+        {links.map((link, index) => {
+          const sourceNode = nodes.find((n) => n.id === link.source);
+          const targetNode = nodes.find((n) => n.id === link.target);
+          if (!sourceNode || !targetNode) return null;
 
-          // Scale nodes to fit viewport
-          const xValues = nodes.map((n) => n.x);
-          const yValues = nodes.map((n) => n.y);
-          const minX = Math.min(...xValues);
-          const maxX = Math.max(...xValues);
-          const minY = Math.min(...yValues);
-          const maxY = Math.max(...yValues);
-
-          const margin = 50;
-          const scaleX = (x: number) =>
-            margin + ((x - minX) / (maxX - minX || 1)) * (width - 2 * margin);
-          const scaleY = (y: number) =>
-            margin + ((y - minY) / (maxY - minY || 1)) * (height - 2 * margin);
+          const highlighted = isLinkHighlighted(link);
+          const opacity = hoveredNode ? (highlighted ? 0.8 : 0.1) : 0.4;
 
           return (
-            <svg width={width} height={height}>
-              {/* Links */}
-              {links.map((link, index) => {
-                const sourceNode = nodes.find((n) => n.id === link.source);
-                const targetNode = nodes.find((n) => n.id === link.target);
-                if (!sourceNode || !targetNode) return null;
-
-                const highlighted = isLinkHighlighted(link);
-                const opacity = hoveredNode ? (highlighted ? 0.8 : 0.1) : 0.4;
-
-                return (
-                  <line
-                    key={`link-${index}`}
-                    x1={scaleX(sourceNode.x)}
-                    y1={scaleY(sourceNode.y)}
-                    x2={scaleX(targetNode.x)}
-                    y2={scaleY(targetNode.y)}
-                    stroke="#666"
-                    strokeWidth={Math.min(link.value, 4)}
-                    opacity={opacity}
-                    style={{ transition: 'opacity 0.2s' }}
-                  />
-                );
-              })}
-
-              {/* Nodes */}
-              {nodes.map((node, index) => {
-                const size = getNodeSize(node);
-                const highlighted = isNodeHighlighted(node);
-                const opacity = highlighted ? 1 : 0.3;
-
-                return (
-                  <g
-                    key={`node-${index}`}
-                    style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
-                    opacity={opacity}
-                    onMouseEnter={() => setHoveredNode(node.id)}
-                    onMouseLeave={() => setHoveredNode(null)}
-                  >
-                    <circle
-                      cx={scaleX(node.x)}
-                      cy={scaleY(node.y)}
-                      r={size}
-                      fill={colors[index % colors.length]}
-                      stroke="#1a1a1a"
-                      strokeWidth={2}
-                    >
-                      <title>
-                        {node.name}: {node.value} connections
-                      </title>
-                    </circle>
-                    {showLabels && (
-                      <text
-                        x={scaleX(node.x)}
-                        y={scaleY(node.y) + size + 12}
-                        textAnchor="middle"
-                        fill="#888"
-                        fontSize={10}
-                      >
-                        {truncateLabel(node.name, 10)}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
+            <line
+              key={`link-${index}`}
+              x1={scaleX(sourceNode.x)}
+              y1={scaleY(sourceNode.y)}
+              x2={scaleX(targetNode.x)}
+              y2={scaleY(targetNode.y)}
+              stroke="#666"
+              strokeWidth={Math.min(link.value, 4)}
+              opacity={opacity}
+              style={{ transition: 'opacity 0.2s' }}
+            />
           );
-        }}
-      </ResponsiveContainer>
+        })}
+
+        {/* Nodes */}
+        {nodes.map((node, index) => {
+          const size = getNodeSize(node);
+          const highlighted = isNodeHighlighted(node);
+          const opacity = highlighted ? 1 : 0.3;
+
+          return (
+            <g
+              key={`node-${index}`}
+              style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
+              opacity={opacity}
+              onMouseEnter={() => setHoveredNode(node.id)}
+              onMouseLeave={() => setHoveredNode(null)}
+            >
+              <circle
+                cx={scaleX(node.x)}
+                cy={scaleY(node.y)}
+                r={size}
+                fill={colors[index % colors.length]}
+                stroke="#1a1a1a"
+                strokeWidth={2}
+              >
+                <title>
+                  {node.name}: {node.value} connections
+                </title>
+              </circle>
+              {showLabels && (
+                <text
+                  x={scaleX(node.x)}
+                  y={scaleY(node.y) + size + 12}
+                  textAnchor="middle"
+                  fill="#888"
+                  fontSize={10}
+                >
+                  {truncateLabel(node.name, 10)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
 
       {/* Legend */}
       <div

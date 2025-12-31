@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ResponsiveContainer } from 'recharts';
+import { useMemo, useState, useRef } from 'react';
+import { useDimensions } from '@/hooks/useDimensions';
 import { getChartColors, formatNumber, truncateLabel } from '@/lib/chart-utils';
 
 interface SunburstNode {
@@ -37,6 +37,8 @@ export function SunburstChart({
 }: SunburstChartProps) {
   const colors = getChartColors();
   const [hoveredPath, setHoveredPath] = useState<string[] | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { width, height } = useDimensions(containerRef);
 
   // Build hierarchical data structure
   const hierarchicalData = useMemo(() => {
@@ -181,88 +183,84 @@ export function SunburstChart({
 
   const maxDepth = Math.max(...arcs.map((a) => a.depth), 0) + 1;
 
-  return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {({ width, height }) => {
-          if (!width || !height) return <svg />;
+  if (!width || !height) {
+    return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+  }
 
-          const cx = width / 2;
-          const cy = height / 2;
-          const maxRadius = Math.min(cx, cy) - 20;
-          const ringWidth = (maxRadius - innerRadius) / maxDepth;
+  const cx = width / 2;
+  const cy = height / 2;
+  const maxRadius = Math.min(cx, cy) - 20;
+  const ringWidth = (maxRadius - innerRadius) / maxDepth;
+
+  return (
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <svg width={width} height={height}>
+        {arcs.map((arc, index) => {
+          const arcInnerRadius = innerRadius + arc.depth * ringWidth;
+          const arcOuterRadius = arcInnerRadius + ringWidth - 2;
+          const isHovered = isHighlighted(arc.path);
+          const opacity = hoveredPath
+            ? isHovered ? 1 : 0.3
+            : 1;
+
+          const midAngle = (arc.startAngle + arc.endAngle) / 2;
+          const labelRadius = (arcInnerRadius + arcOuterRadius) / 2;
+          const labelPos = polarToCartesian(cx, cy, labelRadius, midAngle);
+          const arcAngle = arc.endAngle - arc.startAngle;
+          const showLabel = showLabels && arcAngle > 15 && ringWidth > 20;
 
           return (
-            <svg width={width} height={height}>
-              {arcs.map((arc, index) => {
-                const arcInnerRadius = innerRadius + arc.depth * ringWidth;
-                const arcOuterRadius = arcInnerRadius + ringWidth - 2;
-                const isHovered = isHighlighted(arc.path);
-                const opacity = hoveredPath
-                  ? isHovered ? 1 : 0.3
-                  : 1;
-
-                const midAngle = (arc.startAngle + arc.endAngle) / 2;
-                const labelRadius = (arcInnerRadius + arcOuterRadius) / 2;
-                const labelPos = polarToCartesian(cx, cy, labelRadius, midAngle);
-                const arcAngle = arc.endAngle - arc.startAngle;
-                const showLabel = showLabels && arcAngle > 15 && ringWidth > 20;
-
-                return (
-                  <g key={`arc-${index}`}>
-                    <path
-                      d={describeArc(cx, cy, arcInnerRadius, arcOuterRadius, arc.startAngle, arc.endAngle)}
-                      fill={arc.color}
-                      stroke="#1a1a1a"
-                      strokeWidth={1}
-                      opacity={opacity}
-                      style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
-                      onMouseEnter={() => setHoveredPath(arc.path)}
-                      onMouseLeave={() => setHoveredPath(null)}
-                    >
-                      <title>
-                        {arc.path.join(' → ')}: {formatNumber(arc.value)}
-                      </title>
-                    </path>
-                    {showLabel && (
-                      <text
-                        x={labelPos.x}
-                        y={labelPos.y}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fill="#fff"
-                        fontSize={10}
-                        style={{ pointerEvents: 'none' }}
-                        opacity={opacity}
-                      >
-                        {truncateLabel(arc.name, 8)}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-
-              {/* Center circle */}
-              <circle
-                cx={cx}
-                cy={cy}
-                r={innerRadius - 2}
-                fill="#1a1a1a"
-              />
-              <text
-                x={cx}
-                y={cy}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="#888"
-                fontSize={12}
+            <g key={`arc-${index}`}>
+              <path
+                d={describeArc(cx, cy, arcInnerRadius, arcOuterRadius, arc.startAngle, arc.endAngle)}
+                fill={arc.color}
+                stroke="#1a1a1a"
+                strokeWidth={1}
+                opacity={opacity}
+                style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
+                onMouseEnter={() => setHoveredPath(arc.path)}
+                onMouseLeave={() => setHoveredPath(null)}
               >
-                {formatNumber(hierarchicalData.value || 0)}
-              </text>
-            </svg>
+                <title>
+                  {arc.path.join(' → ')}: {formatNumber(arc.value)}
+                </title>
+              </path>
+              {showLabel && (
+                <text
+                  x={labelPos.x}
+                  y={labelPos.y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="#fff"
+                  fontSize={10}
+                  style={{ pointerEvents: 'none' }}
+                  opacity={opacity}
+                >
+                  {truncateLabel(arc.name, 8)}
+                </text>
+              )}
+            </g>
           );
-        }}
-      </ResponsiveContainer>
+        })}
+
+        {/* Center circle */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={innerRadius - 2}
+          fill="#1a1a1a"
+        />
+        <text
+          x={cx}
+          y={cy}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="#888"
+          fontSize={12}
+        >
+          {formatNumber(hierarchicalData.value || 0)}
+        </text>
+      </svg>
 
       {/* Tooltip */}
       {hoveredPath && (

@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ResponsiveContainer, Tooltip } from 'recharts';
+import { useMemo, useState, useRef } from 'react';
+import { useDimensions } from '@/hooks/useDimensions';
 import { formatNumber, truncateLabel, getHeatmapColorScale } from '@/lib/chart-utils';
 
 interface HeatmapDataItem {
@@ -27,6 +27,8 @@ export function HeatmapChart({
 }: HeatmapChartProps) {
   const [hoveredCell, setHoveredCell] = useState<HeatmapDataItem | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { width, height } = useDimensions(containerRef);
 
   // Create a lookup map for quick data access
   const dataMap = useMemo(() => {
@@ -40,129 +42,125 @@ export function HeatmapChart({
   // Calculate cell dimensions
   const margin = { top: 40, right: 120, bottom: 80, left: 100 };
 
+  if (!width || !height) {
+    return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+  }
+
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+  const cellWidth = chartWidth / xValues.length;
+  const cellHeight = chartHeight / yValues.length;
+
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {({ width, height }) => {
-          if (!width || !height) return <svg />;
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <svg width={width} height={height}>
+        {/* Y-axis labels */}
+        {yValues.map((yVal, yIdx) => (
+          <text
+            key={`y-${yIdx}`}
+            x={margin.left - 10}
+            y={margin.top + yIdx * cellHeight + cellHeight / 2}
+            textAnchor="end"
+            alignmentBaseline="middle"
+            fill="#888"
+            fontSize={12}
+          >
+            {truncateLabel(yVal, 12)}
+          </text>
+        ))}
 
-          const chartWidth = width - margin.left - margin.right;
-          const chartHeight = height - margin.top - margin.bottom;
-          const cellWidth = chartWidth / xValues.length;
-          const cellHeight = chartHeight / yValues.length;
+        {/* X-axis labels */}
+        {xValues.map((xVal, xIdx) => (
+          <text
+            key={`x-${xIdx}`}
+            x={margin.left + xIdx * cellWidth + cellWidth / 2}
+            y={height - margin.bottom + 20}
+            textAnchor="end"
+            fill="#888"
+            fontSize={12}
+            transform={`rotate(-45 ${margin.left + xIdx * cellWidth + cellWidth / 2} ${height - margin.bottom + 20})`}
+          >
+            {truncateLabel(xVal, 12)}
+          </text>
+        ))}
 
-          return (
-            <svg width={width} height={height}>
-              {/* Y-axis labels */}
-              {yValues.map((yVal, yIdx) => (
-                <text
-                  key={`y-${yIdx}`}
-                  x={margin.left - 10}
-                  y={margin.top + yIdx * cellHeight + cellHeight / 2}
-                  textAnchor="end"
-                  alignmentBaseline="middle"
-                  fill="#888"
-                  fontSize={12}
-                >
-                  {truncateLabel(yVal, 12)}
-                </text>
-              ))}
+        {/* Heatmap cells */}
+        {yValues.map((yVal, yIdx) =>
+          xValues.map((xVal, xIdx) => {
+            const value = dataMap.get(`${xVal}-${yVal}`) ?? 0;
+            const color = getHeatmapColorScale(value, minValue, maxValue);
+            const isHovered =
+              hoveredCell?.x === xVal && hoveredCell?.y === yVal;
 
-              {/* X-axis labels */}
-              {xValues.map((xVal, xIdx) => (
-                <text
-                  key={`x-${xIdx}`}
-                  x={margin.left + xIdx * cellWidth + cellWidth / 2}
-                  y={height - margin.bottom + 20}
-                  textAnchor="end"
-                  fill="#888"
-                  fontSize={12}
-                  transform={`rotate(-45 ${margin.left + xIdx * cellWidth + cellWidth / 2} ${height - margin.bottom + 20})`}
-                >
-                  {truncateLabel(xVal, 12)}
-                </text>
-              ))}
-
-              {/* Heatmap cells */}
-              {yValues.map((yVal, yIdx) =>
-                xValues.map((xVal, xIdx) => {
-                  const value = dataMap.get(`${xVal}-${yVal}`) ?? 0;
-                  const color = getHeatmapColorScale(value, minValue, maxValue);
-                  const isHovered =
-                    hoveredCell?.x === xVal && hoveredCell?.y === yVal;
-
-                  return (
-                    <rect
-                      key={`cell-${xIdx}-${yIdx}`}
-                      x={margin.left + xIdx * cellWidth}
-                      y={margin.top + yIdx * cellHeight}
-                      width={cellWidth - 2}
-                      height={cellHeight - 2}
-                      fill={color}
-                      stroke={isHovered ? '#fff' : 'transparent'}
-                      strokeWidth={isHovered ? 2 : 0}
-                      rx={2}
-                      style={{ cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={(e) => {
-                        setHoveredCell({ x: xVal, y: yVal, value });
-                        setTooltipPosition({
-                          x: e.clientX,
-                          y: e.clientY,
-                        });
-                      }}
-                      onMouseMove={(e) => {
-                        setTooltipPosition({
-                          x: e.clientX,
-                          y: e.clientY,
-                        });
-                      }}
-                      onMouseLeave={() => setHoveredCell(null)}
-                    />
-                  );
-                })
-              )}
-
-              {/* Legend */}
-              <defs>
-                <linearGradient id="heatmapGradient" x1="0%" y1="100%" x2="0%" y2="0%">
-                  <stop
-                    offset="0%"
-                    stopColor={getHeatmapColorScale(minValue, minValue, maxValue)}
-                  />
-                  <stop
-                    offset="100%"
-                    stopColor={getHeatmapColorScale(maxValue, minValue, maxValue)}
-                  />
-                </linearGradient>
-              </defs>
+            return (
               <rect
-                x={width - margin.right + 20}
-                y={margin.top}
-                width={20}
-                height={chartHeight}
-                fill="url(#heatmapGradient)"
-                rx={4}
+                key={`cell-${xIdx}-${yIdx}`}
+                x={margin.left + xIdx * cellWidth}
+                y={margin.top + yIdx * cellHeight}
+                width={cellWidth - 2}
+                height={cellHeight - 2}
+                fill={color}
+                stroke={isHovered ? '#fff' : 'transparent'}
+                strokeWidth={isHovered ? 2 : 0}
+                rx={2}
+                style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                onMouseEnter={(e) => {
+                  setHoveredCell({ x: xVal, y: yVal, value });
+                  setTooltipPosition({
+                    x: e.clientX,
+                    y: e.clientY,
+                  });
+                }}
+                onMouseMove={(e) => {
+                  setTooltipPosition({
+                    x: e.clientX,
+                    y: e.clientY,
+                  });
+                }}
+                onMouseLeave={() => setHoveredCell(null)}
               />
-              <text
-                x={width - margin.right + 50}
-                y={margin.top + 10}
-                fill="#888"
-                fontSize={10}
-              >
-                {formatNumber(maxValue)}
-              </text>
-              <text
-                x={width - margin.right + 50}
-                y={margin.top + chartHeight}
-                fill="#888"
-                fontSize={10}
-              >
-                {formatNumber(minValue)}
-              </text>
-            </svg>
-          );
-        }}
-      </ResponsiveContainer>
+            );
+          })
+        )}
+
+        {/* Legend */}
+        <defs>
+          <linearGradient id="heatmapGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop
+              offset="0%"
+              stopColor={getHeatmapColorScale(minValue, minValue, maxValue)}
+            />
+            <stop
+              offset="100%"
+              stopColor={getHeatmapColorScale(maxValue, minValue, maxValue)}
+            />
+          </linearGradient>
+        </defs>
+        <rect
+          x={width - margin.right + 20}
+          y={margin.top}
+          width={20}
+          height={chartHeight}
+          fill="url(#heatmapGradient)"
+          rx={4}
+        />
+        <text
+          x={width - margin.right + 50}
+          y={margin.top + 10}
+          fill="#888"
+          fontSize={10}
+        >
+          {formatNumber(maxValue)}
+        </text>
+        <text
+          x={width - margin.right + 50}
+          y={margin.top + chartHeight}
+          fill="#888"
+          fontSize={10}
+        >
+          {formatNumber(minValue)}
+        </text>
+      </svg>
 
       {/* Custom tooltip */}
       {hoveredCell && (

@@ -34,23 +34,23 @@ export function ScatterChart({
   const colors = getChartColors();
 
   // Group data by color key if provided
-  const groupedData = colorKey
-    ? data.reduce(
+  const groupedData: Record<string, Record<string, unknown>[]> = colorKey
+    ? data.reduce<Record<string, Record<string, unknown>[]>>(
         (acc, item) => {
           const key = String(item[colorKey] ?? 'default');
           if (!acc[key]) acc[key] = [];
           acc[key].push(item);
           return acc;
         },
-        {} as Record<string, Record<string, unknown>[]>
+        {}
       )
     : { default: data };
 
   const seriesNames = Object.keys(groupedData);
 
   // Calculate size range if sizeKey is provided
-  const sizeRange = sizeKey
-    ? data.reduce(
+  const sizeRange: { min: number; max: number } = sizeKey
+    ? data.reduce<{ min: number; max: number }>(
         (range, item) => {
           const size = Number(item[sizeKey]) || 0;
           return {
@@ -131,15 +131,15 @@ export function ScatterChart({
             )}
           />
         )}
-        {seriesNames.map((name, index) => (
+        {seriesNames.map((seriesName, index) => (
           <Scatter
-            key={name}
-            name={name === 'default' ? yAxisKey : name}
-            data={groupedData[name]}
+            key={seriesName}
+            name={seriesName === 'default' ? yAxisKey : seriesName}
+            data={groupedData[seriesName]}
             fill={colors[index % colors.length]}
           >
             {!sizeKey &&
-              groupedData[name].map((_, idx) => (
+              groupedData[seriesName].map((_: Record<string, unknown>, idx: number) => (
                 <Cell
                   key={`cell-${idx}`}
                   fill={colors[index % colors.length]}

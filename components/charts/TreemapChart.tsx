@@ -9,6 +9,7 @@ interface TreemapNode {
   value?: number;
   children?: TreemapNode[];
   color?: string;
+  [key: string]: unknown;
 }
 
 interface TreemapChartProps {

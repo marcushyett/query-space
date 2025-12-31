@@ -160,8 +160,8 @@ describe('chart-utils', () => {
         rowCount: 1,
         executionTime: 10,
       };
-      // Small datasets (<=10 rows) with 1 text + 1 numeric field default to pie
-      expect(detectChartType(result)).toBe('pie');
+      // Small datasets (<=10 rows) with 1 text + 1 numeric field default to donut (enhanced pie)
+      expect(detectChartType(result)).toBe('donut');
     });
 
     it('should return column for larger text + numeric dataset', () => {
@@ -179,7 +179,7 @@ describe('chart-utils', () => {
       expect(detectChartType(result)).toBe('column');
     });
 
-    it('should return column for only numeric fields', () => {
+    it('should return scatter for only numeric fields (correlation analysis)', () => {
       const result: QueryResult = {
         rows: [{ x: 1, y: 100 }],
         fields: [
@@ -189,7 +189,8 @@ describe('chart-utils', () => {
         rowCount: 1,
         executionTime: 10,
       };
-      expect(detectChartType(result)).toBe('column');
+      // 2+ numeric columns without text/date suggests scatter plot for correlation
+      expect(detectChartType(result)).toBe('scatter');
     });
   });
 
@@ -293,7 +294,7 @@ describe('chart-utils', () => {
       expect(config.yAxes).toEqual(['value']);
     });
 
-    it('should return pie config for small dataset', () => {
+    it('should return donut config for small dataset', () => {
       const result: QueryResult = {
         rows: [{ category: 'A', value: 100 }],
         fields: [
@@ -306,7 +307,8 @@ describe('chart-utils', () => {
 
       const config = suggestChartConfig(result);
 
-      expect(config.type).toBe('pie');
+      // Donut is the enhanced version of pie for small datasets
+      expect(config.type).toBe('donut');
       expect(config.xAxis).toBe('category');
       expect(config.yAxes).toEqual(['value']);
     });

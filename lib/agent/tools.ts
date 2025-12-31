@@ -623,7 +623,7 @@ REQUIRED: Always provide a title and description so users understand the visuali
           // Gauge options
           gaugeMin: gaugeMin ?? 0,
           gaugeMax: gaugeMax ?? 100,
-          gaugeTarget: gaugeTarget ?? null,
+          gaugeTarget: gaugeTarget ?? undefined,
         };
 
         // Prepare chart data with all columns
