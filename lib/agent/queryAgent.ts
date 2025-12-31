@@ -260,10 +260,29 @@ After executing a query with execute_query, consider using generate_chart when:
 - The data compares categories or distributions
 - There are 2-50 data points (good for visualization)
 
+### Chart Type Selection Guide:
+Choose the best chart type based on the data and analysis goal:
+
+| Chart Type | Best For | Example Use Cases |
+|------------|----------|-------------------|
+| **column** | Comparing categories | Sales by region, counts by status, top products |
+| **line** | Trends over time | Daily revenue, monthly signups, weekly metrics |
+| **area** | Volume over time (stacked) | Traffic sources over time, cumulative values |
+| **pie/donut** | Parts of whole (≤10 items) | Market share, category distribution, budget allocation |
+| **scatter** | Correlation between 2 numerics | Price vs quantity, age vs income, performance metrics |
+| **funnel** | Conversion/drop-off stages | Signup flow, sales pipeline, checkout process |
+| **waterfall** | Cumulative sequential changes | Profit breakdown, budget changes, inventory flow |
+| **heatmap** | 2D patterns/matrices | Activity by day/hour, correlation matrix, regional data |
+| **radar** | Multi-metric comparison | Product feature comparison, performance scores |
+
 To generate a chart, call generate_chart with:
 - data: The rows from execute_query result
 - columns: Array of {name, type} for each column (type: 'numeric', 'date', 'text', or 'unknown')
-- Optionally specify chartType ('column', 'line', 'area', 'pie') to override auto-detection
+- chartType: Specify the type based on the guide above (auto-detection works but explicit is better)
+- For funnel: ensure data has category + value columns (e.g., stage name + count)
+- For waterfall: ensure sequential values showing changes (positive/negative deltas)
+- For heatmap: need 2 category columns + 1 value column
+- For radar: need 1 category column + multiple numeric metrics
 
 IMPORTANT: Only generate charts for aggregated/analytical queries. Skip charts for:
 - Raw data dumps (SELECT * without GROUP BY)

@@ -440,11 +440,26 @@ IMPORTANT: Always document assumptions made during analysis, especially:
     generate_chart: tool({
       description: `Generate a chart visualization for query results.
 Use this after executing a query when the results would benefit from a visual representation.
+
+CHART TYPE SELECTION GUIDE:
+- **column**: Best for comparing categories (e.g., sales by region, counts by status)
+- **line**: Best for trends over time (e.g., daily revenue, monthly users)
+- **area**: Best for showing volume/magnitude over time, especially stacked comparisons
+- **pie/donut**: Best for showing parts of a whole (e.g., market share, category distribution) - use with ≤10 categories
+- **scatter**: Best for showing correlation between two numeric variables (e.g., price vs quantity, age vs income)
+- **funnel**: Best for conversion/drop-off analysis (e.g., signup flow, sales pipeline stages)
+- **waterfall**: Best for showing cumulative effect of sequential values (e.g., profit breakdown, budget changes)
+- **heatmap**: Best for showing patterns in 2D data (e.g., activity by day/hour, correlation matrix)
+- **radar**: Best for comparing multiple metrics across categories (e.g., product features comparison, performance scores)
+
 Good candidates for charts:
 - Aggregated data with GROUP BY (counts, sums, averages)
 - Time series data (data over time)
 - Comparisons between categories
 - Distribution of values
+- Correlation analysis (scatter)
+- Conversion funnels (funnel)
+- Financial breakdowns (waterfall)
 
 Do NOT use for:
 - Single row results
@@ -461,12 +476,14 @@ REQUIRED: Always provide a title and description so users understand the visuali
         })).describe('Column metadata from the query result'),
         title: z.string().describe('Short title for the chart (e.g., "Monthly Revenue Trend", "Users by Country")'),
         description: z.string().describe('Brief explanation of what the visualization shows and key insights (1-2 sentences)'),
-        chartType: z.enum(['column', 'line', 'area', 'pie']).optional().describe('Override automatic chart type detection'),
+        chartType: z.enum(['column', 'line', 'area', 'pie', 'donut', 'scatter', 'funnel', 'waterfall', 'heatmap', 'radar']).optional().describe('Override automatic chart type detection. Use scatter for correlation, funnel for conversions, waterfall for breakdowns, heatmap for 2D patterns, radar for multi-metric comparison'),
         xAxis: z.string().optional().describe('Override X-axis column selection'),
         yAxes: z.array(z.string()).optional().describe('Override Y-axis columns selection'),
         stacked: z.boolean().optional().describe('Whether to stack the chart (for column/area charts)'),
+        showPercentage: z.boolean().optional().describe('Show percentage labels (for funnel/donut charts)'),
+        showTotal: z.boolean().optional().describe('Show total bar (for waterfall charts)'),
       }),
-      execute: async ({ data, columns, title, description, chartType, xAxis, yAxes, stacked = false }) => {
+      execute: async ({ data, columns, title, description, chartType, xAxis, yAxes, stacked = false, showPercentage = true, showTotal = true }) => {
         if (!data || data.length === 0) {
           return {
             success: false,
@@ -494,16 +511,29 @@ REQUIRED: Always provide a title and description so users understand the visuali
         // Determine chart type
         let detectedType: ChartType = chartType || 'column';
         if (!chartType) {
-          // Auto-detect based on data
+          // Auto-detect based on data structure
           const hasDate = columns.some(c => c.type === 'date');
           const numericCount = columns.filter(c => c.type === 'numeric').length;
           const textCount = columns.filter(c => c.type === 'text').length;
 
-          if (hasDate && numericCount >= 1) {
+          // Scatter: 2+ numeric columns, no text/date (correlation analysis)
+          if (numericCount >= 2 && textCount === 0 && !hasDate) {
+            detectedType = 'scatter';
+          }
+          // Line: has date column with numeric values (time series)
+          else if (hasDate && numericCount >= 1) {
             detectedType = 'line';
-          } else if (textCount === 1 && numericCount === 1 && data.length <= 10) {
-            detectedType = 'pie';
-          } else if (textCount >= 1 && numericCount >= 1) {
+          }
+          // Donut/Pie: few categories with single value (parts of whole)
+          else if (textCount === 1 && numericCount === 1 && data.length <= 10) {
+            detectedType = 'donut';
+          }
+          // Heatmap: 2 text columns and 1 numeric (2D matrix)
+          else if (textCount >= 2 && numericCount >= 1 && data.length >= 4) {
+            detectedType = 'heatmap';
+          }
+          // Default to column for category comparisons
+          else if (textCount >= 1 && numericCount >= 1) {
             detectedType = 'column';
           }
         }
@@ -555,6 +585,8 @@ REQUIRED: Always provide a title and description so users understand the visuali
           yAxes: finalYAxes,
           stacked,
           title,
+          showPercentage,
+          showTotal,
         };
 
         return {
