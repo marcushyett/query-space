@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AgentTodoItem, ToolCallInfo } from './aiChatStore';
 
 // Lightweight chat message for persistence
@@ -47,14 +46,21 @@ export interface AgentSession {
 
   // Final query name if set
   queryName?: string;
+
+  // Query count (from API)
+  queryCount?: number;
 }
 
 interface AgentSessionStore {
   // Current active session
   currentSessionId: string | null;
 
-  // All sessions (keyed by ID)
+  // All sessions (keyed by ID) - loaded from API
   sessions: Record<string, AgentSession>;
+
+  // Loading state
+  isLoadingSessions: boolean;
+  setIsLoadingSessions: (loading: boolean) => void;
 
   // Actions
   createSession: (goal: string, previousSql?: string) => string;
@@ -62,6 +68,7 @@ interface AgentSessionStore {
   setCurrentSession: (sessionId: string | null) => void;
   getSession: (sessionId: string) => AgentSession | undefined;
   getCurrentSession: () => AgentSession | undefined;
+  setSessions: (sessions: AgentSession[]) => void;
 
   // Resumable sessions
   getResumableSessions: () => AgentSession[];
@@ -85,9 +92,9 @@ interface AgentSessionStore {
   getCompletedSessions: () => AgentSession[];
 }
 
-// Generate a unique session ID
+// Generate a unique session ID (temporary until server assigns one)
 function generateSessionId(): string {
-  return `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  return `temp-session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
 
 // Build resumption context from tool calls and todos
@@ -163,203 +170,390 @@ function buildResumptionContext(session: AgentSession): string {
   return parts.join('\n');
 }
 
-export const useAgentSessionStore = create<AgentSessionStore>()(
-  persist(
-    (set, get) => ({
+export const useAgentSessionStore = create<AgentSessionStore>()((set, get) => ({
+  currentSessionId: null,
+  sessions: {},
+  isLoadingSessions: false,
+
+  setIsLoadingSessions: (loading: boolean) => {
+    set({ isLoadingSessions: loading });
+  },
+
+  setSessions: (sessions: AgentSession[]) => {
+    const sessionsMap: Record<string, AgentSession> = {};
+    for (const session of sessions) {
+      sessionsMap[session.id] = session;
+    }
+    set({ sessions: sessionsMap });
+  },
+
+  createSession: (goal: string, previousSql?: string) => {
+    const id = generateSessionId();
+    const session: AgentSession = {
+      id,
+      goal,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      status: 'running',
+      currentStep: 0,
+      maxSteps: 25,
+      toolCalls: [],
+      todos: [],
+      currentSql: previousSql || null,
+      previousSql: previousSql || null,
+      lastStreamingText: '',
+      lastError: null,
+      resumptionContext: '',
+      chatHistory: [],
+    };
+
+    set((state) => ({
+      currentSessionId: id,
+      sessions: {
+        ...state.sessions,
+        [id]: session,
+      },
+    }));
+
+    return id;
+  },
+
+  updateSession: (sessionId: string, update: Partial<AgentSession>) => {
+    set((state) => {
+      const session = state.sessions[sessionId];
+      if (!session) return state;
+
+      return {
+        sessions: {
+          ...state.sessions,
+          [sessionId]: {
+            ...session,
+            ...update,
+            updatedAt: Date.now(),
+          },
+        },
+      };
+    });
+  },
+
+  setCurrentSession: (sessionId: string | null) => {
+    set({ currentSessionId: sessionId });
+  },
+
+  getSession: (sessionId: string) => {
+    return get().sessions[sessionId];
+  },
+
+  getCurrentSession: () => {
+    const { currentSessionId, sessions } = get();
+    return currentSessionId ? sessions[currentSessionId] : undefined;
+  },
+
+  getResumableSessions: () => {
+    const { sessions } = get();
+    const now = Date.now();
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+
+    return Object.values(sessions)
+      .filter((s) =>
+        s.status === 'paused' &&
+        (now - s.updatedAt) < maxAge &&
+        // Show sessions that have meaningful work: todos, tool calls, or streaming text
+        (s.todos.length > 0 || s.toolCalls.length > 0 || s.lastStreamingText.length > 0)
+      )
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+
+  pauseSession: (sessionId: string, context: string) => {
+    set((state) => {
+      const session = state.sessions[sessionId];
+      if (!session) return state;
+
+      // Build full resumption context
+      const resumptionContext = context || buildResumptionContext(session);
+
+      return {
+        currentSessionId: null,
+        sessions: {
+          ...state.sessions,
+          [sessionId]: {
+            ...session,
+            status: 'paused',
+            resumptionContext,
+            updatedAt: Date.now(),
+          },
+        },
+      };
+    });
+  },
+
+  completeSession: (sessionId: string, success: boolean) => {
+    set((state) => {
+      const session = state.sessions[sessionId];
+      if (!session) return state;
+
+      return {
+        currentSessionId: null,
+        sessions: {
+          ...state.sessions,
+          [sessionId]: {
+            ...session,
+            status: success ? 'completed' : 'failed',
+            updatedAt: Date.now(),
+          },
+        },
+      };
+    });
+  },
+
+  cleanupOldSessions: (maxAgeMs = 7 * 24 * 60 * 60 * 1000) => {
+    const now = Date.now();
+
+    set((state) => {
+      const sessions: Record<string, AgentSession> = {};
+
+      for (const [id, session] of Object.entries(state.sessions)) {
+        // Keep sessions that are:
+        // 1. Currently running
+        // 2. Paused and within age limit
+        // 3. Recently completed/failed (within age limit)
+        if (
+          session.status === 'running' ||
+          (now - session.updatedAt) < maxAgeMs
+        ) {
+          sessions[id] = session;
+        }
+      }
+
+      return { sessions };
+    });
+  },
+
+  clearAllSessions: () => {
+    set({
       currentSessionId: null,
       sessions: {},
+    });
+  },
 
-      createSession: (goal: string, previousSql?: string) => {
-        const id = generateSessionId();
-        const session: AgentSession = {
-          id,
-          goal,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          status: 'running',
-          currentStep: 0,
-          maxSteps: 25,
-          toolCalls: [],
-          todos: [],
-          currentSql: previousSql || null,
-          previousSql: previousSql || null,
-          lastStreamingText: '',
-          lastError: null,
-          resumptionContext: '',
-          chatHistory: [],
-        };
+  addChatMessage: (sessionId: string, message: PersistedChatMessage) => {
+    set((state) => {
+      const session = state.sessions[sessionId];
+      if (!session) return state;
 
-        set((state) => ({
-          currentSessionId: id,
-          sessions: {
-            ...state.sessions,
-            [id]: session,
+      return {
+        sessions: {
+          ...state.sessions,
+          [sessionId]: {
+            ...session,
+            chatHistory: [...session.chatHistory, message],
+            updatedAt: Date.now(),
           },
-        }));
+        },
+      };
+    });
+  },
 
-        return id;
-      },
+  getCompletedSessions: () => {
+    const { sessions } = get();
+    const now = Date.now();
+    const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-      updateSession: (sessionId: string, update: Partial<AgentSession>) => {
-        set((state) => {
-          const session = state.sessions[sessionId];
-          if (!session) return state;
-
-          return {
-            sessions: {
-              ...state.sessions,
-              [sessionId]: {
-                ...session,
-                ...update,
-                updatedAt: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
-      setCurrentSession: (sessionId: string | null) => {
-        set({ currentSessionId: sessionId });
-      },
-
-      getSession: (sessionId: string) => {
-        return get().sessions[sessionId];
-      },
-
-      getCurrentSession: () => {
-        const { currentSessionId, sessions } = get();
-        return currentSessionId ? sessions[currentSessionId] : undefined;
-      },
-
-      getResumableSessions: () => {
-        const { sessions } = get();
-        const now = Date.now();
-        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-
-        return Object.values(sessions)
-          .filter((s) =>
-            s.status === 'paused' &&
-            (now - s.updatedAt) < maxAge &&
-            // Show sessions that have meaningful work: todos, tool calls, or streaming text
-            (s.todos.length > 0 || s.toolCalls.length > 0 || s.lastStreamingText.length > 0)
-          )
-          .sort((a, b) => b.updatedAt - a.updatedAt);
-      },
-
-      pauseSession: (sessionId: string, context: string) => {
-        set((state) => {
-          const session = state.sessions[sessionId];
-          if (!session) return state;
-
-          // Build full resumption context
-          const resumptionContext = context || buildResumptionContext(session);
-
-          return {
-            currentSessionId: null,
-            sessions: {
-              ...state.sessions,
-              [sessionId]: {
-                ...session,
-                status: 'paused',
-                resumptionContext,
-                updatedAt: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
-      completeSession: (sessionId: string, success: boolean) => {
-        set((state) => {
-          const session = state.sessions[sessionId];
-          if (!session) return state;
-
-          return {
-            currentSessionId: null,
-            sessions: {
-              ...state.sessions,
-              [sessionId]: {
-                ...session,
-                status: success ? 'completed' : 'failed',
-                updatedAt: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
-      cleanupOldSessions: (maxAgeMs = 7 * 24 * 60 * 60 * 1000) => {
-        const now = Date.now();
-
-        set((state) => {
-          const sessions: Record<string, AgentSession> = {};
-
-          for (const [id, session] of Object.entries(state.sessions)) {
-            // Keep sessions that are:
-            // 1. Currently running
-            // 2. Paused and within age limit
-            // 3. Recently completed/failed (within age limit)
-            if (
-              session.status === 'running' ||
-              (now - session.updatedAt) < maxAgeMs
-            ) {
-              sessions[id] = session;
-            }
-          }
-
-          return { sessions };
-        });
-      },
-
-      clearAllSessions: () => {
-        set({
-          currentSessionId: null,
-          sessions: {},
-        });
-      },
-
-      addChatMessage: (sessionId: string, message: PersistedChatMessage) => {
-        set((state) => {
-          const session = state.sessions[sessionId];
-          if (!session) return state;
-
-          return {
-            sessions: {
-              ...state.sessions,
-              [sessionId]: {
-                ...session,
-                chatHistory: [...session.chatHistory, message],
-                updatedAt: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
-      getCompletedSessions: () => {
-        const { sessions } = get();
-        const now = Date.now();
-        const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-        return Object.values(sessions)
-          .filter((s) =>
-            s.status === 'completed' &&
-            (now - s.updatedAt) < maxAge &&
-            s.chatHistory.length > 0
-          )
-          .sort((a, b) => b.updatedAt - a.updatedAt);
-      },
-    }),
-    {
-      name: 'query-space-agent-sessions',
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        sessions: state.sessions,
-        // Don't persist currentSessionId - it should be null on page load
-      }),
-    }
-  )
-);
+    return Object.values(sessions)
+      .filter((s) =>
+        s.status === 'completed' &&
+        (now - s.updatedAt) < maxAge &&
+        s.chatHistory.length > 0
+      )
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+}));
 
 // Export the context builder for use elsewhere
 export { buildResumptionContext };
+
+// API helper functions for agent sessions
+export async function fetchAgentSessions(organizationId: string, options?: {
+  projectId?: string;
+  status?: 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED';
+  limit?: number;
+  offset?: number;
+}): Promise<{ sessions: AgentSession[]; total: number }> {
+  const params = new URLSearchParams({ organizationId });
+  if (options?.projectId) params.set('projectId', options.projectId);
+  if (options?.status) params.set('status', options.status);
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.offset) params.set('offset', String(options.offset));
+
+  const response = await fetch(`/api/agent-sessions?${params}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch agent sessions');
+  }
+
+  const data = await response.json();
+  return {
+    sessions: data.sessions.map((s: {
+      id: string;
+      goal: string;
+      status: string;
+      currentStep: number;
+      maxSteps: number;
+      toolCalls: ToolCallInfo[] | null;
+      todos: AgentTodoItem[] | null;
+      currentSql: string | null;
+      previousSql: string | null;
+      lastStreamingText: string | null;
+      lastError: string | null;
+      resumptionContext: string | null;
+      chatHistory: PersistedChatMessage[] | null;
+      queryName: string | null;
+      queryCount: number;
+      createdAt: number;
+      updatedAt: number;
+    }) => ({
+      id: s.id,
+      goal: s.goal,
+      status: s.status as AgentSession['status'],
+      currentStep: s.currentStep,
+      maxSteps: s.maxSteps,
+      toolCalls: s.toolCalls || [],
+      todos: s.todos || [],
+      currentSql: s.currentSql,
+      previousSql: s.previousSql,
+      lastStreamingText: s.lastStreamingText || '',
+      lastError: s.lastError,
+      resumptionContext: s.resumptionContext || '',
+      chatHistory: s.chatHistory || [],
+      queryName: s.queryName || undefined,
+      queryCount: s.queryCount,
+      createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
+    })),
+    total: data.total,
+  };
+}
+
+export async function createAgentSession(data: {
+  organizationId: string;
+  projectId?: string;
+  goal: string;
+  previousSql?: string;
+}): Promise<AgentSession> {
+  const response = await fetch('/api/agent-sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to create agent session');
+  }
+
+  const result = await response.json();
+  const s = result.session;
+  return {
+    id: s.id,
+    goal: s.goal,
+    status: s.status as AgentSession['status'],
+    currentStep: s.currentStep,
+    maxSteps: s.maxSteps,
+    toolCalls: s.toolCalls || [],
+    todos: s.todos || [],
+    currentSql: s.currentSql,
+    previousSql: s.previousSql,
+    lastStreamingText: s.lastStreamingText || '',
+    lastError: s.lastError,
+    resumptionContext: s.resumptionContext || '',
+    chatHistory: s.chatHistory || [],
+    queryName: s.queryName || undefined,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+  };
+}
+
+export async function updateAgentSession(
+  sessionId: string,
+  data: Partial<{
+    status: 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED';
+    currentStep: number;
+    toolCalls: ToolCallInfo[];
+    todos: AgentTodoItem[];
+    currentSql: string | null;
+    previousSql: string | null;
+    lastStreamingText: string;
+    lastError: string | null;
+    resumptionContext: string;
+    chatHistory: PersistedChatMessage[];
+    queryName: string;
+  }>
+): Promise<AgentSession> {
+  const response = await fetch(`/api/agent-sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update agent session');
+  }
+
+  const result = await response.json();
+  const s = result.session;
+  return {
+    id: s.id,
+    goal: s.goal,
+    status: s.status as AgentSession['status'],
+    currentStep: s.currentStep,
+    maxSteps: s.maxSteps,
+    toolCalls: s.toolCalls || [],
+    todos: s.todos || [],
+    currentSql: s.currentSql,
+    previousSql: s.previousSql,
+    lastStreamingText: s.lastStreamingText || '',
+    lastError: s.lastError,
+    resumptionContext: s.resumptionContext || '',
+    chatHistory: s.chatHistory || [],
+    queryName: s.queryName || undefined,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+  };
+}
+
+export async function getAgentSession(sessionId: string): Promise<AgentSession & { queryExecutions: Array<{
+  id: string;
+  sql: string;
+  queryName?: string;
+  source: string;
+  success: boolean;
+  error?: string;
+  rowCount?: number;
+  executionTime?: number;
+  createdAt: number;
+}> }> {
+  const response = await fetch(`/api/agent-sessions/${sessionId}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch agent session');
+  }
+
+  const result = await response.json();
+  const s = result.session;
+  return {
+    id: s.id,
+    goal: s.goal,
+    status: s.status as AgentSession['status'],
+    currentStep: s.currentStep,
+    maxSteps: s.maxSteps,
+    toolCalls: s.toolCalls || [],
+    todos: s.todos || [],
+    currentSql: s.currentSql,
+    previousSql: s.previousSql,
+    lastStreamingText: s.lastStreamingText || '',
+    lastError: s.lastError,
+    resumptionContext: s.resumptionContext || '',
+    chatHistory: s.chatHistory || [],
+    queryName: s.queryName || undefined,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+    queryExecutions: s.queryExecutions || [],
+  };
+}

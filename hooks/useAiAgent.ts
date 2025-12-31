@@ -5,7 +5,7 @@ import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useSchemaStore } from '@/stores/schemaStore';
 import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata, AgentTodoItem } from '@/stores/aiChatStore';
-import { useQueryStore, QueryResult } from '@/stores/queryStore';
+import { useQueryStore, QueryResult, saveQueryExecution } from '@/stores/queryStore';
 import { useAgentSessionStore, AgentSession } from '@/stores/agentSessionStore';
 import type { AgentStreamEvent } from '@/lib/agent';
 import type { ChartConfig } from '@/lib/chart-utils';
@@ -116,12 +116,23 @@ export function useAiAgent() {
         };
 
         setQueryResults(result);
-        addToHistory(sql, data.rowCount, data.executionTime, {
-          source: 'ai',
-          aiSessionId: sessionId,
-          queryName,
-          success: true,
-        });
+
+        // Save to database and add to local state
+        try {
+          const savedQuery = await saveQueryExecution({
+            organizationId,
+            sql,
+            source: 'AI',
+            success: true,
+            rowCount: data.rowCount,
+            executionTime: data.executionTime,
+            agentSessionId: sessionId,
+            queryName,
+          });
+          addToHistory(savedQuery);
+        } catch (saveError) {
+          console.error('Failed to save query execution:', saveError);
+        }
 
         return { success: true, result };
       } catch (err) {

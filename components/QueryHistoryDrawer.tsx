@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Drawer, List, Typography, Button, Empty, Tooltip, Popconfirm, Grid, Tabs, Tag, Space, Input, Badge, Collapse } from 'antd';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Drawer, List, Typography, Button, Empty, Tooltip, Popconfirm, Grid, Tabs, Tag, Space, Input, Badge, Collapse, Spin } from 'antd';
 import {
   DeleteOutlined,
   ClearOutlined,
@@ -14,10 +14,12 @@ import {
   HistoryOutlined,
   PlayCircleOutlined,
   FilterOutlined,
+  LoadingOutlined,
 } from '@ant-design/icons';
 import { useUiStore } from '@/stores/uiStore';
-import { useQueryStore, type SavedQuery, type QuerySource } from '@/stores/queryStore';
-import { useAgentSessionStore, type AgentSession } from '@/stores/agentSessionStore';
+import { useConnectionStore } from '@/stores/connectionStore';
+import { useQueryStore, type SavedQuery, type QuerySource, fetchQueryHistory } from '@/stores/queryStore';
+import { useAgentSessionStore, type AgentSession, fetchAgentSessions } from '@/stores/agentSessionStore';
 import { useAiAgent } from '@/hooks/useAiAgent';
 
 const { Text, Paragraph } = Typography;
@@ -268,8 +270,9 @@ function SessionHistoryItem({ session, queries, onResumeSession, onLoadSession, 
 
 export function QueryHistoryDrawer() {
   const { historyDrawerOpen, setHistoryDrawerOpen } = useUiStore();
-  const { queryHistory, setCurrentQuery, removeFromHistory, clearHistory, getQueriesBySession } = useQueryStore();
-  const { sessions } = useAgentSessionStore();
+  const { organizationId } = useConnectionStore();
+  const { queryHistory, setQueryHistory, setCurrentQuery, removeFromHistory, clearHistory, getQueriesBySession, isLoadingHistory, setIsLoadingHistory } = useQueryStore();
+  const { sessions, setSessions, isLoadingSessions, setIsLoadingSessions } = useAgentSessionStore();
   const { resumeSession, loadConversationFromSession } = useAiAgent();
   const screens = useBreakpoint();
 
@@ -280,6 +283,39 @@ export function QueryHistoryDrawer() {
 
   // Responsive drawer width: full width on mobile, 480px on larger screens
   const drawerWidth = screens.md ? 480 : '100%';
+
+  // Load data from API when drawer opens
+  const loadData = useCallback(async () => {
+    if (!organizationId) return;
+
+    // Load query history
+    setIsLoadingHistory(true);
+    try {
+      const { executions } = await fetchQueryHistory(organizationId, { limit: 500 });
+      setQueryHistory(executions);
+    } catch (error) {
+      console.error('Failed to load query history:', error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+
+    // Load agent sessions
+    setIsLoadingSessions(true);
+    try {
+      const { sessions: loadedSessions } = await fetchAgentSessions(organizationId, { limit: 100 });
+      setSessions(loadedSessions);
+    } catch (error) {
+      console.error('Failed to load agent sessions:', error);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  }, [organizationId, setQueryHistory, setIsLoadingHistory, setSessions, setIsLoadingSessions]);
+
+  useEffect(() => {
+    if (historyDrawerOpen && organizationId) {
+      loadData();
+    }
+  }, [historyDrawerOpen, organizationId, loadData]);
 
   // Filter queries based on search and source
   const filteredQueries = useMemo(() => {
@@ -402,6 +438,15 @@ export function QueryHistoryDrawer() {
             ),
             children: (
               <div>
+                {isLoadingHistory ? (
+                  <div style={{ textAlign: 'center', padding: 40 }}>
+                    <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
+                    <div style={{ marginTop: 12 }}>
+                      <Text type="secondary">Loading query history...</Text>
+                    </div>
+                  </div>
+                ) : (
+                  <>
                 {/* Search and filters */}
                 {queryHistory.length > 0 && (
                   <div style={{ marginBottom: 16 }}>
@@ -482,6 +527,8 @@ export function QueryHistoryDrawer() {
                     )}
                   />
                 )}
+                </>
+                )}
               </div>
             ),
           },
@@ -496,7 +543,14 @@ export function QueryHistoryDrawer() {
             ),
             children: (
               <div>
-                {allSessions.length === 0 ? (
+                {isLoadingSessions ? (
+                  <div style={{ textAlign: 'center', padding: 40 }}>
+                    <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
+                    <div style={{ marginTop: 12 }}>
+                      <Text type="secondary">Loading AI sessions...</Text>
+                    </div>
+                  </div>
+                ) : allSessions.length === 0 ? (
                   <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                     description="No AI sessions yet"

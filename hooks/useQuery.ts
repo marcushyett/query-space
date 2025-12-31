@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { useQueryStore, QueryResult } from '@/stores/queryStore';
+import { useQueryStore, QueryResult, saveQueryExecution } from '@/stores/queryStore';
 
 export function useQuery() {
   const { message } = App.useApp();
@@ -53,15 +53,43 @@ export function useQuery() {
       };
 
       setQueryResults(result);
-      addToHistory(sql, data.rowCount, data.executionTime, {
-        source: 'manual',
-        success: true,
-      });
+
+      // Save to database and add to local state
+      try {
+        const savedQuery = await saveQueryExecution({
+          organizationId,
+          sql,
+          source: 'MANUAL',
+          success: true,
+          rowCount: data.rowCount,
+          executionTime: data.executionTime,
+        });
+        addToHistory(savedQuery);
+      } catch (saveError) {
+        // Log but don't fail the query execution
+        console.error('Failed to save query execution:', saveError);
+      }
+
       message.success(`Query executed successfully (${data.executionTime}ms)`);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred while executing the query';
       setError(errorMessage);
       message.error(errorMessage);
+
+      // Save failed query to database
+      try {
+        const savedQuery = await saveQueryExecution({
+          organizationId,
+          sql,
+          source: 'MANUAL',
+          success: false,
+          error: errorMessage,
+        });
+        addToHistory(savedQuery);
+      } catch (saveError) {
+        console.error('Failed to save query execution:', saveError);
+      }
+
       console.error('Query execution error:', err);
     } finally {
       setIsExecuting(false);

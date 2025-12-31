@@ -392,6 +392,104 @@ enum MessageRole {
 }
 
 // ============================================================================
+// QUERY EXECUTION HISTORY
+// ============================================================================
+
+model QueryExecution {
+  id             String          @id @default(cuid())
+  organizationId String
+  projectId      String?
+
+  sql            String          @db.Text
+  queryName      String?         // Optional name for the query
+
+  // Execution details
+  source         QuerySource     @default(MANUAL)
+  success        Boolean         @default(true)
+  error          String?         @db.Text
+  rowCount       Int?
+  executionTime  Int?            // In milliseconds
+
+  // Link to AI session if this was an AI-generated query
+  agentSessionId String?
+
+  createdById    String?
+  createdAt      DateTime        @default(now())
+
+  // Relations
+  agentSession   AgentSession?   @relation(fields: [agentSessionId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([agentSessionId])
+  @@index([createdAt])
+  @@map("query_executions")
+}
+
+enum QuerySource {
+  MANUAL
+  AI
+}
+
+// ============================================================================
+// AI AGENT SESSIONS
+// ============================================================================
+
+model AgentSession {
+  id             String              @id @default(cuid())
+  organizationId String
+  projectId      String?
+
+  goal           String              @db.Text
+  status         AgentSessionStatus  @default(RUNNING)
+
+  // Progress tracking
+  currentStep    Int                 @default(0)
+  maxSteps       Int                 @default(25)
+
+  // Tool calls and todos stored as JSON
+  toolCalls      Json?               // Array of tool call records
+  todos          Json?               // Array of todo items
+
+  // Current SQL being worked on
+  currentSql     String?             @db.Text
+  previousSql    String?             @db.Text
+
+  // Last streaming text and error
+  lastStreamingText String?          @db.Text
+  lastError      String?             @db.Text
+
+  // Context for resumption
+  resumptionContext String?          @db.Text
+
+  // Chat history for context (lightweight messages)
+  chatHistory    Json?               // Array of persisted chat messages
+
+  // Final query name if set
+  queryName      String?
+
+  createdById    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  // Relations
+  queryExecutions QueryExecution[]
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("agent_sessions")
+}
+
+enum AgentSessionStatus {
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+// ============================================================================
 // AUDIT LOG
 // ============================================================================
 

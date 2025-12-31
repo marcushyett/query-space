@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface QueryResult {
   rows: Record<string, unknown>[];
@@ -16,50 +15,31 @@ export interface SavedQuery {
   timestamp: number;
   rowCount: number | null;
   executionTime: number | null;
-  // Source tracking: was this run manually or by AI agent?
   source: QuerySource;
-  // AI session link for resuming conversations
   aiSessionId?: string;
   queryName?: string;
-  // Track whether this query was successful
   success: boolean;
-  // Error message if query failed
   error?: string;
-  // Project context
   projectId?: string;
-}
-
-interface QueryHistoryState {
-  // All saved queries, persisted to localStorage
-  queries: SavedQuery[];
 }
 
 interface QueryStore {
   currentQuery: string;
   setCurrentQuery: (q: string) => void;
-  // Query name for AI-generated and user-editable naming
   queryName: string;
   setQueryName: (name: string) => void;
   queryResults: QueryResult | null;
   setQueryResults: (r: QueryResult | null) => void;
   clearResults: () => void;
-  // Persisted query history
+  // Query history loaded from API
   queryHistory: SavedQuery[];
-  addToHistory: (
-    sql: string,
-    rowCount: number | null,
-    executionTime: number | null,
-    options?: {
-      aiSessionId?: string;
-      queryName?: string;
-      source?: QuerySource;
-      success?: boolean;
-      error?: string;
-      projectId?: string;
-    }
-  ) => void;
+  setQueryHistory: (queries: SavedQuery[]) => void;
+  addToHistory: (query: SavedQuery) => void;
   removeFromHistory: (id: string) => void;
   clearHistory: () => void;
+  // Loading state for API calls
+  isLoadingHistory: boolean;
+  setIsLoadingHistory: (loading: boolean) => void;
   // Get queries for a specific AI session
   getQueriesBySession: (sessionId: string) => SavedQuery[];
   // Get queries filtered by source
@@ -70,113 +50,169 @@ interface QueryStore {
   getQueriesByProject: (projectId: string) => SavedQuery[];
   isExecuting: boolean;
   setIsExecuting: (val: boolean) => void;
-  // Error state
   lastError: string | null;
   setLastError: (error: string | null) => void;
 }
 
-const MAX_HISTORY_SIZE = 500; // Increased from 50 for longer history
+export const useQueryStore = create<QueryStore>()((set, get) => ({
+  currentQuery: '',
+  queryName: '',
+  queryResults: null,
+  queryHistory: [],
+  isLoadingHistory: false,
+  isExecuting: false,
+  lastError: null,
 
-export const useQueryStore = create<QueryStore>()(
-  persist(
-    (set, get) => ({
-      currentQuery: '',
-      queryName: '',
-      queryResults: null,
-      queryHistory: [],
-      isExecuting: false,
-      lastError: null,
+  setCurrentQuery: (q: string) => {
+    set({ currentQuery: q });
+  },
 
-      setCurrentQuery: (q: string) => {
-        set({ currentQuery: q });
-      },
+  setQueryName: (name: string) => {
+    set({ queryName: name });
+  },
 
-      setQueryName: (name: string) => {
-        set({ queryName: name });
-      },
+  setQueryResults: (r: QueryResult | null) => {
+    set({ queryResults: r, lastError: null });
+  },
 
-      setQueryResults: (r: QueryResult | null) => {
-        set({ queryResults: r, lastError: null });
-      },
+  clearResults: () => {
+    set({ queryResults: null, lastError: null });
+  },
 
-      clearResults: () => {
-        set({ queryResults: null, lastError: null });
-      },
+  setQueryHistory: (queries: SavedQuery[]) => {
+    set({ queryHistory: queries });
+  },
 
-      addToHistory: (
-        sql: string,
-        rowCount: number | null,
-        executionTime: number | null,
-        options?: {
-          aiSessionId?: string;
-          queryName?: string;
-          source?: QuerySource;
-          success?: boolean;
-          error?: string;
-          projectId?: string;
-        }
-      ) => {
-        const newQuery: SavedQuery = {
-          id: `query-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          sql,
-          timestamp: Date.now(),
-          rowCount,
-          executionTime,
-          source: options?.source ?? 'manual',
-          aiSessionId: options?.aiSessionId,
-          queryName: options?.queryName,
-          success: options?.success ?? true,
-          error: options?.error,
-          projectId: options?.projectId,
-        };
+  addToHistory: (query: SavedQuery) => {
+    set((state) => ({
+      queryHistory: [query, ...state.queryHistory],
+    }));
+  },
 
-        set((state) => {
-          const newHistory = [newQuery, ...state.queryHistory].slice(0, MAX_HISTORY_SIZE);
-          return { queryHistory: newHistory };
-        });
-      },
+  removeFromHistory: (id: string) => {
+    set((state) => ({
+      queryHistory: state.queryHistory.filter((q) => q.id !== id),
+    }));
+  },
 
-      removeFromHistory: (id: string) => {
-        set((state) => ({
-          queryHistory: state.queryHistory.filter((q) => q.id !== id),
-        }));
-      },
+  clearHistory: () => {
+    set({ queryHistory: [] });
+  },
 
-      clearHistory: () => {
-        set({ queryHistory: [] });
-      },
+  setIsLoadingHistory: (loading: boolean) => {
+    set({ isLoadingHistory: loading });
+  },
 
-      getQueriesBySession: (sessionId: string) => {
-        return get().queryHistory.filter((q) => q.aiSessionId === sessionId);
-      },
+  getQueriesBySession: (sessionId: string) => {
+    return get().queryHistory.filter((q) => q.aiSessionId === sessionId);
+  },
 
-      getQueriesBySource: (source: QuerySource) => {
-        return get().queryHistory.filter((q) => q.source === source);
-      },
+  getQueriesBySource: (source: QuerySource) => {
+    return get().queryHistory.filter((q) => q.source === source);
+  },
 
-      getSuccessfulQueries: () => {
-        return get().queryHistory.filter((q) => q.success);
-      },
+  getSuccessfulQueries: () => {
+    return get().queryHistory.filter((q) => q.success);
+  },
 
-      getQueriesByProject: (projectId: string) => {
-        return get().queryHistory.filter((q) => q.projectId === projectId);
-      },
+  getQueriesByProject: (projectId: string) => {
+    return get().queryHistory.filter((q) => q.projectId === projectId);
+  },
 
-      setIsExecuting: (val: boolean) => {
-        set({ isExecuting: val });
-      },
+  setIsExecuting: (val: boolean) => {
+    set({ isExecuting: val });
+  },
 
-      setLastError: (error: string | null) => {
-        set({ lastError: error });
-      },
-    }),
-    {
-      name: 'query-space-query-history',
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        // Only persist query history, not transient state like current query or results
-        queryHistory: state.queryHistory,
-      }),
-    }
-  )
-);
+  setLastError: (error: string | null) => {
+    set({ lastError: error });
+  },
+}));
+
+// API helper functions for query executions
+export async function fetchQueryHistory(organizationId: string, options?: {
+  projectId?: string;
+  agentSessionId?: string;
+  source?: 'MANUAL' | 'AI';
+  search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ executions: SavedQuery[]; total: number }> {
+  const params = new URLSearchParams({ organizationId });
+  if (options?.projectId) params.set('projectId', options.projectId);
+  if (options?.agentSessionId) params.set('agentSessionId', options.agentSessionId);
+  if (options?.source) params.set('source', options.source);
+  if (options?.search) params.set('search', options.search);
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.offset) params.set('offset', String(options.offset));
+
+  const response = await fetch(`/api/query-executions?${params}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch query history');
+  }
+
+  const data = await response.json();
+  return {
+    executions: data.executions.map((e: {
+      id: string;
+      sql: string;
+      queryName?: string;
+      source: string;
+      success: boolean;
+      error?: string;
+      rowCount?: number;
+      executionTime?: number;
+      agentSessionId?: string;
+      createdAt: number;
+    }) => ({
+      id: e.id,
+      sql: e.sql,
+      queryName: e.queryName,
+      source: e.source as QuerySource,
+      success: e.success,
+      error: e.error,
+      rowCount: e.rowCount ?? null,
+      executionTime: e.executionTime ?? null,
+      aiSessionId: e.agentSessionId,
+      timestamp: e.createdAt,
+    })),
+    total: data.total,
+  };
+}
+
+export async function saveQueryExecution(data: {
+  organizationId: string;
+  projectId?: string;
+  sql: string;
+  queryName?: string;
+  source: 'MANUAL' | 'AI';
+  success: boolean;
+  error?: string;
+  rowCount?: number;
+  executionTime?: number;
+  agentSessionId?: string;
+}): Promise<SavedQuery> {
+  const response = await fetch('/api/query-executions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to save query execution');
+  }
+
+  const result = await response.json();
+  const e = result.execution;
+  return {
+    id: e.id,
+    sql: e.sql,
+    queryName: e.queryName,
+    source: e.source as QuerySource,
+    success: e.success,
+    error: e.error,
+    rowCount: e.rowCount ?? null,
+    executionTime: e.executionTime ?? null,
+    aiSessionId: e.agentSessionId,
+    timestamp: e.createdAt,
+  };
+}
