@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { DashboardWidget } from '../DashboardWidget'
 import { useDashboardStore, DashboardWidget as WidgetType } from '@/stores/dashboardStore'
 import { ConfigProvider } from 'antd'

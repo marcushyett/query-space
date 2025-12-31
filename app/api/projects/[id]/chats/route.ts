@@ -68,7 +68,14 @@ export async function GET(
     ])
 
     return NextResponse.json({
-      chats: chats.map((c) => ({
+      chats: chats.map((c: {
+        id: string;
+        title: string;
+        _count: { messages: number };
+        createdBy: { name: string | null; email: string } | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }) => ({
         id: c.id,
         title: c.title,
         messageCount: c._count.messages,

@@ -92,14 +92,24 @@ export async function GET(request: NextRequest) {
     ])
 
     return NextResponse.json({
-      dashboards: dashboards.map((d) => ({
+      dashboards: dashboards.map((d: {
+        id: string;
+        title: string;
+        description: string | null;
+        organizationId: string;
+        organization: { name: string };
+        _count: { widgets: number };
+        projects: Array<{ project: { id: string; title: string } }>;
+        createdAt: Date;
+        updatedAt: Date;
+      }) => ({
         id: d.id,
         title: d.title,
         description: d.description,
         organizationId: d.organizationId,
         organizationName: d.organization.name,
         widgetCount: d._count.widgets,
-        projects: d.projects.map((p) => p.project),
+        projects: d.projects.map((p: { project: { id: string; title: string } }) => p.project),
         createdAt: d.createdAt,
         updatedAt: d.updatedAt,
       })),

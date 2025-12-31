@@ -187,7 +187,7 @@ export async function PATCH(
     }
 
     // Update in transaction
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: typeof prisma) => {
       if (Object.keys(orgUpdate).length > 0) {
         await tx.organization.update({
           where: { id: organizationId },

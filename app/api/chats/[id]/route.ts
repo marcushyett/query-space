@@ -82,7 +82,20 @@ export async function GET(
         createdAt: chat.createdAt,
         updatedAt: chat.updatedAt,
       },
-      messages: messages.map((m) => ({
+      messages: messages.map((m: {
+        id: string;
+        role: string;
+        content: string;
+        sql: string | null;
+        explanation: string | null;
+        error: string | null;
+        queryResultSample: unknown;
+        chartData: unknown;
+        toolCalls: unknown;
+        todos: unknown;
+        createdBy: { name: string | null; email: string } | null;
+        createdAt: Date;
+      }) => ({
         id: m.id,
         role: m.role,
         content: m.content,

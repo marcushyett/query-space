@@ -91,7 +91,18 @@ export async function GET(
     ])
 
     return NextResponse.json({
-      queries: queries.map((q) => ({
+      queries: queries.map((q: {
+        id: string;
+        name: string;
+        description: string | null;
+        sql: string;
+        rowCount: number | null;
+        executionTime: number | null;
+        _count: { charts: number };
+        createdBy: { name: string | null; email: string } | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }) => ({
         id: q.id,
         name: q.name,
         description: q.description,

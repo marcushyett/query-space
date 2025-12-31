@@ -109,8 +109,19 @@ export async function GET(
         description: fullDashboard.description,
         organizationId: fullDashboard.organizationId,
         organizationName: fullDashboard.organization.name,
-        projects: fullDashboard.projects.map((p) => p.project),
-        widgets: fullDashboard.widgets.map((w) => ({
+        projects: fullDashboard.projects.map((p: { project: { id: string; title: string } }) => p.project),
+        widgets: fullDashboard.widgets.map((w: {
+          id: string;
+          type: string;
+          positionX: number;
+          positionY: number;
+          width: number;
+          height: number;
+          title: string | null;
+          config: unknown;
+          chart: { id: string; title: string; type: string; config: unknown; query: unknown } | null;
+          query: unknown;
+        }) => ({
           id: w.id,
           type: w.type,
           positionX: w.positionX,
@@ -184,7 +195,7 @@ export async function PATCH(
     const { title, description, projectIds } = parsed.data
 
     // Update dashboard
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: typeof prisma) => {
       // Update basic fields
       await tx.dashboard.update({
         where: { id: dashboardId },

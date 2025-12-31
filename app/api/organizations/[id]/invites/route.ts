@@ -40,7 +40,15 @@ export async function GET(
     })
 
     return NextResponse.json({
-      invites: invites.map((i) => ({
+      invites: invites.map((i: {
+        id: string;
+        email: string;
+        role: string;
+        accessType: string;
+        createdAt: Date;
+        expiresAt: Date;
+        invitedBy: { name: string | null; email: string } | null;
+      }) => ({
         id: i.id,
         email: i.email,
         role: i.role,

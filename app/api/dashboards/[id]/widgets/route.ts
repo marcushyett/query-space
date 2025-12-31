@@ -12,7 +12,7 @@ const createWidgetSchema = z.object({
   width: z.number().min(1).max(12).default(6),
   height: z.number().min(1).max(12).default(4),
   title: z.string().max(200).optional(),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 })
 
 const updateWidgetSchema = z.object({
