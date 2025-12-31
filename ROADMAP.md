@@ -1,407 +1,831 @@
-# Query Space - SQL Analytics Tool
+# Query Space - Product Roadmap
 
-## Overview
+## Vision
 
-Query Space is a PostgreSQL analytics tool built with Next.js that allows you to write SQL queries, visualize data, and explore database schemas. It features a dark, techy interface with keyboard-driven navigation and AI-powered query generation.
+Query Space aims to be a modern, open-source SQL analytics platform that rivals enterprise BI tools like Metabase, Superset, and Tableau. This roadmap focuses on three strategic pillars:
 
-## Current Status: Phase 5 Complete
-
-### What's Working Now
-
-**Core Infrastructure:**
-- [x] Next.js 14 with TypeScript and App Router
-- [x] Ant Design component library with custom dark theme
-- [x] Pure black (#000000) background, white text, JetBrains Mono font
-- [x] Zustand state management with localStorage persistence
-- [x] Comprehensive test suite with Vitest (199 tests)
-- [x] GitHub Actions CI (tests, lint, build on Node 18.x and 20.x)
-
-**Phase 1 Features (Complete):**
-- [x] PostgreSQL connection management (localStorage-based, stateless)
-- [x] SQL editor with Monaco (VS Code's editor)
-- [x] SQL syntax highlighting for PostgreSQL
-- [x] Query execution via secure API routes
-- [x] Results display in table format
-- [x] Row count and execution time tracking
-- [x] Query history (auto-saves last 50 queries)
-- [x] SQL validation with dangerous operation warnings
-- [x] Connection string stored in localStorage per session
-
-**Phase 2 Features (Complete):**
-- [x] Database schema tree view (left sidebar)
-- [x] List all tables grouped by schema
-- [x] Search/filter tables by name
-- [x] Click table to view details in drawer:
-  - [x] Column names and data types
-  - [x] Primary/Foreign key indicators
-  - [x] NULL/NOT NULL constraints
-  - [x] Sample data (first 10 rows)
-  - [x] Index information
-- [x] Two-panel collapsible layout:
-  - [x] Table Browser (260px width, toggleable)
-  - [x] Editor + Results (remaining space)
-- [x] `Cmd+B` keyboard shortcut to toggle table browser
-- [x] `POST /api/tables` - List all tables from information_schema
-- [x] `POST /api/table-info` - Get columns, indexes, and sample data
-
-**Phase 4 Features (Complete):**
-- [x] URL-based query sharing
-  - Base64 encode SQL in URL query parameter (`?q=...`)
-  - Load query from URL on page load
-  - Update URL when query changes (debounced)
-- [x] Query history drawer (right sidebar)
-  - List past queries with timestamps
-  - Click to load into editor
-  - Delete individual queries
-  - Clear all history
-- [x] `Cmd+H` keyboard shortcut to toggle history
-
-**Phase 5 Features (Complete):**
-- [x] AI query modal (`Cmd+K` when connected)
-- [x] Natural language prompt input
-- [x] Claude API key input (optional localStorage persistence)
-- [x] Fetch database schema for AI context
-- [x] Generate PostgreSQL-specific SQL
-- [x] Insert generated SQL into editor (not auto-execute)
-- [x] Display generation errors clearly
-
-**Keyboard Shortcuts:**
-- [x] `Cmd+Enter`: Execute SQL query
-- [x] `Cmd+K`: AI query generator (when connected) / Connection dialog (when not)
-- [x] `Cmd+N`: Clear editor (new query)
-- [x] `Cmd+B`: Toggle table browser
-- [x] `Cmd+H`: Toggle history drawer
-
-**Phase 3 Features (Complete):**
-- [x] Auto-detect chart type from data types (date -> line, text -> column)
-- [x] Column chart (bar chart)
-  - Categorical X-axis (text columns)
-  - Numeric Y-axis (numeric columns)
-  - Multiple Y-axis support
-- [x] Line chart
-  - Date/time X-axis with formatting
-  - Numeric Y-axis
-  - Multiple series support
-- [x] Chart configuration panel:
-  - Chart type selector (column/line)
-  - X-axis column picker
-  - Y-axis column picker(s) with multi-select
-  - Legend display
-- [x] Dark theme charts with coordinated color palette
-- [x] Auto-suggest chart based on query results
-- [x] Tab interface to switch between Table and Chart views
-
-**Libraries Used:**
-- Recharts (React charting library)
-
-**Components Built:**
-- `VisualizationPanel.tsx` - Chart container and orchestrator
-- `ChartSelector.tsx` - UI for selecting chart type and axes
-- `ColumnChart.tsx` - Bar chart wrapper (Recharts)
-- `LineChart.tsx` - Line chart wrapper (Recharts)
-
-**Utilities Created:**
-- `lib/chart-utils.ts` - Data transformation and chart type detection
-
-## Remaining Phases
+1. **Enterprise-Ready Multi-Tenancy** - Multiple databases, users, and organizations with granular access control
+2. **Powerful Dashboard Experience** - Shareable, embeddable dashboards optimized for both desktop and mobile
+3. **Rich Data Visualization** - Comprehensive chart library with advanced configuration options
 
 ---
 
-### Phase 6: Polish & Keyboard Shortcuts
+## Strategic Pillars Overview
 
-**Goal:** Refine UX and add full keyboard navigation
+### Pillar 1: Multi-Database, Multi-User, Multi-Organization
 
-**Features to Implement:**
-- [ ] Complete keyboard shortcuts system:
-  - `Cmd+Enter`: Execute query [x]
-  - `Cmd+K`: AI query generator (when connected) / Connection dialog (when not)
-  - `Cmd+H`: Toggle history
-  - `Cmd+B`: Toggle table browser
-  - `Cmd+/`: Show shortcuts help
-  - `Cmd+N`: New query [x]
-  - `Cmd+S`: Save query to history (manual save)
-- [ ] Shortcuts help modal
-- [ ] Loading states for all async operations
-- [ ] Error handling improvements:
-  - Toast notifications (Ant Design message)
-  - Retry logic for failed queries
-  - Better error messages
-- [ ] SQL linting in Monaco:
-  - Real-time syntax checking
-  - Warnings for dangerous operations
-  - PostgreSQL-specific validations
-- [ ] CSV export for query results
-- [ ] Copy query link button
-- [ ] Query execution status indicator
+Modern analytics tools must support complex organizational structures. Based on analysis of Metabase, Superset, and enterprise BI tools, we need:
 
-**Components to Build:**
-- `KeyboardShortcutsHelp.tsx` - Modal showing all shortcuts
+- **Multiple databases per organization** - Teams often query across staging, production, data warehouses
+- **Multiple users per organization** - Collaboration requires team access with varying permission levels
+- **Multiple organizations per user** - Consultants, contractors, and power users work across multiple teams
 
-**Config Files:**
-- `config/shortcuts.ts` - Centralized shortcut definitions
+### Pillar 2: Dashboard Functionality
+
+Best-in-class dashboards (Tableau, Power BI, Grafana) offer:
+
+- **Flexible grid-based layouts** - Drag-and-drop positioning with responsive breakpoints
+- **Multiple sharing modes** - Internal sharing, public links, embedded analytics
+- **Mobile-first design** - Touch-friendly, responsive visualizations that work on any device
+- **Easy widget management** - Quick addition of charts, tables, and KPIs
+
+### Pillar 3: Chart Types & Configuration
+
+Modern visualization libraries (ECharts, D3.js, Highcharts) support 20+ chart types. We should offer:
+
+- **Expanded chart types** - Beyond basic line/bar/pie to treemaps, heatmaps, funnels, and more
+- **Advanced styling** - Colors, labels, legends, annotations, reference lines
+- **Interactivity** - Drill-downs, tooltips, zoom, pan, and data point selection
 
 ---
 
-### Phase 7: Deployment & Documentation
+## Phase 1: Multi-Database Support
 
-**Goal:** Deploy to Vercel and create comprehensive docs
+**Goal:** Allow organizations to connect and manage multiple database connections
 
-**Features to Implement:**
-- [ ] Vercel deployment configuration
-- [ ] Environment variables guide
-- [ ] Comprehensive README:
-  - Setup instructions
-  - Feature documentation
-  - Security best practices
-  - Keyboard shortcuts reference
-  - Screenshots
-- [ ] `.env.example` file
-- [ ] Testing across browsers
-- [ ] PostgreSQL compatibility testing
-- [ ] Performance optimizations:
-  - Code splitting (Monaco, Recharts)
-  - Query result pagination
-  - Schema caching
+### 1.1 Database Connection Management
 
----
+**Features:**
+- [ ] **Database Connections Model** - New `DatabaseConnection` entity linked to Organization
+  - Name (user-friendly identifier)
+  - Type (PostgreSQL, MySQL, ClickHouse, BigQuery, etc.)
+  - Connection string (encrypted with AES-256-GCM)
+  - SSL mode configuration
+  - Connection pooling settings
+  - Read-only enforcement flag
+  - Created/updated timestamps
 
-## Technical Architecture
+- [ ] **Connection Management UI** - Dedicated settings page for database connections
+  - Add new connection wizard with connection testing
+  - Edit existing connections
+  - Delete connections (with impact analysis - affected projects/queries)
+  - Connection health status indicators
+  - Last successful connection timestamp
 
-### Technology Stack
+- [ ] **Connection Selector** - Quick switcher in the main query interface
+  - Dropdown to select active database for current session
+  - Visual indicator showing current connection
+  - Recent connections for quick access
+  - Connection-specific schema caching
 
-**Frontend:**
-- Next.js 14 (App Router)
-- TypeScript
-- Ant Design (UI components)
-- Monaco Editor (SQL editor)
-- Recharts (data visualization)
-- Zustand (state management)
-- react-hotkeys-hook (keyboard shortcuts)
-- nuqs (URL state)
+### 1.2 Project-Database Association
 
-**Backend:**
-- Next.js API Routes
-- node-postgres (pg) - PostgreSQL client
-- Anthropic SDK (Claude API)
+**Features:**
+- [ ] **Project-Level Database Binding** - Each project linked to specific database(s)
+  - Default database per project
+  - Optional: allow queries across multiple databases in same project
+  - Inherit organization databases or restrict to subset
 
-**Deployment:**
-- Vercel (serverless)
+- [ ] **Query Context Awareness** - Queries know which database they target
+  - Store database connection ID with each saved query
+  - Prevent execution on wrong database
+  - Migration path for existing queries
 
-### Key Design Decisions
+### 1.3 Database Type Expansion
 
-1. **Stateless Architecture**: No server-side state. Connection strings stored in browser localStorage and sent with each request.
+**Features:**
+- [ ] **PostgreSQL** (current - enhance with SSL, pooling)
+- [ ] **MySQL / MariaDB** - Second most common SQL database
+- [ ] **ClickHouse** - Popular for analytics workloads
+- [ ] **SQLite** - For local file-based databases
+- [ ] **DuckDB** - Modern embedded analytics database
+- [ ] **BigQuery** - Google Cloud data warehouse
+- [ ] **Snowflake** - Cloud data platform
+- [ ] **Redshift** - AWS data warehouse
 
-2. **Single Connection**: One active connection at a time (matches stateless requirement, simpler UX).
+**Technical Implementation:**
+```typescript
+// New Prisma model
+model DatabaseConnection {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-3. **Security Model**:
-   - Connection strings in localStorage (user should understand risks)
-   - Recommend read-only database users
-   - Basic SQL injection prevention
-   - 30-second query timeout
-   - Dangerous operation warnings (DROP, DELETE, etc.)
+  name             String
+  type             DatabaseType
+  encryptedConfig  String       // AES-256-GCM encrypted connection details
+  isReadOnly       Boolean      @default(true)
+  poolSize         Int          @default(5)
+  sslMode          SslMode      @default(PREFER)
 
-4. **Dark Theme**: Pure black (#000000) for minimal eye strain, information-dense layout.
+  isActive         Boolean      @default(true)
+  lastTestedAt     DateTime?
+  lastTestResult   String?
 
-5. **Smart Defaults**: Charts auto-detect type from data, minimal configuration needed.
+  projects         Project[]
+  queries          Query[]
 
-### File Structure
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
 
-```
-query-space/
-├── app/
-│   ├── layout.tsx                 # Root layout with dark theme
-│   ├── page.tsx                   # Main app page
-│   ├── globals.css                # Global styles, antd overrides
-│   └── api/
-│       ├── query/route.ts         # [x] Execute SQL queries
-│       ├── tables/route.ts        # [x] List database tables
-│       ├── table-info/route.ts    # [x] Get table schema + sample data
-│       ├── schema/route.ts        # [x] Get full database schema for autocomplete/AI
-│       └── ai-query/route.ts      # [x] AI SQL generation with Claude
-│
-├── components/
-│   ├── Providers.tsx              # [x] Ant Design ConfigProvider wrapper
-│   ├── HomePage.tsx               # [x] Main app container with layout
-│   ├── ConnectionDialog.tsx       # [x] Connect to database modal
-│   ├── SqlEditor.tsx              # [x] Monaco editor wrapper
-│   ├── QueryResults.tsx           # [x] Table view of results
-│   ├── TableBrowser.tsx           # [x] Left sidebar - table tree
-│   ├── TableDetailDrawer.tsx      # [x] Drawer with column info
-│   ├── VisualizationPanel.tsx     # [x] Chart container + config
-│   ├── ColumnChart.tsx            # [x] Recharts bar chart
-│   ├── LineChart.tsx              # [x] Recharts line chart
-│   ├── ChartSelector.tsx          # [x] Chart type/axis selector
-│   ├── AiQueryModal.tsx           # [x] AI query generation modal
-│   ├── QueryHistoryDrawer.tsx     # [x] Saved query history drawer
-│   └── KeyboardShortcutsHelp.tsx  # TODO: Shortcuts reference
-│
-├── stores/
-│   ├── connectionStore.ts         # [x] Connection state + localStorage
-│   ├── queryStore.ts              # [x] Query state + history
-│   ├── uiStore.ts                 # [x] UI state (drawers, modals)
-│   ├── schemaStore.ts             # [x] Database schema cache
-│   └── aiStore.ts                 # [x] AI API key persistence
-│
-├── hooks/
-│   ├── useQuery.ts                # [x] Execute SQL queries
-│   ├── useKeyboardShortcuts.ts    # [x] Global keyboard shortcuts
-│   ├── useTables.ts               # [x] Fetch table list
-│   ├── useTableInfo.ts            # [x] Fetch table details
-│   ├── useSchema.ts               # [x] Fetch full schema for autocomplete
-│   ├── useAiQuery.ts              # [x] AI query generation
-│   └── useUrlState.ts             # [x] Query URL persistence
-│
-├── lib/
-│   ├── sql-validation.ts          # [x] SQL injection prevention
-│   ├── chart-utils.ts             # [x] Chart data transformation
-│   ├── db.ts                      # TODO: PostgreSQL utilities
-│   ├── ai.ts                      # TODO: Anthropic API wrapper
-│   └── storage.ts                 # TODO: localStorage schema
-│
-├── types/
-│   ├── database.ts                # TODO: DB types
-│   ├── chart.ts                   # TODO: Chart config types
-│   └── storage.ts                 # TODO: Storage types
-│
-└── config/
-    ├── theme.ts                   # [x] Ant Design dark theme
-    ├── shortcuts.ts               # TODO: Keyboard shortcut definitions
-    └── monaco.ts                  # TODO: Monaco editor config
+enum DatabaseType {
+  POSTGRESQL
+  MYSQL
+  CLICKHOUSE
+  SQLITE
+  DUCKDB
+  BIGQUERY
+  SNOWFLAKE
+  REDSHIFT
+}
+
+enum SslMode {
+  DISABLE
+  PREFER
+  REQUIRE
+  VERIFY_CA
+  VERIFY_FULL
+}
 ```
 
 ---
 
-## Development Workflow
+## Phase 2: Advanced User & Organization Management
 
-### Running Locally
+**Goal:** Robust multi-user, multi-organization support with granular permissions
 
-```bash
-# Install dependencies
-npm install
+### 2.1 Organization Switching
 
-# Run development server
-npm run dev
+**Features:**
+- [ ] **Organization Selector** - Header dropdown for switching between organizations
+  - Show organization name and role
+  - Visual distinction between organizations
+  - Quick-switch keyboard shortcut (`Cmd+O`)
+  - Last active organization remembered
 
-# Build for production
-npm run build
+- [ ] **Organization Dashboard** - Landing page per organization
+  - Recent projects and queries
+  - Team activity feed
+  - Quick stats (queries run, active users, etc.)
 
-# Start production server
-npm start
+### 2.2 Enhanced User Roles & Permissions
+
+**Current roles:** ADMIN, MEMBER
+
+**Expanded Role System:**
+- [ ] **OWNER** - Full control, billing, can delete organization
+- [ ] **ADMIN** - Manage members, connections, settings (cannot delete org)
+- [ ] **EDITOR** - Create/edit projects, queries, dashboards, charts
+- [ ] **VIEWER** - Read-only access to assigned resources
+- [ ] **ANALYST** - Can execute queries but not modify structure
+
+**Granular Permissions Matrix:**
+
+| Permission | Owner | Admin | Editor | Analyst | Viewer |
+|------------|-------|-------|--------|---------|--------|
+| Delete organization | ✓ | | | | |
+| Manage billing | ✓ | | | | |
+| Manage members | ✓ | ✓ | | | |
+| Manage database connections | ✓ | ✓ | | | |
+| Create/delete projects | ✓ | ✓ | ✓ | | |
+| Create/edit queries | ✓ | ✓ | ✓ | ✓ | |
+| Execute queries | ✓ | ✓ | ✓ | ✓ | |
+| Create/edit dashboards | ✓ | ✓ | ✓ | | |
+| View dashboards | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Export data | ✓ | ✓ | ✓ | ✓ | |
+
+### 2.3 Project-Level Access Control
+
+**Features:**
+- [ ] **Project Visibility Settings**
+  - Public (all org members can access)
+  - Private (only explicitly granted members)
+  - Restricted (specific roles required)
+
+- [ ] **Project Member Management**
+  - Add/remove users to specific projects
+  - Override organization role at project level
+  - Project-specific permissions
+
+### 2.4 Team Collaboration Features
+
+**Features:**
+- [ ] **Activity Feed** - Audit log of team actions
+  - Query executions with user attribution
+  - Dashboard/chart modifications
+  - Project changes
+
+- [ ] **User Presence** - Show who's currently active
+  - Online indicators
+  - "Currently viewing" for dashboards/queries
+
+- [ ] **Comments & Annotations**
+  - Comments on queries explaining logic
+  - Dashboard annotations for context
+  - @mention team members
+
+---
+
+## Phase 3: Dashboard Infrastructure
+
+**Goal:** Build robust dashboard foundation with flexible layout system
+
+### 3.1 Dashboard Core
+
+**Features:**
+- [ ] **Dashboard CRUD** - Full lifecycle management
+  - Create dashboard with name, description
+  - Edit dashboard properties
+  - Duplicate dashboards
+  - Delete with confirmation
+  - Dashboard templates (starter layouts)
+
+- [ ] **Dashboard Organization**
+  - Folder/collection grouping
+  - Tags for categorization
+  - Favorites/starred dashboards
+  - Recently viewed
+
+### 3.2 Grid Layout System
+
+**Implementation:** React-Grid-Layout for drag-and-drop positioning
+
+**Features:**
+- [ ] **12-Column Responsive Grid**
+  - Desktop: 12 columns
+  - Tablet: 6 columns
+  - Mobile: 2 columns
+  - Custom breakpoints
+
+- [ ] **Widget Positioning**
+  - Drag to reposition
+  - Resize handles (corner and edge)
+  - Snap-to-grid alignment
+  - Minimum/maximum size constraints
+  - Lock position option
+
+- [ ] **Layout Modes**
+  - Edit mode (drag, resize, configure)
+  - View mode (optimized for consumption)
+  - Presentation mode (fullscreen, auto-cycle)
+
+### 3.3 Widget Types
+
+**Chart Widget:**
+- [ ] Linked to saved query + chart configuration
+- [ ] Auto-refresh interval (optional)
+- [ ] Click-through to full query view
+- [ ] Inline chart type switcher
+
+**Table Widget:**
+- [ ] Query results in table format
+- [ ] Column visibility toggle
+- [ ] Sorting and pagination
+- [ ] Compact/comfortable density
+
+**KPI/Metric Widget:**
+- [ ] Single value display (big number)
+- [ ] Trend indicator (up/down arrow)
+- [ ] Comparison to previous period
+- [ ] Conditional formatting (thresholds)
+
+**Text/Markdown Widget:**
+- [ ] Rich text with markdown support
+- [ ] Headers, lists, links
+- [ ] Dashboard documentation
+- [ ] Section dividers
+
+**Filter Widget:**
+- [ ] Global dashboard filters
+- [ ] Dropdown, date range, multi-select
+- [ ] Filter affects all linked widgets
+- [ ] Cascading filters
+
+### 3.4 Dashboard Variables & Filters
+
+**Features:**
+- [ ] **Dashboard Variables**
+  - Define variables (date range, category, etc.)
+  - Use in query SQL: `WHERE date >= {{start_date}}`
+  - Variable picker in dashboard header
+  - Default values
+
+- [ ] **Cross-Widget Filtering**
+  - Click chart segment to filter other widgets
+  - Brush selection for date ranges
+  - Clear filters button
+
+- [ ] **Filter Persistence**
+  - Remember last filter selections
+  - Share dashboard with filters in URL
+  - Saved filter presets
+
+---
+
+## Phase 4: Dashboard Sharing & Collaboration
+
+**Goal:** Enable sharing dashboards inside and outside the organization
+
+### 4.1 Internal Sharing
+
+**Features:**
+- [ ] **Share with Team Members**
+  - Share dialog with member selector
+  - Permission levels: View, Edit, Admin
+  - Email notification on share
+
+- [ ] **Share with Groups/Roles**
+  - Share with "All Editors" or custom groups
+  - Role-based access inheritance
+
+### 4.2 Public & External Sharing
+
+**Features:**
+- [ ] **Public Link Sharing**
+  - Generate unique public URL
+  - Optional password protection
+  - Expiration date setting
+  - View count tracking
+  - Revoke link anytime
+
+- [ ] **Signed Token Embedding** (like Metabase's static embeds)
+  - Server-side JWT generation
+  - Embed dashboards in external apps
+  - Parameter passing via token
+  - Row-level security support
+  - Code snippets for React, Vue, vanilla JS
+
+```typescript
+// Example embed token generation
+interface EmbedTokenPayload {
+  dashboardId: string;
+  parameters: Record<string, unknown>;
+  expiresAt: number;
+  permissions: {
+    canExport: boolean;
+    canDrillDown: boolean;
+  };
+}
+
+// Generated iframe code
+<iframe
+  src="https://app.queryspace.io/embed/d/abc123?token=eyJ..."
+  width="100%"
+  height="600"
+  frameborder="0"
+/>
 ```
 
-### Connecting to PostgreSQL
+- [ ] **Embed Appearance Options**
+  - Hide header/navigation
+  - Custom background color
+  - Bordered or borderless
+  - Fit to container
 
-The app requires a PostgreSQL connection string in this format:
+### 4.3 Export & Download
 
-```
-postgresql://username:password@host:port/database
-```
+**Features:**
+- [ ] **Dashboard Export**
+  - Export as PDF (print-ready layout)
+  - Export as PNG/SVG (high-resolution)
+  - Export underlying data as CSV/Excel
 
-**Security Recommendations:**
-- Create a read-only user (SELECT-only permissions)
-- Never use production credentials
-- Use localhost databases or dedicated dev/staging instances
-- Connection string is stored in browser localStorage (not encrypted)
+- [ ] **Scheduled Reports**
+  - Email dashboard snapshots on schedule
+  - Daily/weekly/monthly options
+  - Custom recipient lists
+  - Include summary text
 
-### Environment Variables
+### 4.4 Collaboration Features
 
-Optional environment variables:
+**Features:**
+- [ ] **Dashboard Comments**
+  - Thread-based discussions
+  - @mention team members
+  - Attach to specific widgets
+  - Resolve/unresolve threads
 
-```bash
-# Optional: Default Claude API key (if not provided by user)
-CLAUDE_API_KEY=your-anthropic-api-key
-```
+- [ ] **Version History**
+  - Track dashboard changes
+  - Restore previous versions
+  - Compare versions side-by-side
+  - Change attribution
 
----
-
-## Deployment to Vercel
-
-### Option 1: Vercel CLI (Fastest)
-
-```bash
-# Login to Vercel
-vercel login
-
-# Deploy
-vercel
-
-# Deploy to production
-vercel --prod
-```
-
-### Option 2: GitHub Integration
-
-1. Push code to GitHub
-2. Go to [vercel.com](https://vercel.com)
-3. Click "Import Project"
-4. Select your GitHub repository
-5. Vercel will auto-detect Next.js and deploy
-
-### Vercel Configuration
-
-No special configuration needed. Next.js is auto-detected.
-
-Optional environment variables in Vercel dashboard:
-- `CLAUDE_API_KEY` - Default API key for AI features
+- [ ] **Dashboard Alerts**
+  - Set threshold alerts on metrics
+  - Email/Slack notifications
+  - Alert history log
 
 ---
 
-## Security Considerations
+## Phase 5: Mobile & Responsive Design
 
-### Connection Strings
-- Stored in browser localStorage only
-- Sent via POST body (not URL params)
-- Never logged or stored on server
-- User should create read-only DB users
+**Goal:** First-class mobile experience for dashboards and queries
 
-### SQL Execution
-- 30-second query timeout
-- Basic injection prevention
-- Warnings for dangerous operations
-- Recommend SELECT-only permissions
+### 5.1 Responsive Dashboard Layouts
 
-### Claude API Keys
-- Never stored on server
-- Optional localStorage persistence (user choice)
-- Only transmitted to API route for Claude calls
+**Features:**
+- [ ] **Mobile-Specific Layouts**
+  - Auto-stack widgets vertically on mobile
+  - OR define custom mobile arrangement
+  - Swipe between dashboard pages
 
-### URL State
-- Queries are base64-encoded (not encrypted)
-- Users should be aware shared links contain SQL
+- [ ] **Touch-Optimized Interactions**
+  - Tap to drill down
+  - Pinch to zoom charts
+  - Swipe gestures for navigation
+  - Pull-to-refresh
+
+- [ ] **Mobile Widget Adaptations**
+  - Simplified chart views
+  - Horizontal scroll for wide tables
+  - Collapsible sections
+  - Thumb-friendly tap targets (44px minimum)
+
+### 5.2 Mobile Query Interface
+
+**Features:**
+- [ ] **Mobile SQL Editor**
+  - Simplified editor for small screens
+  - Query templates/snippets
+  - Voice-to-SQL (stretch goal)
+  - Recent queries quick access
+
+- [ ] **Mobile Results View**
+  - Card-based result display
+  - Swipe between rows
+  - Pinch-to-zoom tables
+  - Quick share results
+
+### 5.3 Progressive Web App (PWA)
+
+**Features:**
+- [ ] **PWA Configuration**
+  - Add to home screen prompt
+  - App icon and splash screen
+  - Offline indicator
+  - Push notifications for alerts
+
+- [ ] **Offline Capabilities**
+  - Cache recently viewed dashboards
+  - Queue queries for execution when online
+  - Offline mode indicator
+
+### 5.4 Mobile-First Design System
+
+**Features:**
+- [ ] **Responsive Breakpoints**
+  - Mobile: < 768px
+  - Tablet: 768px - 1024px
+  - Desktop: > 1024px
+
+- [ ] **Component Adaptations**
+  - Bottom sheet modals on mobile
+  - Tab bar navigation
+  - Floating action buttons
+  - Gesture-based interactions
 
 ---
 
-## Contributing
+## Phase 6: Expanded Chart Types
 
-This is a personal project, but contributions are welcome!
+**Goal:** Support comprehensive visualization library matching enterprise BI tools
 
-**Before starting work:**
-1. Check existing phases/features in this roadmap
-2. Open an issue to discuss major changes
-3. Follow the established architecture and patterns
+### 6.1 Statistical Charts
 
-**Code Style:**
-- TypeScript strict mode
-- Functional components with hooks
-- Zustand for state management
-- Ant Design for UI components
-- Dark theme consistency (#000000, #ffffff, #333333)
+**Features:**
+- [ ] **Scatter Plot**
+  - X/Y axis with continuous variables
+  - Point size for third dimension
+  - Color coding by category
+  - Trend lines (linear, polynomial)
+  - Correlation coefficient display
+
+- [ ] **Bubble Chart**
+  - Scatter with bubble size encoding
+  - Three quantitative dimensions
+  - Animated transitions
+  - Bubble labels
+
+- [ ] **Box Plot (Box & Whisker)**
+  - Statistical distribution visualization
+  - Quartiles, median, outliers
+  - Multiple series comparison
+  - Horizontal/vertical orientation
+
+- [ ] **Histogram**
+  - Distribution of single variable
+  - Configurable bin count
+  - Overlay with normal curve
+  - Cumulative histogram option
+
+### 6.2 Part-to-Whole Charts
+
+**Features:**
+- [ ] **Donut Chart**
+  - Pie chart with center cutout
+  - Center label (total, percentage)
+  - Multiple ring support
+  - Exploded segments
+
+- [ ] **Treemap**
+  - Hierarchical data as nested rectangles
+  - Drill-down navigation
+  - Size and color encoding
+  - Labels with smart truncation
+
+- [ ] **Sunburst Chart**
+  - Radial hierarchical visualization
+  - Interactive drill-down
+  - Path highlighting
+  - Center navigation
+
+### 6.3 Flow & Relationship Charts
+
+**Features:**
+- [ ] **Sankey Diagram**
+  - Flow between categories
+  - Link width proportional to value
+  - Interactive highlighting
+  - Multi-level flows (source → intermediate → target)
+
+- [ ] **Funnel Chart**
+  - Conversion/drop-off visualization
+  - Percentage labels
+  - Horizontal or vertical orientation
+  - Stage comparison
+
+- [ ] **Chord Diagram**
+  - Relationships between entities
+  - Bidirectional flow visualization
+  - Interactive highlighting
+
+### 6.4 Trend & Comparison Charts
+
+**Features:**
+- [ ] **Waterfall Chart**
+  - Cumulative effect visualization
+  - Positive/negative coloring
+  - Subtotal bars
+  - Starting/ending totals
+
+- [ ] **Bullet Chart**
+  - KPI with target comparison
+  - Qualitative ranges (poor/good/excellent)
+  - Compact space usage
+  - Multiple metrics stacked
+
+- [ ] **Sparklines**
+  - Inline mini-charts
+  - Embed in tables
+  - Trend indicators
+  - Win/loss bars
+
+### 6.5 Geographic Charts
+
+**Features:**
+- [ ] **Choropleth Map**
+  - Country/region shading by value
+  - Custom GeoJSON boundaries
+  - Zoom and pan
+  - Tooltip on hover
+
+- [ ] **Bubble Map**
+  - Points on geographic map
+  - Size encoding for values
+  - Clustering for dense data
+
+### 6.6 Specialized Charts
+
+**Features:**
+- [ ] **Gauge Chart**
+  - Single metric against target
+  - Multiple gauge types:
+    - Speedometer (arc gauge)
+    - Bullet gauge
+    - Progress bar
+  - Threshold zones (red/yellow/green)
+
+- [ ] **Heatmap**
+  - Two-dimensional color matrix
+  - Calendar heatmap option
+  - Correlation matrix visualization
+  - Custom color scales
+
+- [ ] **Radar/Spider Chart**
+  - Multi-dimensional comparison
+  - Overlapping series
+  - Filled or line mode
 
 ---
 
-## License
+## Phase 7: Advanced Chart Configuration
 
-MIT License - See LICENSE file for details
+**Goal:** Provide fine-grained control over chart appearance and behavior
+
+### 7.1 Axis Configuration
+
+**Features:**
+- [ ] **X-Axis Options**
+  - Label rotation (0°, 45°, 90°)
+  - Custom tick intervals
+  - Date formatting patterns
+  - Logarithmic scale
+  - Reversed direction
+  - Axis title and units
+
+- [ ] **Y-Axis Options**
+  - Min/max bounds (auto or fixed)
+  - Multiple Y-axes (dual axis charts)
+  - Unit formatting ($, %, K, M, B)
+  - Reference lines (target, average)
+  - Grid line styling
+
+- [ ] **Axis Formatting**
+  - Number formatting (decimals, thousands separator)
+  - Date/time formatting
+  - Custom prefix/suffix
+  - Null value handling
+
+### 7.2 Visual Styling
+
+**Features:**
+- [ ] **Color Configuration**
+  - Custom color palette selection
+  - Color by category (automatic assignment)
+  - Color by value (gradient scales)
+  - Conditional coloring (thresholds)
+  - Opacity control
+
+- [ ] **Predefined Themes**
+  - Dark mode optimized palettes
+  - Colorblind-friendly palettes
+  - Brand color matching
+  - High contrast accessibility
+
+- [ ] **Series Styling**
+  - Line styles (solid, dashed, dotted)
+  - Line width
+  - Point markers (circle, square, triangle)
+  - Area fill opacity
+  - Bar/column width
+
+### 7.3 Labels & Annotations
+
+**Features:**
+- [ ] **Data Labels**
+  - Show/hide value labels
+  - Position (inside, outside, center)
+  - Format (value, percentage, both)
+  - Smart collision avoidance
+  - Minimum threshold to show
+
+- [ ] **Annotations**
+  - Add text annotations to charts
+  - Point annotations (callouts)
+  - Range annotations (highlighted zones)
+  - Event markers on timeline
+
+- [ ] **Reference Lines**
+  - Horizontal/vertical reference lines
+  - Target line with label
+  - Average/median lines
+  - Custom styled (color, dash pattern)
+
+### 7.4 Legend & Tooltip
+
+**Features:**
+- [ ] **Legend Options**
+  - Position (top, bottom, left, right)
+  - Orientation (horizontal, vertical)
+  - Interactive (click to show/hide series)
+  - Pagination for many items
+  - Custom formatting
+
+- [ ] **Tooltip Configuration**
+  - Custom tooltip template
+  - Multiple value display
+  - Comparison to previous
+  - Formatting options
+  - Pin tooltip option
+
+### 7.5 Interactivity & Animation
+
+**Features:**
+- [ ] **Drill-Down Actions**
+  - Click segment to drill into detail
+  - Configurable drill paths
+  - Breadcrumb navigation
+  - Return to overview
+
+- [ ] **Zoom & Pan**
+  - Mouse wheel zoom
+  - Brush selection for range zoom
+  - Pan by drag
+  - Reset zoom button
+
+- [ ] **Animation Options**
+  - Enable/disable animations
+  - Animation duration
+  - Animation easing
+  - Entrance animations
+
+### 7.6 Chart Calculations
+
+**Features:**
+- [ ] **Built-in Calculations**
+  - Running total
+  - Percent of total
+  - Year-over-year change
+  - Moving average
+  - Cumulative sum
+
+- [ ] **Trend Lines**
+  - Linear regression
+  - Polynomial fit
+  - Exponential smoothing
+  - Confidence intervals
+
+- [ ] **Forecasting** (stretch goal)
+  - Simple forecasting methods
+  - Confidence bands
+  - Seasonal decomposition
 
 ---
 
-## Support
+## Implementation Priority
 
-For issues or questions:
-- GitHub Issues: https://github.com/marcushyett/query-space/issues
-- This is a personal/educational project - support is best-effort
+### High Priority (Core Functionality)
+1. **Phase 1.1-1.2** - Multi-database connections (foundation for enterprise use)
+2. **Phase 3.1-3.3** - Dashboard core and widgets (primary value proposition)
+3. **Phase 6.1-6.4** - Key chart types (scatter, funnel, waterfall, heatmap)
+
+### Medium Priority (Differentiation)
+4. **Phase 2.1-2.2** - Organization switching and roles (team collaboration)
+5. **Phase 4.1-4.2** - Internal and public sharing (virality and adoption)
+6. **Phase 7.1-7.3** - Axis and styling configuration (power user features)
+
+### Lower Priority (Polish & Advanced)
+7. **Phase 5** - Mobile optimization (after desktop experience is solid)
+8. **Phase 4.3-4.4** - Export and advanced collaboration
+9. **Phase 6.5-6.6** - Geographic and specialized charts
+10. **Phase 7.4-7.6** - Advanced interactivity and calculations
 
 ---
 
-**Last Updated:** Phase 5 Complete (2025-12-25)
-**Next Milestone:** Phase 6 - Polish & Keyboard Shortcuts
+## Technical Architecture Considerations
+
+### Database Layer
+- Migrate from single `OrganizationSettings.encryptedDatabaseUrl` to `DatabaseConnection` model
+- Implement connection pooling per database (pg-pool, mysql2 pool)
+- Add database driver abstraction layer for multi-database support
+- Schema caching with TTL per database connection
+
+### State Management
+- Extend Zustand stores for multi-database context
+- Dashboard state with widget positions, filters, variables
+- Real-time collaboration state (WebSocket for presence)
+
+### Visualization Library
+- **Retain Recharts** for standard charts (line, bar, area, pie, scatter)
+- **Add ECharts** for advanced charts (sankey, treemap, heatmap, gauge, map)
+- **Consider Visx** for custom/complex visualizations
+- Unified chart configuration interface across libraries
+
+### API Design
+- RESTful endpoints for CRUD operations
+- WebSocket for real-time dashboard updates
+- Streaming for large result sets
+- Rate limiting per organization
+
+### Security
+- Row-level security for shared dashboards
+- Signed embed tokens with expiration
+- Audit logging for all data access
+- Connection credential encryption (maintain AES-256-GCM)
+
+---
+
+## Success Metrics
+
+### Phase 1 Success
+- [ ] Organizations can add 5+ database connections
+- [ ] Query execution works across all supported database types
+- [ ] Connection testing provides clear success/failure feedback
+
+### Dashboard Success
+- [ ] Dashboards load in < 2 seconds
+- [ ] Mobile layout is usable without horizontal scrolling
+- [ ] Public link sharing adoption > 20% of active dashboards
+
+### Visualization Success
+- [ ] 15+ chart types available
+- [ ] Chart configuration covers 80% of common use cases
+- [ ] Positive feedback on chart aesthetics (dark theme consistency)
+
+---
+
+## Research Sources
+
+This roadmap was informed by analysis of leading BI and analytics platforms:
+
+- **Multi-database & Architecture:** [Metabase](https://www.metabase.com/), [Apache Superset](https://superset.apache.org/), [Redash](https://redash.io/)
+- **Dashboard Sharing:** [Tableau](https://www.tableau.com/), [Power BI](https://powerbi.microsoft.com/), [Looker](https://cloud.google.com/looker)
+- **Mobile Design:** [Grafana](https://grafana.com/), [Datadog](https://www.datadoghq.com/)
+- **Visualization Libraries:** [ECharts](https://echarts.apache.org/), [D3.js](https://d3js.org/), [Recharts](https://recharts.org/)
+
+---
+
+**Last Updated:** 2025-12-31
+**Document Version:** 2.0 - Complete Rewrite
