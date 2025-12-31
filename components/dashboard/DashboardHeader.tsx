@@ -10,7 +10,6 @@ import {
   Modal,
   Form,
   Tooltip,
-  Space,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -201,18 +200,9 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
 
   return (
     <>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 16px',
-          borderBottom: '1px solid #222',
-          background: '#0a0a0a',
-        }}
-      >
+      <div className="dashboard-header">
         {/* Left side: Back button and title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="dashboard-header-left">
           <Button
             type="text"
             icon={<ArrowLeftOutlined />}
@@ -227,24 +217,20 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
               onBlur={handleTitleSave}
               onPressEnter={handleTitleSave}
               autoFocus
-              style={{ width: 300, fontSize: 16, fontWeight: 600 }}
+              className="dashboard-title-input"
             />
           ) : (
             <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                cursor: isEditMode ? 'pointer' : 'default',
-              }}
+              className="dashboard-title"
               onClick={() => {
                 if (isEditMode) {
                   setEditedTitle(dashboard.title);
                   setIsEditing(true);
                 }
               }}
+              style={{ cursor: isEditMode ? 'pointer' : 'default' }}
             >
-              <span style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>
+              <span className="dashboard-title-text">
                 {dashboard.title}
               </span>
               {isEditMode && (
@@ -255,7 +241,7 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
         </div>
 
         {/* Right side: Actions */}
-        <Space>
+        <div className="dashboard-header-actions">
           {!isEditMode && (
             <Tooltip title="Refresh all widgets">
               <Button
@@ -271,8 +257,9 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
               <Button
                 icon={<PlusOutlined />}
                 onClick={() => setAddWidgetOpen(true)}
+                className="add-widget-btn"
               >
-                Add Widget
+                <span className="btn-text">Add Widget</span>
               </Button>
               <Button
                 type="primary"
@@ -280,7 +267,7 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
                 onClick={handleSaveAndExit}
                 loading={isSaving}
               >
-                Done
+                <span className="btn-text">Done</span>
               </Button>
             </>
           ) : (
@@ -288,15 +275,103 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
               icon={<EditOutlined />}
               onClick={() => setEditMode(true)}
             >
-              Edit
+              <span className="btn-text">Edit</span>
             </Button>
           )}
 
           <Dropdown menu={{ items: menuItems }} trigger={['click']}>
             <Button type="text" icon={<MoreOutlined />} />
           </Dropdown>
-        </Space>
+        </div>
       </div>
+
+      <style jsx global>{`
+        .dashboard-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 16px;
+          border-bottom: 1px solid #222;
+          background: #0a0a0a;
+          gap: 8px;
+        }
+
+        .dashboard-header-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+          flex: 1;
+        }
+
+        .dashboard-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+        }
+
+        .dashboard-title-text {
+          font-size: 16px;
+          font-weight: 600;
+          color: #fff;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .dashboard-title-input {
+          width: 300px;
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        .dashboard-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+          .dashboard-header {
+            padding: 8px 12px;
+          }
+
+          .dashboard-header-left {
+            gap: 8px;
+          }
+
+          .dashboard-title-text {
+            font-size: 14px;
+            max-width: 120px;
+          }
+
+          .dashboard-title-input {
+            width: 150px;
+            font-size: 14px;
+          }
+
+          .dashboard-header-actions {
+            gap: 4px;
+          }
+
+          .dashboard-header-actions .btn-text {
+            display: none;
+          }
+
+          .add-widget-btn .btn-text {
+            display: none;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .dashboard-title-text {
+            max-width: 80px;
+          }
+        }
+      `}</style>
 
       {/* Settings Modal */}
       <Modal
