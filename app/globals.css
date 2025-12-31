@@ -2171,3 +2171,47 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* Inline thinking messages */
+.chat-message-thinking {
+  opacity: 0.7;
+}
+
+.chat-message-thinking .chat-message-content {
+  font-style: italic;
+}
+
+.chat-message-icon-thinking {
+  color: #666;
+}
+
+/* Tool activity messages */
+.chat-message-tool-activity {
+  padding: 4px 0;
+}
+
+.chat-message-icon-tool {
+  color: #888;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-message-tool-activity .chat-message-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Minimal agent progress bar */
+.agent-progress-minimal {
+  padding: 8px 12px;
+  margin: 8px 16px;
+}
+
+.agent-progress-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

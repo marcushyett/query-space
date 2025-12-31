@@ -45,6 +45,8 @@ export function useAiAgent() {
     addChartMessage,
     addQueryMessage,
     addTodoMessage,
+    addThinkingMessage,
+    addToolActivityMessage,
     setCurrentSql,
     setIsAiGenerated,
     startNewConversation,
@@ -208,13 +210,19 @@ export function useAiAgent() {
                 const event: AgentStreamEvent = JSON.parse(data);
 
                 switch (event.type) {
-                  case 'step':
+                  case 'step': {
+                    // Flush any accumulated thinking text to chat before starting new step
+                    const currentStreamingText = useAiChatStore.getState().agentProgress?.streamingText;
+                    if (currentStreamingText && currentStreamingText.trim()) {
+                      addThinkingMessage(currentStreamingText);
+                    }
                     updateAgentStep(event.step);
                     // Update session
                     if (sessionIdRef.current) {
                       updateSession(sessionIdRef.current, { currentStep: event.step });
                     }
                     break;
+                  }
 
                   case 'text':
                     appendStreamingText(event.text);
@@ -230,6 +238,17 @@ export function useAiAgent() {
                       status: 'running',
                     };
                     addAgentToolCall(toolCall);
+
+                    // Add inline tool activity message for relevant tools (skip manage_todo)
+                    const toolLabels: Record<string, string> = {
+                      get_table_schema: 'Getting database schema...',
+                      get_json_keys: 'Exploring JSON fields...',
+                      execute_query: 'Running query...',
+                      validate_query: 'Validating query...',
+                    };
+                    if (toolLabels[event.toolName]) {
+                      addToolActivityMessage(event.toolName, 'running', toolLabels[event.toolName]);
+                    }
                     break;
                   }
 
@@ -777,6 +796,17 @@ Instructions:
                     status: 'running',
                   };
                   addAgentToolCall(toolCall);
+
+                  // Add inline tool activity message for relevant tools (skip manage_todo)
+                  const toolLabels: Record<string, string> = {
+                    get_table_schema: 'Getting database schema...',
+                    get_json_keys: 'Exploring JSON fields...',
+                    execute_query: 'Running query...',
+                    validate_query: 'Validating query...',
+                  };
+                  if (toolLabels[event.toolName]) {
+                    addToolActivityMessage(event.toolName, 'running', toolLabels[event.toolName]);
+                  }
                   break;
                 }
 
@@ -1191,6 +1221,17 @@ If you encounter an error or need help, explain what went wrong.`;
                       status: 'running',
                     };
                     addAgentToolCall(toolCall);
+
+                    // Add inline tool activity message for relevant tools (skip manage_todo)
+                    const toolLabels: Record<string, string> = {
+                      get_table_schema: 'Getting database schema...',
+                      get_json_keys: 'Exploring JSON fields...',
+                      execute_query: 'Running query...',
+                      validate_query: 'Validating query...',
+                    };
+                    if (toolLabels[event.toolName]) {
+                      addToolActivityMessage(event.toolName, 'running', toolLabels[event.toolName]);
+                    }
                     break;
                   }
 
