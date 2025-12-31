@@ -220,6 +220,7 @@ export function ChatMessage({ message, isLatest, onLoadQuery, onResume }: ChatMe
               <AgentSummary
                 summary={message.summary}
                 sql={message.sql}
+                previousSql={message.previousSql}
                 explanation={message.explanation}
                 confidence={message.confidence}
                 suggestions={message.suggestions}

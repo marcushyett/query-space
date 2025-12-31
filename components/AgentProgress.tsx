@@ -81,6 +81,28 @@ export function AgentProgress({ currentStep, maxSteps, toolCalls, streamingText,
   // Check if there's a final query (update_query_ui was called)
   const finalQueryCall = toolCalls.find(tc => tc.toolName === 'update_query_ui' && tc.status === 'success');
 
+  // Check if all todos are complete but agent is still working
+  const allTodosComplete = todos.length > 0 && todos.every(t => t.status === 'completed' || t.status === 'skipped');
+  const hasActiveTool = toolCalls.some(tc => tc.status === 'running');
+  const isFinalizingWithoutTodos = todos.length === 0 && toolCalls.length > 0 && !finalQueryCall;
+
+  // Determine working status text
+  const getWorkingStatus = () => {
+    if (hasActiveTool) {
+      const activeTool = toolCalls.find(tc => tc.status === 'running');
+      if (activeTool) {
+        return TOOL_LABELS[activeTool.toolName] || 'Processing';
+      }
+    }
+    if (allTodosComplete && !finalQueryCall) {
+      return 'Finalizing query';
+    }
+    if (isFinalizingWithoutTodos) {
+      return 'Building query';
+    }
+    return 'Thinking';
+  };
+
   return (
     <div className="agent-progress">
       <div className="agent-progress-header">
@@ -115,6 +137,22 @@ export function AgentProgress({ currentStep, maxSteps, toolCalls, streamingText,
       {/* Todo List */}
       {todos.length > 0 && (
         <AgentTodoList todos={todos} compact />
+      )}
+
+      {/* Working Status Indicator - shows when todos complete or during processing */}
+      {(allTodosComplete || isFinalizingWithoutTodos || (!streamingText && !hasActiveTool)) && !finalQueryCall && (
+        <div className="agent-working-status" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 0',
+          marginBottom: 8
+        }}>
+          <TechSpinner size="small" />
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {getWorkingStatus()}...
+          </Text>
+        </div>
       )}
 
       {streamingText && (

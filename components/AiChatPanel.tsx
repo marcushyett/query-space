@@ -239,17 +239,56 @@ export function AiChatPanel() {
 
           {/* Continue Button when step limit reached */}
           {agentProgress && agentProgress.canContinue && !agentProgress.isRunning && (
-            <div className="p-4 text-center">
-              <Space direction="vertical" size={8}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Agent reached {agentProgress.maxSteps} step limit
-                </Text>
+            <div className="agent-resume-section" style={{
+              background: '#1a1a1a',
+              border: '1px solid #333',
+              borderRadius: 8,
+              padding: 16,
+              margin: '8px 0'
+            }}>
+              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                <Space>
+                  <HistoryOutlined style={{ color: '#faad14' }} />
+                  <Text strong style={{ fontSize: 13 }}>Agent paused at step limit</Text>
+                </Space>
+
+                {/* Progress summary */}
+                <div style={{ fontSize: 12 }}>
+                  {agentProgress.todos.length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <Text type="secondary">Progress: </Text>
+                      <Text>
+                        {agentProgress.todos.filter(t => t.status === 'completed').length}/
+                        {agentProgress.todos.length} tasks completed
+                      </Text>
+                    </div>
+                  )}
+                  {agentProgress.todos.length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <Text type="secondary">Remaining: </Text>
+                      <Text>
+                        {agentProgress.todos
+                          .filter(t => t.status === 'pending' || t.status === 'in_progress')
+                          .map(t => t.text)
+                          .slice(0, 2)
+                          .join(', ')}
+                        {agentProgress.todos.filter(t => t.status === 'pending' || t.status === 'in_progress').length > 2 && '...'}
+                      </Text>
+                    </div>
+                  )}
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    The agent used {agentProgress.currentStep} steps and needs more to complete the task.
+                    Click Resume to continue from where it left off.
+                  </Text>
+                </div>
+
                 <Button
                   type="primary"
                   onClick={continueAgent}
-                  icon={<SendOutlined />}
+                  icon={<PlayCircleOutlined />}
+                  block
                 >
-                  Continue
+                  Resume Agent
                 </Button>
               </Space>
             </div>

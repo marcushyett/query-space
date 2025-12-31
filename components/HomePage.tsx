@@ -40,7 +40,8 @@ export function HomePage() {
   const { organizationId } = useConnectionStore();
   const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer } = useUiStore();
   const { currentQuery, isExecuting } = useQueryStore();
-  const { isOpen: aiChatOpen, setOpen: setAiChatOpen } = useAiChatStore();
+  const { isOpen: aiChatOpen, setOpen: setAiChatOpen, isGenerating: isAiGenerating, agentProgress } = useAiChatStore();
+  const isAgentWorking = isAiGenerating || (agentProgress?.isRunning ?? false);
   const { executeQuery } = useQuery();
   const screens = useBreakpoint();
 
@@ -177,7 +178,7 @@ export function HomePage() {
           {/* Editor and Results */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ height: '40%', minHeight: 200, borderBottom: '1px solid #222' }}>
-              <SqlEditor />
+              <SqlEditor disabled={isAgentWorking} />
             </div>
             <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
               <QueryResults />
