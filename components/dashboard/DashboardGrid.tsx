@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useRef, useState, useEffect } from 'react';
-import { Responsive, WidthProvider, Layout } from 'react-grid-layout';
+import { Responsive, WidthProvider } from 'react-grid-layout';
 import { useDashboardStore, GridLayoutItem } from '@/stores/dashboardStore';
 import { DashboardWidget } from './DashboardWidget';
 import { Empty, Spin } from 'antd';
@@ -85,7 +85,7 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
   const isMobile = currentBreakpoint === 'xs' || currentBreakpoint === 'xxs';
 
   const handleLayoutChange = useCallback(
-    (currentLayout: GridLayoutItem[], allLayouts: { [key: string]: GridLayoutItem[] }) => {
+    (_currentLayout: GridLayoutItem[], allLayouts: { [key: string]: GridLayoutItem[] }) => {
       // Only save the large layout to the database (source of truth)
       if (allLayouts.lg) {
         updateFromGridLayout(allLayouts.lg);
