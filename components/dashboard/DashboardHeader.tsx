@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Button,
@@ -10,6 +10,7 @@ import {
   Modal,
   Form,
   Tooltip,
+  Select,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -24,6 +25,11 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import { useDashboardStore } from '@/stores/dashboardStore';
+
+interface Project {
+  id: string;
+  title: string;
+}
 
 interface DashboardHeaderProps {
   onSaveLayout: () => Promise<void>;
@@ -46,6 +52,30 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
   const [editedTitle, setEditedTitle] = useState(dashboard?.title || '');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsForm] = Form.useForm();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+
+  // Fetch available projects when settings modal opens
+  useEffect(() => {
+    if (!isSettingsOpen || !dashboard) return;
+
+    const fetchProjects = async () => {
+      setLoadingProjects(true);
+      try {
+        const response = await fetch(`/api/projects?organizationId=${dashboard.organizationId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setProjects(data.projects || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch projects:', error);
+      } finally {
+        setLoadingProjects(false);
+      }
+    };
+
+    fetchProjects();
+  }, [isSettingsOpen, dashboard]);
 
   const handleTitleSave = useCallback(async () => {
     if (!dashboard || !editedTitle.trim()) return;
@@ -140,7 +170,7 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
   }, [onSaveLayout, setEditMode, setSaving]);
 
   const handleSettingsSave = useCallback(
-    async (values: { title: string; description: string }) => {
+    async (values: { title: string; description: string; projectIds?: string[] }) => {
       if (!dashboard) return;
 
       try {
@@ -152,10 +182,16 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
 
         if (!response.ok) throw new Error('Failed to update settings');
 
+        // Update local state with new project list
+        const updatedProjects = values.projectIds
+          ? projects.filter((p) => values.projectIds!.includes(p.id))
+          : dashboard.projects;
+
         setDashboard({
           ...dashboard,
           title: values.title,
           description: values.description,
+          projects: updatedProjects,
         });
         setIsSettingsOpen(false);
         message.success('Settings updated');
@@ -164,7 +200,7 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
         message.error('Failed to update settings');
       }
     },
-    [dashboard, setDashboard]
+    [dashboard, setDashboard, projects]
   );
 
   const menuItems: MenuProps['items'] = [
@@ -176,6 +212,7 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
         settingsForm.setFieldsValue({
           title: dashboard?.title,
           description: dashboard?.description || '',
+          projectIds: dashboard?.projects.map((p) => p.id) || [],
         });
         setIsSettingsOpen(true);
       },
@@ -395,6 +432,19 @@ export function DashboardHeader({ onSaveLayout }: DashboardHeaderProps) {
 
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={3} placeholder="Optional description" />
+          </Form.Item>
+
+          <Form.Item
+            name="projectIds"
+            label="Linked Projects"
+            extra="Charts and queries will be pulled from linked projects"
+          >
+            <Select
+              mode="multiple"
+              placeholder="Select projects"
+              loading={loadingProjects}
+              options={projects.map((p) => ({ label: p.title, value: p.id }))}
+            />
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0 }}>
