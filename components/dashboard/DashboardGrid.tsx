@@ -6,12 +6,10 @@ import { DashboardWidget } from './DashboardWidget';
 import { Empty, Spin } from 'antd';
 import { AppstoreAddOutlined } from '@ant-design/icons';
 
+import { Responsive, WidthProvider } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 
-// Import react-grid-layout using require for proper CommonJS interop
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ReactGridLayout = require('react-grid-layout');
-const ResponsiveGridLayout = ReactGridLayout.WidthProvider(ReactGridLayout.Responsive);
+const ResponsiveGridLayout = WidthProvider(Responsive);
 
 // Breakpoints for responsive layout
 const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
