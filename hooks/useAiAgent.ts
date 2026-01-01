@@ -307,7 +307,9 @@ export function useAiAgent() {
 
                   case 'tool_call_result': {
                     const tc = event.toolCall;
-                    const hasError = !!(tc.result as { error?: string })?.error;
+                    // Check if error is a non-empty string (not null, undefined, or empty string)
+                    const errorValue = (tc.result as { error?: unknown })?.error;
+                    const hasError = typeof errorValue === 'string' && errorValue.length > 0;
                     const toolStatus = hasError ? 'error' : 'success';
 
                     // Update the tool call with result
@@ -913,7 +915,9 @@ Instructions:
 
                 case 'tool_call_result': {
                   const tc = event.toolCall;
-                  const hasError = !!(tc.result as { error?: string })?.error;
+                  // Check if error is a non-empty string (not null, undefined, or empty string)
+                  const errorValue = (tc.result as { error?: unknown })?.error;
+                  const hasError = typeof errorValue === 'string' && errorValue.length > 0;
                   const toolStatus = hasError ? 'error' : 'success';
 
                   updateAgentToolCall(tc.id, {
@@ -1357,7 +1361,9 @@ If you encounter an error or need help, explain what went wrong.`;
 
                   case 'tool_call_result': {
                     const tc = event.toolCall;
-                    const hasError = !!(tc.result as { error?: string })?.error;
+                    // Check if error is a non-empty string (not null, undefined, or empty string)
+                    const errorValue = (tc.result as { error?: unknown })?.error;
+                    const hasError = typeof errorValue === 'string' && errorValue.length > 0;
                     const toolStatus = hasError ? 'error' : 'success';
 
                     updateAgentToolCall(tc.id, {
