@@ -425,12 +425,14 @@ export function persistSessionOnUnload(
 // API helper functions for agent sessions
 export async function fetchAgentSessions(organizationId: string, options?: {
   projectId?: string;
+  queryId?: string;
   status?: 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED';
   limit?: number;
   offset?: number;
 }): Promise<{ sessions: AgentSession[]; total: number }> {
   const params = new URLSearchParams({ organizationId });
   if (options?.projectId) params.set('projectId', options.projectId);
+  if (options?.queryId) params.set('queryId', options.queryId);
   if (options?.status) params.set('status', options.status);
   if (options?.limit) params.set('limit', String(options.limit));
   if (options?.offset) params.set('offset', String(options.offset));

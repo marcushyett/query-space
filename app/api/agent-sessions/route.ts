@@ -33,6 +33,7 @@ const createSessionSchema = z.object({
 const listSessionsSchema = z.object({
   organizationId: z.string(),
   projectId: z.string().optional(),
+  queryId: z.string().optional(),
   status: z.enum(['RUNNING', 'PAUSED', 'COMPLETED', 'FAILED']).optional(),
   limit: z.coerce.number().min(1).max(100).default(50),
   offset: z.coerce.number().min(0).default(0),
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { organizationId, projectId, status, limit, offset } = parsed.data;
+    const { organizationId, projectId, queryId, status, limit, offset } = parsed.data;
 
     // Check organization access
     const access = await checkOrganizationAccess(organizationId);
@@ -68,10 +69,12 @@ export async function GET(request: NextRequest) {
     const where: {
       organizationId: string;
       projectId?: string;
+      queryId?: string;
       status?: 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED';
     } = { organizationId };
 
     if (projectId) where.projectId = projectId;
+    if (queryId) where.queryId = queryId;
     if (status) where.status = status;
 
     const [sessions, total] = await Promise.all([
