@@ -91,6 +91,22 @@ export function AiChatPanel() {
         <Space>
           <RobotOutlined />
           <Text strong>AI Assistant</Text>
+          {/* Show resumable indicator when there are paused sessions */}
+          {resumableSessions.length > 0 && messages.length > 0 && !isWorking && (
+            <Button
+              type="text"
+              size="small"
+              icon={<PlayCircleOutlined style={{ color: '#faad14' }} />}
+              onClick={() => resumeSession(resumableSessions[0])}
+              style={{
+                padding: '0 8px',
+                background: 'rgba(250, 173, 20, 0.1)',
+                borderRadius: 4,
+              }}
+            >
+              <Text style={{ fontSize: 11, color: '#faad14' }}>Resume</Text>
+            </Button>
+          )}
         </Space>
         <Space size={4}>
           {messages.length > 0 && (

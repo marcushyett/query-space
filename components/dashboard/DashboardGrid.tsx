@@ -1,18 +1,15 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ReactGridLayout = require('react-grid-layout');
-const Responsive = ReactGridLayout.Responsive;
-const WidthProvider = ReactGridLayout.WidthProvider;
-
+import React, { useCallback, useRef, useState, useEffect } from 'react';
+import { Responsive, WidthProvider, Layout } from 'react-grid-layout';
 import { useDashboardStore, GridLayoutItem } from '@/stores/dashboardStore';
 import { DashboardWidget } from './DashboardWidget';
-import { Empty } from 'antd';
+import { Empty, Spin } from 'antd';
 import { AppstoreAddOutlined } from '@ant-design/icons';
 
 import 'react-grid-layout/css/styles.css';
 
+// Create the responsive grid layout with width provider
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
 // Breakpoints for responsive layout
@@ -67,6 +64,7 @@ function generateResponsiveLayouts(baseLayout: GridLayoutItem[]) {
 export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
+  const [isMounted, setIsMounted] = useState(false);
   const {
     dashboard,
     isEditMode,
@@ -74,6 +72,11 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
     updateFromGridLayout,
     setAddWidgetOpen,
   } = useDashboardStore();
+
+  // Wait for client-side mount to avoid hydration mismatches
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const baseLayout = getGridLayout();
   const layouts = generateResponsiveLayouts(baseLayout);
@@ -103,7 +106,24 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
     return null;
   }
 
-  if (dashboard.widgets.length === 0) {
+  // Wait for client-side mount before rendering the grid
+  if (!isMounted) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#0a0a0a',
+        }}
+      >
+        <Spin />
+      </div>
+    );
+  }
+
+  if (!dashboard.widgets || dashboard.widgets.length === 0) {
     return (
       <div
         style={{
