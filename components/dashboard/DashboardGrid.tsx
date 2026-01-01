@@ -1,7 +1,11 @@
 'use client';
 
-import React, { useCallback, useRef, useEffect, useState } from 'react';
-import GridLayout from 'react-grid-layout';
+import React, { useCallback, useRef, useState } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ReactGridLayout = require('react-grid-layout');
+const Responsive = ReactGridLayout.Responsive;
+const WidthProvider = ReactGridLayout.WidthProvider;
+
 import { useDashboardStore, GridLayoutItem } from '@/stores/dashboardStore';
 import { DashboardWidget } from './DashboardWidget';
 import { Empty } from 'antd';
@@ -9,13 +13,60 @@ import { AppstoreAddOutlined } from '@ant-design/icons';
 
 import 'react-grid-layout/css/styles.css';
 
+const ResponsiveGridLayout = WidthProvider(Responsive);
+
+// Breakpoints for responsive layout
+const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
+const COLS = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 };
+
 interface DashboardGridProps {
   onSaveLayout?: () => void;
 }
 
+// Generate responsive layouts from the base layout
+function generateResponsiveLayouts(baseLayout: GridLayoutItem[]) {
+  const layouts: { [key: string]: GridLayoutItem[] } = {};
+
+  // Large screens - use original layout
+  layouts.lg = baseLayout;
+
+  // Medium screens - adjust positions
+  layouts.md = baseLayout.map(item => ({
+    ...item,
+    w: Math.min(item.w, COLS.md),
+    x: Math.min(item.x, COLS.md - Math.min(item.w, COLS.md)),
+  }));
+
+  // Small screens (tablet) - stack more vertically
+  layouts.sm = baseLayout.map((item, idx) => ({
+    ...item,
+    w: Math.min(item.w, COLS.sm),
+    x: 0,
+    y: idx * 4, // Stack vertically
+  }));
+
+  // Extra small (mobile) - full width
+  layouts.xs = baseLayout.map((item, idx) => ({
+    ...item,
+    w: COLS.xs,
+    x: 0,
+    y: idx * 4,
+  }));
+
+  // Extra extra small - full width, minimal
+  layouts.xxs = baseLayout.map((item, idx) => ({
+    ...item,
+    w: COLS.xxs,
+    x: 0,
+    y: idx * 4,
+  }));
+
+  return layouts;
+}
+
 export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [gridWidth, setGridWidth] = useState(1200);
+  const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const {
     dashboard,
     isEditMode,
@@ -24,27 +75,18 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
     setAddWidgetOpen,
   } = useDashboardStore();
 
-  // Measure container width on mount and resize
-  useEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        setGridWidth(containerRef.current.offsetWidth);
-      }
-    };
+  const baseLayout = getGridLayout();
+  const layouts = generateResponsiveLayouts(baseLayout);
 
-    // Initial measurement
-    updateWidth();
-
-    // Update on resize
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
-
-  const layout = getGridLayout();
+  // Detect if on mobile/touch device
+  const isMobile = currentBreakpoint === 'xs' || currentBreakpoint === 'xxs';
 
   const handleLayoutChange = useCallback(
-    (newLayout: GridLayoutItem[]) => {
-      updateFromGridLayout(newLayout);
+    (currentLayout: GridLayoutItem[], allLayouts: { [key: string]: GridLayoutItem[] }) => {
+      // Only save the large layout to the database (source of truth)
+      if (allLayouts.lg) {
+        updateFromGridLayout(allLayouts.lg);
+      }
       // Debounce save
       if (onSaveLayout) {
         onSaveLayout();
@@ -52,6 +94,10 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
     },
     [updateFromGridLayout, onSaveLayout]
   );
+
+  const handleBreakpointChange = useCallback((newBreakpoint: string) => {
+    setCurrentBreakpoint(newBreakpoint);
+  }, []);
 
   if (!dashboard) {
     return null;
@@ -110,34 +156,32 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
       style={{
         flex: 1,
         overflow: 'auto',
-        padding: 16,
+        padding: isMobile ? 8 : 16,
         background: '#0a0a0a',
       }}
     >
-      {React.createElement(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        GridLayout as any,
-        {
-          className: 'dashboard-grid',
-          layout: layout,
-          cols: 12,
-          rowHeight: 80,
-          width: gridWidth,
-          margin: [16, 16],
-          containerPadding: [0, 0],
-          isDraggable: isEditMode,
-          isResizable: isEditMode,
-          onLayoutChange: handleLayoutChange,
-          draggableHandle: '.widget-drag-handle',
-          useCSSTransforms: true,
-          compactType: 'vertical',
-        },
-        dashboard.widgets.map((widget) => (
+      <ResponsiveGridLayout
+        className="dashboard-grid"
+        layouts={layouts}
+        breakpoints={BREAKPOINTS}
+        cols={COLS}
+        rowHeight={isMobile ? 60 : 80}
+        margin={isMobile ? [8, 8] : [16, 16]}
+        containerPadding={[0, 0]}
+        isDraggable={isEditMode && !isMobile}
+        isResizable={isEditMode && !isMobile}
+        onLayoutChange={handleLayoutChange}
+        onBreakpointChange={handleBreakpointChange}
+        draggableHandle=".widget-drag-handle"
+        useCSSTransforms={true}
+        compactType="vertical"
+      >
+        {dashboard.widgets.map((widget) => (
           <div key={widget.id} className="dashboard-widget-container">
             <DashboardWidget widget={widget} />
           </div>
-        ))
-      )}
+        ))}
+      </ResponsiveGridLayout>
 
       <style jsx global>{`
         .dashboard-grid {
@@ -180,6 +224,28 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
 
         .react-grid-item:hover > .react-resizable-handle::after {
           border-color: #666;
+        }
+
+        /* Mobile-specific styles */
+        @media (max-width: 768px) {
+          .dashboard-widget-container {
+            border-radius: 6px;
+          }
+
+          .widget-drag-handle {
+            display: none !important;
+          }
+
+          .react-grid-item > .react-resizable-handle {
+            display: none !important;
+          }
+        }
+
+        /* Touch-friendly adjustments */
+        @media (pointer: coarse) {
+          .dashboard-widget-container {
+            -webkit-tap-highlight-color: transparent;
+          }
         }
       `}</style>
     </div>
