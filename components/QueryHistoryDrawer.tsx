@@ -276,7 +276,13 @@ export function QueryHistoryDrawer() {
   const { resumeSession, loadConversationFromSession } = useAiAgent();
   const screens = useBreakpoint();
 
-  const [activeTab, setActiveTab] = useState<'queries' | 'sessions'>('queries');
+  // Default to sessions tab if there are paused/running sessions to resume
+  const hasResumableSessions = Object.values(sessions).some(
+    s => s.status === 'paused' || s.status === 'running'
+  );
+  const [activeTab, setActiveTab] = useState<'queries' | 'sessions'>(
+    hasResumableSessions ? 'sessions' : 'queries'
+  );
   const [sourceFilter, setSourceFilter] = useState<QuerySource | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -347,6 +353,11 @@ export function QueryHistoryDrawer() {
   const allSessions = useMemo(() => {
     return Object.values(sessions)
       .sort((a, b) => b.updatedAt - a.updatedAt);
+  }, [sessions]);
+
+  // Count resumable (paused) sessions for the tab indicator
+  const pausedSessionCount = useMemo(() => {
+    return Object.values(sessions).filter(s => s.status === 'paused').length;
   }, [sessions]);
 
   // Stats for tabs
@@ -538,7 +549,15 @@ export function QueryHistoryDrawer() {
               <Space size={4}>
                 <RobotOutlined />
                 <span>AI Sessions</span>
-                <Badge count={allSessions.length} style={{ backgroundColor: '#1890ff' }} size="small" />
+                {pausedSessionCount > 0 ? (
+                  <Badge
+                    count={`${pausedSessionCount} paused`}
+                    style={{ backgroundColor: '#faad14' }}
+                    size="small"
+                  />
+                ) : (
+                  <Badge count={allSessions.length} style={{ backgroundColor: '#1890ff' }} size="small" />
+                )}
               </Space>
             ),
             children: (
