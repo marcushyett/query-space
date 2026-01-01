@@ -3,6 +3,26 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
 import { getCurrentUser, checkOrganizationAccess } from '@/lib/auth/session';
 
+interface AgentSessionRecord {
+  id: string;
+  goal: string;
+  status: string;
+  currentStep: number;
+  maxSteps: number;
+  toolCalls: unknown;
+  todos: unknown;
+  currentSql: string | null;
+  previousSql: string | null;
+  lastStreamingText: string | null;
+  lastError: string | null;
+  resumptionContext: string | null;
+  chatHistory: unknown;
+  queryName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  _count: { queryExecutions: number };
+}
+
 const createSessionSchema = z.object({
   organizationId: z.string(),
   projectId: z.string().optional(),
@@ -70,7 +90,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     return NextResponse.json({
-      sessions: sessions.map((s) => ({
+      sessions: sessions.map((s: AgentSessionRecord) => ({
         id: s.id,
         goal: s.goal,
         status: s.status.toLowerCase(),
