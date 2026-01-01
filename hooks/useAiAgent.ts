@@ -6,7 +6,7 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { useSchemaStore } from '@/stores/schemaStore';
 import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata, AgentTodoItem } from '@/stores/aiChatStore';
 import { useQueryStore, QueryResult, saveQueryExecution } from '@/stores/queryStore';
-import { useAgentSessionStore, AgentSession, createAgentSession, updateAgentSession } from '@/stores/agentSessionStore';
+import { useAgentSessionStore, AgentSession, createAgentSession, updateAgentSession, persistSessionOnUnload, buildResumptionContext } from '@/stores/agentSessionStore';
 import type { AgentStreamEvent } from '@/lib/agent';
 import type { ChartConfig } from '@/lib/chart-utils';
 
@@ -66,13 +66,31 @@ export function useAiAgent() {
     cleanupOldSessions();
   }, [cleanupOldSessions]);
 
-  // Handle page unload - pause current session
+  // Handle page unload - pause current session and persist to database
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (sessionIdRef.current && agentProgress?.isRunning) {
         const session = getCurrentSession();
         if (session) {
-          pauseSession(sessionIdRef.current, '');
+          // Get current state for persistence
+          const currentTodos = useAiChatStore.getState().agentProgress?.todos || [];
+          const currentToolCalls = useAiChatStore.getState().agentProgress?.toolCalls || [];
+          const currentStreamingText = useAiChatStore.getState().agentProgress?.streamingText || '';
+          const resumptionContext = buildResumptionContext(session);
+
+          // Update local store
+          pauseSession(sessionIdRef.current, resumptionContext);
+
+          // Use sendBeacon for reliable database persistence on page close
+          persistSessionOnUnload(sessionIdRef.current, {
+            status: 'PAUSED',
+            currentSql: session.currentSql || null,
+            todos: currentTodos.length > 0 ? currentTodos : session.todos,
+            toolCalls: currentToolCalls.length > 0 ? currentToolCalls : session.toolCalls,
+            lastStreamingText: currentStreamingText,
+            resumptionContext,
+            chatHistory: session.chatHistory,
+          });
         }
       }
     };

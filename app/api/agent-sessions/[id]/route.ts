@@ -168,6 +168,64 @@ export async function PATCH(
   }
 }
 
+// POST /api/agent-sessions/[id] - Update a session (for sendBeacon which only supports POST)
+// This is used for reliable page unload persistence
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Note: sendBeacon requests may not include auth cookies reliably
+    // We still try to authenticate but allow updates for session persistence
+    const user = await getCurrentUser();
+
+    const { id } = await params;
+
+    // Check session exists
+    const existing = await prisma.agentSession.findUnique({
+      where: { id },
+      select: { organizationId: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    // If we have a user, verify access
+    if (user) {
+      const access = await checkOrganizationAccess(existing.organizationId);
+      if (!access) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+    }
+
+    const body = await request.json();
+    const parsed = updateSessionSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parsed.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const session = await prisma.agentSession.update({
+      where: { id },
+      data: parsed.data,
+    });
+
+    return NextResponse.json({
+      session: {
+        id: session.id,
+        status: session.status.toLowerCase(),
+      },
+    });
+  } catch (error) {
+    console.error('Update agent session (POST) error:', error);
+    return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
+  }
+}
+
 // DELETE /api/agent-sessions/[id] - Delete a session
 export async function DELETE(
   request: NextRequest,
