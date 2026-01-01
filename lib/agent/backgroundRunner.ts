@@ -1,11 +1,18 @@
-import { PrismaClient, AgentSessionStatus } from '@prisma/client';
-import { streamQueryAgent, type SchemaInfo } from './queryAgent';
-
-// Use a singleton Prisma client for the background runner
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db/prisma';
+import { streamQueryAgent } from './queryAgent';
+import type { SchemaInfo } from './tools';
 
 // Track running agents by session ID
 const runningAgents = new Map<string, AbortController>();
+
+// Status constants matching Prisma enum
+const AgentStatus = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  PAUSED: 'PAUSED',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+} as const;
 
 export interface BackgroundAgentConfig {
   sessionId: string;
@@ -32,7 +39,7 @@ export async function startBackgroundAgent(config: BackgroundAgentConfig): Promi
   // Update session status to RUNNING
   await prisma.agentSession.update({
     where: { id: sessionId },
-    data: { status: AgentSessionStatus.RUNNING },
+    data: { status: AgentStatus.RUNNING },
   });
 
   let sequenceNumber = 0;
@@ -120,28 +127,16 @@ export async function startBackgroundAgent(config: BackgroundAgentConfig): Promi
             });
           }
         }
-      } else if (event.type === 'text') {
-        // Accumulate streaming text
-        await prisma.agentSession.update({
-          where: { id: sessionId },
-          data: {
-            lastStreamingText: {
-              // Append to existing text (Prisma doesn't support this directly, so we do a workaround)
-              set: undefined,
-            },
-          },
-        });
-        // For text streaming, we just store the event - the client can reconstruct
       } else if (event.type === 'complete') {
         const state = event.state;
 
-        let finalStatus: AgentSessionStatus = AgentSessionStatus.COMPLETED;
+        let finalStatus: string = AgentStatus.COMPLETED;
         if (state.stopReason === 'timeout' || state.stopReason === 'step_limit') {
-          finalStatus = AgentSessionStatus.PAUSED;
+          finalStatus = AgentStatus.PAUSED;
         } else if (state.stopReason === 'error') {
-          finalStatus = AgentSessionStatus.FAILED;
+          finalStatus = AgentStatus.FAILED;
         } else if (state.hasIncompleteTodos) {
-          finalStatus = AgentSessionStatus.PAUSED;
+          finalStatus = AgentStatus.PAUSED;
         }
 
         await prisma.agentSession.update({
@@ -178,7 +173,7 @@ export async function startBackgroundAgent(config: BackgroundAgentConfig): Promi
       await prisma.agentSession.update({
         where: { id: sessionId },
         data: {
-          status: AgentSessionStatus.FAILED,
+          status: AgentStatus.FAILED,
           lastError: errorMessage,
         },
       });

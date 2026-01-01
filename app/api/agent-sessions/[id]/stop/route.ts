@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { stopBackgroundAgent, isAgentRunning } from '@/lib/agent/backgroundRunner';
-import { AgentSessionStatus } from '@prisma/client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,7 +38,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Update session status to PAUSED
     await prisma.agentSession.update({
       where: { id: sessionId },
-      data: { status: AgentSessionStatus.PAUSED },
+      data: { status: 'PAUSED' },
     });
 
     return NextResponse.json({

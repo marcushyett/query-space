@@ -4,7 +4,7 @@ import { QueryHistoryDrawer } from '../QueryHistoryDrawer';
 import { useUiStore } from '@/stores/uiStore';
 import { useQueryStore } from '@/stores/queryStore';
 import { useAgentSessionStore } from '@/stores/agentSessionStore';
-import { useAiAgent } from '@/hooks/useAiAgent';
+import { usePersistentAgent } from '@/hooks/usePersistentAgent';
 
 // Mock the stores and hooks
 vi.mock('@/stores/uiStore', () => ({
@@ -19,8 +19,8 @@ vi.mock('@/stores/agentSessionStore', () => ({
   useAgentSessionStore: vi.fn(),
 }));
 
-vi.mock('@/hooks/useAiAgent', () => ({
-  useAiAgent: vi.fn(),
+vi.mock('@/hooks/usePersistentAgent', () => ({
+  usePersistentAgent: vi.fn(),
 }));
 
 describe('QueryHistoryDrawer', () => {
@@ -52,7 +52,7 @@ describe('QueryHistoryDrawer', () => {
       sessions: {},
     });
 
-    (useAiAgent as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    (usePersistentAgent as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       resumeSession: mockResumeSession,
       loadConversationFromSession: mockLoadConversationFromSession,
     });

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db/prisma';
 import { getClaudeApiKey, requireDatabaseConnection } from '@/lib/auth/organization-settings';
 import { requireUser } from '@/lib/auth/session';
 import { startBackgroundAgent, isAgentRunning } from '@/lib/agent/backgroundRunner';
-import { AgentSessionStatus } from '@prisma/client';
 import type { SchemaInfo } from '@/lib/agent';
 
 export const runtime = 'nodejs';
@@ -38,12 +37,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if already running
-    if (isAgentRunning(sessionId) || session.status === AgentSessionStatus.RUNNING) {
+    if (isAgentRunning(sessionId) || session.status === 'RUNNING') {
       return NextResponse.json({ error: 'Session is already running' }, { status: 400 });
     }
 
     // Only allow resuming paused sessions
-    if (session.status !== AgentSessionStatus.PAUSED) {
+    if (session.status !== 'PAUSED') {
       return NextResponse.json(
         { error: `Cannot resume session with status: ${session.status}` },
         { status: 400 }

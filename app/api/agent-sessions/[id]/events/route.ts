@@ -1,8 +1,26 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { isAgentRunning } from '@/lib/agent/backgroundRunner';
-import { AgentSessionStatus } from '@prisma/client';
+
+// Status constants matching Prisma enum
+const AgentStatus = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  PAUSED: 'PAUSED',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+} as const;
+
+// Type for AgentEvent from database
+interface AgentEventRecord {
+  id: string;
+  sessionId: string;
+  sequenceNumber: number;
+  eventType: string;
+  eventData: unknown;
+  createdAt: Date;
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -65,7 +83,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 async function pollEvents(
   sessionId: string,
   lastSequence: number,
-  currentStatus: AgentSessionStatus
+  currentStatus: string
 ) {
   const events = await prisma.agentEvent.findMany({
     where: {
@@ -77,7 +95,7 @@ async function pollEvents(
   });
 
   // Check if agent is still running
-  const isRunning = isAgentRunning(sessionId) || currentStatus === AgentSessionStatus.RUNNING;
+  const isRunning = isAgentRunning(sessionId) || currentStatus === AgentStatus.RUNNING;
 
   // Get the latest session state
   const session = await prisma.agentSession.findUnique({
@@ -94,7 +112,7 @@ async function pollEvents(
 
   return new Response(
     JSON.stringify({
-      events: events.map((e) => ({
+      events: events.map((e: AgentEventRecord) => ({
         sequence: e.sequenceNumber,
         type: e.eventType,
         data: e.eventData,
@@ -126,7 +144,7 @@ async function pollEvents(
 function streamEvents(
   sessionId: string,
   lastSequence: number,
-  initialStatus: AgentSessionStatus
+  initialStatus: string
 ) {
   const encoder = new TextEncoder();
 
@@ -165,7 +183,7 @@ function streamEvents(
         }
 
         // If already complete or not running, send done and close
-        if (isComplete || (initialStatus !== AgentSessionStatus.RUNNING && initialStatus !== AgentSessionStatus.PENDING)) {
+        if (isComplete || (initialStatus !== AgentStatus.RUNNING && initialStatus !== AgentStatus.PENDING)) {
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
           return;
@@ -208,9 +226,9 @@ function streamEvents(
               });
 
               const isFinalStatus =
-                session?.status === AgentSessionStatus.COMPLETED ||
-                session?.status === AgentSessionStatus.FAILED ||
-                session?.status === AgentSessionStatus.PAUSED;
+                session?.status === AgentStatus.COMPLETED ||
+                session?.status === AgentStatus.FAILED ||
+                session?.status === AgentStatus.PAUSED;
 
               if (isComplete || isFinalStatus) {
                 clearInterval(pollInterval);

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db/prisma';
 import { getClaudeApiKey, requireDatabaseConnection } from '@/lib/auth/organization-settings';
 import { requireUser } from '@/lib/auth/session';
 import { startBackgroundAgent } from '@/lib/agent/backgroundRunner';
-import { AgentSessionStatus } from '@prisma/client';
 import type { SchemaInfo } from '@/lib/agent';
 
 export const runtime = 'nodejs';
@@ -76,7 +75,7 @@ export async function POST(request: NextRequest) {
         organizationId,
         projectId,
         goal: prompt,
-        status: AgentSessionStatus.PENDING,
+        status: 'PENDING',
         currentStep: 0,
         maxSteps: 25,
         previousSql,
