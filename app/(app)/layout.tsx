@@ -3,7 +3,7 @@
 import { useState, useEffect, createContext, useContext, useLayoutEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { ConfigProvider, Dropdown, Avatar, message, Layout, Flex, Grid } from 'antd'
+import { ConfigProvider, Dropdown, Avatar, message, Layout, Flex, Grid, Drawer, Menu } from 'antd'
 import { TechSpinner } from '@/components/TechSpinner'
 import type { MenuProps } from 'antd'
 import {
@@ -15,11 +15,14 @@ import {
   PlusOutlined,
   AppstoreOutlined,
   FolderOutlined,
+  MenuOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons'
 
 const { useBreakpoint } = Grid
 import { darkTheme } from '@/config/theme'
 import { useConnectionStore } from '@/stores/connectionStore'
+import { useUiStore } from '@/stores/uiStore'
 
 const { Header, Content } = Layout
 
@@ -51,9 +54,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { data: session, status } = useSession()
   const { setOrganizationId, setConnectionString, clearConnection } = useConnectionStore()
+  const { setHistoryDrawerOpen } = useUiStore()
   const screens = useBreakpoint()
   const isMobile = !screens.md
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
@@ -172,6 +177,47 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     },
   ]
 
+  // Mobile navigation menu items
+  const mobileNavItems: MenuProps['items'] = [
+    {
+      key: 'projects',
+      label: 'Projects',
+      icon: <FolderOutlined />,
+      onClick: () => {
+        router.push('/')
+        setMobileMenuOpen(false)
+      },
+    },
+    {
+      key: 'dashboards',
+      label: 'Dashboards',
+      icon: <AppstoreOutlined />,
+      onClick: () => {
+        router.push('/dashboards')
+        setMobileMenuOpen(false)
+      },
+    },
+    {
+      key: 'history',
+      label: 'Query History',
+      icon: <HistoryOutlined />,
+      onClick: () => {
+        setHistoryDrawerOpen(true)
+        setMobileMenuOpen(false)
+      },
+    },
+    { type: 'divider' as const },
+    {
+      key: 'settings',
+      label: 'Settings',
+      icon: <SettingOutlined />,
+      onClick: () => {
+        router.push('/settings')
+        setMobileMenuOpen(false)
+      },
+    },
+  ]
+
   if (status === 'loading' || loading) {
     return (
       <ConfigProvider theme={darkTheme}>
@@ -206,7 +252,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               borderBottom: '1px solid #222',
             }}
           >
-            <Flex align="center" gap={16}>
+            <Flex align="center" gap={isMobile ? 8 : 16}>
+              {/* Mobile hamburger menu */}
+              {isMobile && (
+                <div
+                  style={{
+                    padding: '8px',
+                    cursor: 'pointer',
+                    color: '#888',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onClick={() => setMobileMenuOpen(true)}
+                  role="button"
+                  aria-label="Open menu"
+                >
+                  <MenuOutlined style={{ fontSize: 18 }} />
+                </div>
+              )}
+
               {/* Logo/Title */}
               <Flex
                 align="center"
@@ -231,10 +296,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 >
                   Q
                 </div>
-                <span>
-                  <span style={{ fontWeight: 700 }}>Query</span>
-                  <span style={{ fontWeight: 400 }}>space</span>
-                </span>
+                {!isMobile && (
+                  <span>
+                    <span style={{ fontWeight: 700 }}>Query</span>
+                    <span style={{ fontWeight: 400 }}>space</span>
+                  </span>
+                )}
               </Flex>
 
               {/* Organization Selector */}
@@ -345,6 +412,59 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Content style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
             {children}
           </Content>
+
+          {/* Mobile Navigation Drawer */}
+          <Drawer
+            title={
+              <Flex align="center" gap={8}>
+                <div
+                  style={{
+                    width: 24,
+                    height: 24,
+                    backgroundColor: '#000',
+                    borderRadius: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+                    fontWeight: 700,
+                    fontSize: 16,
+                    color: '#fff',
+                  }}
+                >
+                  Q
+                </div>
+                <span>
+                  <span style={{ fontWeight: 700 }}>Query</span>
+                  <span style={{ fontWeight: 400 }}>space</span>
+                </span>
+              </Flex>
+            }
+            placement="left"
+            width={280}
+            open={mobileMenuOpen}
+            onClose={() => setMobileMenuOpen(false)}
+            styles={{
+              body: { padding: 0 },
+            }}
+          >
+            <Menu
+              mode="inline"
+              selectedKeys={[
+                pathname === '/' || pathname.startsWith('/projects') ? 'projects' :
+                pathname.startsWith('/dashboards') ? 'dashboards' :
+                pathname === '/settings' ? 'settings' : ''
+              ]}
+              items={mobileNavItems}
+              style={{ border: 'none' }}
+            />
+            {currentOrg && (
+              <div style={{ padding: '16px', borderTop: '1px solid #222' }}>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>Current Organization</div>
+                <div style={{ fontSize: 13, color: '#ccc' }}>{currentOrg.name || 'My Organization'}</div>
+              </div>
+            )}
+          </Drawer>
         </Layout>
       </OrganizationContext.Provider>
     </ConfigProvider>

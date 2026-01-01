@@ -1,19 +1,17 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ReactGridLayout = require('react-grid-layout');
-const Responsive = ReactGridLayout.Responsive;
-const WidthProvider = ReactGridLayout.WidthProvider;
-
+import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { useDashboardStore, GridLayoutItem } from '@/stores/dashboardStore';
 import { DashboardWidget } from './DashboardWidget';
-import { Empty } from 'antd';
+import { Empty, Spin } from 'antd';
 import { AppstoreAddOutlined } from '@ant-design/icons';
 
 import 'react-grid-layout/css/styles.css';
 
-const ResponsiveGridLayout = WidthProvider(Responsive);
+// Import react-grid-layout using require for proper CommonJS interop
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ReactGridLayout = require('react-grid-layout');
+const ResponsiveGridLayout = ReactGridLayout.WidthProvider(ReactGridLayout.Responsive);
 
 // Breakpoints for responsive layout
 const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
@@ -75,6 +73,13 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
     setAddWidgetOpen,
   } = useDashboardStore();
 
+  // Use useSyncExternalStore to safely detect client-side mount
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+
   const baseLayout = getGridLayout();
   const layouts = generateResponsiveLayouts(baseLayout);
 
@@ -82,7 +87,7 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
   const isMobile = currentBreakpoint === 'xs' || currentBreakpoint === 'xxs';
 
   const handleLayoutChange = useCallback(
-    (currentLayout: GridLayoutItem[], allLayouts: { [key: string]: GridLayoutItem[] }) => {
+    (_currentLayout: GridLayoutItem[], allLayouts: { [key: string]: GridLayoutItem[] }) => {
       // Only save the large layout to the database (source of truth)
       if (allLayouts.lg) {
         updateFromGridLayout(allLayouts.lg);
@@ -103,7 +108,24 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
     return null;
   }
 
-  if (dashboard.widgets.length === 0) {
+  // Wait for client-side mount before rendering the grid
+  if (!isMounted) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#0a0a0a',
+        }}
+      >
+        <Spin />
+      </div>
+    );
+  }
+
+  if (!dashboard.widgets || dashboard.widgets.length === 0) {
     return (
       <div
         style={{
