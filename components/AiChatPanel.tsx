@@ -11,11 +11,13 @@ import {
   CompressOutlined,
   HistoryOutlined,
   PlayCircleOutlined,
+  WifiOutlined,
+  DisconnectOutlined,
 } from '@ant-design/icons';
 import { useAiChatStore } from '@/stores/aiChatStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useQueryStore } from '@/stores/queryStore';
-import { useAiAgent } from '@/hooks/useAiAgent';
+import { usePersistentAgent } from '@/hooks/usePersistentAgent';
 import { ChatMessage } from './ChatMessage';
 import { AgentProgress } from './AgentProgress';
 import { TechSpinner } from './TechSpinner';
@@ -41,7 +43,18 @@ export function AiChatPanel() {
   const { isOpen, setOpen, messages, isGenerating, agentProgress } = useAiChatStore();
   const { organizationId } = useConnectionStore();
   const { isExecuting, setCurrentQuery } = useQueryStore();
-  const { sendMessage, continueAgent, stopAgent, startNewConversation, setCurrentSql, setIsAiGenerated, resumeSession, resumableSessions } = useAiAgent();
+  const {
+    sendMessage,
+    continueAgent,
+    stopAgent,
+    startNewConversation,
+    setCurrentSql,
+    setIsAiGenerated,
+    resumeSession,
+    resumableSessions,
+    isConnected: isAgentConnected,
+    activeSessionId,
+  } = usePersistentAgent();
 
   // Handler to load a query from agent tool calls into the main query UI
   const handleLoadQuery = (sql: string) => {
@@ -91,6 +104,19 @@ export function AiChatPanel() {
         <Space>
           <RobotOutlined />
           <Text strong>AI Assistant</Text>
+          {/* Connection status indicator for active sessions */}
+          {activeSessionId && agentProgress?.isRunning && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {isAgentConnected ? (
+                <WifiOutlined style={{ color: '#52c41a', fontSize: 12 }} />
+              ) : (
+                <DisconnectOutlined style={{ color: '#faad14', fontSize: 12 }} />
+              )}
+              <Text style={{ fontSize: 11, color: isAgentConnected ? '#52c41a' : '#faad14' }}>
+                {isAgentConnected ? 'Connected' : 'Reconnecting...'}
+              </Text>
+            </span>
+          )}
           {/* Show resumable indicator when there are paused sessions */}
           {resumableSessions.length > 0 && messages.length > 0 && !isWorking && (
             <Button

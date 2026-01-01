@@ -16,3 +16,10 @@ export {
   type DataQualityIssue,
   type ColumnStats,
 } from './dataQuality';
+export {
+  startBackgroundAgent,
+  stopBackgroundAgent,
+  isAgentRunning,
+  getRunningAgentIds,
+  type BackgroundAgentConfig,
+} from './backgroundRunner';
