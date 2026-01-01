@@ -23,13 +23,15 @@ import {
   MenuUnfoldOutlined,
   RobotOutlined,
   HomeOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons'
 import { SqlEditor } from '@/components/SqlEditor'
 import { QueryResults } from '@/components/QueryResults'
 import { TableBrowser } from '@/components/TableBrowser'
 import { AiChatPanel } from '@/components/AiChatPanel'
+import { QueryVersionsPanel } from '@/components/QueryVersionsPanel'
 import { useOrganization } from '../../../../layout'
-import { useQueryStore } from '@/stores/queryStore'
+import { useQueryStore, saveQueryExecution } from '@/stores/queryStore'
 import { useSchemaStore } from '@/stores/schemaStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useAiChatStore } from '@/stores/aiChatStore'
@@ -76,6 +78,7 @@ export default function QueryEditorPage() {
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSavedSqlRef = useRef<string>('')
   const [autoSaving, setAutoSaving] = useState(false)
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(false)
 
   const isMobile = !screens.md
   const isDesktop = screens.lg
@@ -273,14 +276,42 @@ export default function QueryEditorPage() {
         rowCount: data.rowCount,
         executionTime: data.executionTime,
       })
-      // Query naming is handled by AI agent via set_query_name tool
+
+      // Save execution history for saved queries
+      if (!isNew) {
+        saveQueryExecution({
+          organizationId: currentOrg.id,
+          projectId,
+          queryId,
+          sql: formattedQuery,
+          queryName: queryName || undefined,
+          source: 'MANUAL',
+          success: true,
+          rowCount: data.rowCount,
+          executionTime: data.executionTime,
+        }).catch(err => console.error('Failed to save execution:', err))
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Query execution failed'
       message.error(msg)
+
+      // Save failed execution history for saved queries
+      if (!isNew) {
+        saveQueryExecution({
+          organizationId: currentOrg.id,
+          projectId,
+          queryId,
+          sql: formattedQuery,
+          queryName: queryName || undefined,
+          source: 'MANUAL',
+          success: false,
+          error: msg,
+        }).catch(err => console.error('Failed to save execution:', err))
+      }
     } finally {
       setIsExecuting(false)
     }
-  }, [currentQuery, currentOrg, setIsExecuting, setQueryResults, setCurrentQuery])
+  }, [currentQuery, currentOrg, setIsExecuting, setQueryResults, setCurrentQuery, isNew, projectId, queryId, queryName])
 
   const handleSave = useCallback(async () => {
     if (!currentQuery) {
@@ -574,6 +605,13 @@ export default function QueryEditorPage() {
             onClick={() => setAiChatOpen(!aiChatOpen)}
           />
           {!isNew && (
+            <Button
+              type="text"
+              icon={<HistoryOutlined />}
+              onClick={() => setHistoryPanelOpen(true)}
+            />
+          )}
+          {!isNew && (
             <Dropdown
               menu={{
                 items: [
@@ -636,6 +674,14 @@ export default function QueryEditorPage() {
           onClose={() => setTableBrowserOpen(false)}
         />
       )}
+
+      {/* Query History Panel */}
+      <QueryVersionsPanel
+        queryId={queryId}
+        currentSql={currentQuery}
+        open={historyPanelOpen}
+        onClose={() => setHistoryPanelOpen(false)}
+      />
     </div>
   )
 }

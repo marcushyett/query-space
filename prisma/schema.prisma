@@ -227,6 +227,7 @@ model Query {
   createdBy User?   @relation("QueryCreator", fields: [createdById], references: [id], onDelete: SetNull)
   charts    Chart[]
   dashboardWidgets DashboardWidget[]
+  executions QueryExecution[]
 
   @@index([projectId])
   @@map("queries")
@@ -410,6 +411,7 @@ model QueryExecution {
   id             String          @id @default(cuid())
   organizationId String
   projectId      String?
+  queryId        String?         // Link to saved Query if executed from query editor
 
   sql            String          @db.Text
   queryName      String?         // Optional name for the query
@@ -429,9 +431,11 @@ model QueryExecution {
 
   // Relations
   agentSession   AgentSession?   @relation(fields: [agentSessionId], references: [id], onDelete: SetNull)
+  query          Query?          @relation(fields: [queryId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([projectId])
+  @@index([queryId])
   @@index([agentSessionId])
   @@index([createdAt])
   @@map("query_executions")

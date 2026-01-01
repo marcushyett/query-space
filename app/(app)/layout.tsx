@@ -16,13 +16,11 @@ import {
   AppstoreOutlined,
   FolderOutlined,
   MenuOutlined,
-  HistoryOutlined,
 } from '@ant-design/icons'
 
 const { useBreakpoint } = Grid
 import { darkTheme } from '@/config/theme'
 import { useConnectionStore } from '@/stores/connectionStore'
-import { useUiStore } from '@/stores/uiStore'
 
 const { Header, Content } = Layout
 
@@ -54,7 +52,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { data: session, status } = useSession()
   const { setOrganizationId, setConnectionString, clearConnection } = useConnectionStore()
-  const { setHistoryDrawerOpen } = useUiStore()
   const screens = useBreakpoint()
   const isMobile = !screens.md
 
@@ -194,15 +191,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       icon: <AppstoreOutlined />,
       onClick: () => {
         router.push('/dashboards')
-        setMobileMenuOpen(false)
-      },
-    },
-    {
-      key: 'history',
-      label: 'Query History',
-      icon: <HistoryOutlined />,
-      onClick: () => {
-        setHistoryDrawerOpen(true)
         setMobileMenuOpen(false)
       },
     },
