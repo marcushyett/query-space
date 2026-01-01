@@ -6,7 +6,7 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { useSchemaStore } from '@/stores/schemaStore';
 import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata, AgentTodoItem } from '@/stores/aiChatStore';
 import { useQueryStore, QueryResult, saveQueryExecution } from '@/stores/queryStore';
-import { useAgentSessionStore, AgentSession } from '@/stores/agentSessionStore';
+import { useAgentSessionStore, AgentSession, createAgentSession, updateAgentSession } from '@/stores/agentSessionStore';
 import type { AgentStreamEvent } from '@/lib/agent';
 import type { ChartConfig } from '@/lib/chart-utils';
 
@@ -165,15 +165,31 @@ export function useAiAgent() {
       addUserMessage(prompt);
       startAgent(prompt, MAX_STEPS);
 
-      // Create a new session for tracking
-      const sessionId = createSession(prompt, currentSql || undefined);
-      sessionIdRef.current = sessionId;
+      // Create a new session for tracking (local first, then persist to DB)
+      const localSessionId = createSession(prompt, currentSql || undefined);
+      sessionIdRef.current = localSessionId;
 
       // Add user message to session history
-      addChatMessage(sessionId, {
+      addChatMessage(localSessionId, {
         role: 'user',
         content: prompt,
         timestamp: Date.now(),
+      });
+
+      // Persist session to database asynchronously (don't block the agent)
+      createAgentSession({
+        organizationId,
+        goal: prompt,
+        previousSql: currentSql || undefined,
+      }).then((dbSession) => {
+        // Update the session ID reference to use the database ID
+        if (sessionIdRef.current === localSessionId) {
+          sessionIdRef.current = dbSession.id;
+          // Update local store with database session info
+          updateSession(localSessionId, { id: dbSession.id } as Partial<AgentSession>);
+        }
+      }).catch((err) => {
+        console.error('Failed to persist agent session to database:', err);
       });
 
       try {
@@ -524,11 +540,32 @@ export function useAiAgent() {
 
         // Complete the session
         if (sessionIdRef.current) {
+          const finalSessionId = sessionIdRef.current;
+          const currentTodos = useAiChatStore.getState().agentProgress?.todos || [];
+          const currentToolCalls = useAiChatStore.getState().agentProgress?.toolCalls || [];
+          const currentQueryName = useQueryStore.getState().queryName;
+
           if (canContinue) {
             // Pause the session so it can be resumed
-            pauseSession(sessionIdRef.current, '');
+            pauseSession(finalSessionId, '');
+            // Persist to database
+            updateAgentSession(finalSessionId, {
+              status: 'PAUSED',
+              currentSql: finalSql || currentSql || null,
+              todos: currentTodos,
+              toolCalls: currentToolCalls,
+              queryName: currentQueryName || undefined,
+            }).catch((err) => console.error('Failed to persist paused session:', err));
           } else {
-            completeSessionStore(sessionIdRef.current, true);
+            completeSessionStore(finalSessionId, true);
+            // Persist to database
+            updateAgentSession(finalSessionId, {
+              status: 'COMPLETED',
+              currentSql: finalSql || currentSql || null,
+              todos: currentTodos,
+              toolCalls: currentToolCalls,
+              queryName: currentQueryName || undefined,
+            }).catch((err) => console.error('Failed to persist completed session:', err));
           }
           sessionIdRef.current = null;
         }
@@ -571,7 +608,13 @@ export function useAiAgent() {
 
           // Pause the session on abort (disconnect scenario)
           if (sessionIdRef.current) {
-            pauseSession(sessionIdRef.current, '');
+            const abortSessionId = sessionIdRef.current;
+            pauseSession(abortSessionId, '');
+            // Persist to database
+            updateAgentSession(abortSessionId, {
+              status: 'PAUSED',
+              currentSql: currentSql || null,
+            }).catch((err) => console.error('Failed to persist aborted session:', err));
             sessionIdRef.current = null;
           }
           return false;
@@ -597,12 +640,20 @@ export function useAiAgent() {
 
         // Pause the session on error - save current streaming text
         if (sessionIdRef.current) {
+          const errorSessionId = sessionIdRef.current;
           const currentStreamingText = useAiChatStore.getState().agentProgress?.streamingText || '';
-          updateSession(sessionIdRef.current, {
+          updateSession(errorSessionId, {
             lastError: rawErrorMessage,
             lastStreamingText: currentStreamingText,
           });
-          pauseSession(sessionIdRef.current, '');
+          pauseSession(errorSessionId, '');
+          // Persist to database
+          updateAgentSession(errorSessionId, {
+            status: 'PAUSED',
+            lastError: rawErrorMessage,
+            lastStreamingText: currentStreamingText,
+            currentSql: currentSql || null,
+          }).catch((err) => console.error('Failed to persist error session:', err));
           sessionIdRef.current = null;
         }
 
@@ -1135,10 +1186,16 @@ Instructions:
 
     // Pause current session
     if (sessionIdRef.current) {
-      pauseSession(sessionIdRef.current, '');
+      const stopSessionId = sessionIdRef.current;
+      pauseSession(stopSessionId, '');
+      // Persist to database
+      updateAgentSession(stopSessionId, {
+        status: 'PAUSED',
+        currentSql: currentSql || null,
+      }).catch((err) => console.error('Failed to persist stopped session:', err));
       sessionIdRef.current = null;
     }
-  }, [completeAgent, pauseSession]);
+  }, [completeAgent, pauseSession, currentSql]);
 
   // Resume a paused session
   const resumeSession = useCallback(
@@ -1496,10 +1553,28 @@ If you encounter an error or need help, explain what went wrong.`;
         completeAgent(reachedLimit);
 
         if (sessionIdRef.current) {
+          const resumeSessionId = sessionIdRef.current;
+          const resumeTodos = useAiChatStore.getState().agentProgress?.todos || [];
+          const resumeToolCalls = useAiChatStore.getState().agentProgress?.toolCalls || [];
+
           if (reachedLimit) {
-            pauseSession(sessionIdRef.current, '');
+            pauseSession(resumeSessionId, '');
+            // Persist to database
+            updateAgentSession(resumeSessionId, {
+              status: 'PAUSED',
+              currentSql: finalSql || session.currentSql || null,
+              todos: resumeTodos,
+              toolCalls: resumeToolCalls,
+            }).catch((err) => console.error('Failed to persist paused resume session:', err));
           } else {
-            completeSessionStore(sessionIdRef.current, true);
+            completeSessionStore(resumeSessionId, true);
+            // Persist to database
+            updateAgentSession(resumeSessionId, {
+              status: 'COMPLETED',
+              currentSql: finalSql || session.currentSql || null,
+              todos: resumeTodos,
+              toolCalls: resumeToolCalls,
+            }).catch((err) => console.error('Failed to persist completed resume session:', err));
           }
           sessionIdRef.current = null;
         }
@@ -1522,7 +1597,13 @@ If you encounter an error or need help, explain what went wrong.`;
           completeAgent(false);
 
           if (sessionIdRef.current) {
-            pauseSession(sessionIdRef.current, '');
+            const abortResumeId = sessionIdRef.current;
+            pauseSession(abortResumeId, '');
+            // Persist to database
+            updateAgentSession(abortResumeId, {
+              status: 'PAUSED',
+              currentSql: session.currentSql || null,
+            }).catch((err) => console.error('Failed to persist aborted resume session:', err));
             sessionIdRef.current = null;
           }
           return false;
@@ -1544,12 +1625,20 @@ If you encounter an error or need help, explain what went wrong.`;
         completeAgent(false);
 
         if (sessionIdRef.current) {
+          const errorResumeId = sessionIdRef.current;
           const currentStreamingText = useAiChatStore.getState().agentProgress?.streamingText || '';
-          updateSession(sessionIdRef.current, {
+          updateSession(errorResumeId, {
             lastError: rawErrorMessage,
             lastStreamingText: currentStreamingText,
           });
-          pauseSession(sessionIdRef.current, '');
+          pauseSession(errorResumeId, '');
+          // Persist to database
+          updateAgentSession(errorResumeId, {
+            status: 'PAUSED',
+            lastError: rawErrorMessage,
+            lastStreamingText: currentStreamingText,
+            currentSql: session.currentSql || null,
+          }).catch((err) => console.error('Failed to persist error resume session:', err));
           sessionIdRef.current = null;
         }
 
