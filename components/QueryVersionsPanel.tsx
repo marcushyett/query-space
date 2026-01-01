@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { List, Typography, Button, Empty, Tooltip, Tag, Space, Spin, Drawer, Grid } from 'antd';
+import { List, Typography, Button, Empty, Tooltip, Tag, Space, Spin, Drawer, Grid, Divider, Badge } from 'antd';
 import {
   ClockCircleOutlined,
   RobotOutlined,
@@ -11,9 +11,13 @@ import {
   HistoryOutlined,
   LoadingOutlined,
   ReloadOutlined,
+  PlayCircleOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useQueryStore, fetchQueryHistory, type SavedQuery } from '@/stores/queryStore';
+import { fetchAgentSessions, type AgentSession } from '@/stores/agentSessionStore';
+import { usePersistentAgent } from '@/hooks/usePersistentAgent';
 
 const { Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
@@ -119,6 +123,99 @@ function VersionItem({ execution, isCurrentVersion, onRestore }: VersionItemProp
   );
 }
 
+interface SessionItemProps {
+  session: AgentSession;
+  onResume: (session: AgentSession) => void;
+  onLoad: (session: AgentSession) => void;
+}
+
+function SessionItem({ session, onResume, onLoad }: SessionItemProps) {
+  const completedTodos = session.todos.filter(t => t.status === 'completed').length;
+  const totalTodos = session.todos.length;
+
+  const statusColor = {
+    completed: 'success',
+    failed: 'error',
+    paused: 'warning',
+    running: 'processing',
+  }[session.status] as 'success' | 'error' | 'warning' | 'processing';
+
+  const canResume = session.status === 'paused';
+
+  return (
+    <List.Item
+      className="history-item"
+      style={{ cursor: 'pointer' }}
+      onClick={() => onLoad(session)}
+    >
+      <List.Item.Meta
+        avatar={
+          <div style={{ paddingTop: 4 }}>
+            <Badge status={statusColor}>
+              <RobotOutlined style={{ color: '#1890ff', fontSize: 16 }} />
+            </Badge>
+          </div>
+        }
+        title={
+          <div>
+            <Space size={8}>
+              <Tag color={statusColor} style={{ marginRight: 0, fontSize: 10 }}>
+                {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
+              </Tag>
+              {totalTodos > 0 && (
+                <Text type="secondary" style={{ fontSize: 10 }}>
+                  {completedTodos}/{totalTodos} tasks
+                </Text>
+              )}
+            </Space>
+            <Paragraph
+              ellipsis={{ rows: 2 }}
+              style={{ marginBottom: 0, marginTop: 4, fontSize: 12 }}
+            >
+              {session.goal}
+            </Paragraph>
+          </div>
+        }
+        description={
+          <div style={{ marginTop: 4 }}>
+            <Text type="secondary" className="text-xs">
+              <ClockCircleOutlined className="icon-muted" /> {formatRelativeTime(session.updatedAt)}
+            </Text>
+            {session.queryCount !== undefined && session.queryCount > 0 && (
+              <Text type="secondary" className="text-xs" style={{ marginLeft: 12 }}>
+                {session.queryCount} queries
+              </Text>
+            )}
+          </div>
+        }
+      />
+      <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
+        {canResume && (
+          <Tooltip title="Resume session">
+            <Button
+              type="primary"
+              size="small"
+              icon={<PlayCircleOutlined />}
+              onClick={() => onResume(session)}
+            >
+              Resume
+            </Button>
+          </Tooltip>
+        )}
+        <Tooltip title="Load conversation">
+          <Button
+            size="small"
+            icon={<MessageOutlined />}
+            onClick={() => onLoad(session)}
+          >
+            Load
+          </Button>
+        </Tooltip>
+      </div>
+    </List.Item>
+  );
+}
+
 interface QueryVersionsPanelProps {
   queryId: string;
   currentSql: string;
@@ -129,27 +226,38 @@ interface QueryVersionsPanelProps {
 export function QueryVersionsPanel({ queryId, currentSql, open, onClose }: QueryVersionsPanelProps) {
   const { organizationId } = useConnectionStore();
   const { setCurrentQuery } = useQueryStore();
+  const { resumeSession, loadConversationFromSession } = usePersistentAgent();
   const screens = useBreakpoint();
 
   const [executions, setExecutions] = useState<SavedQuery[]>([]);
+  const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
 
   const drawerWidth = screens.md ? 400 : '100%';
 
-  const loadExecutions = useCallback(async () => {
+  const loadData = useCallback(async () => {
     if (!organizationId || !queryId || queryId === 'new') return;
 
     setLoading(true);
     try {
-      const { executions: loaded, total: loadedTotal } = await fetchQueryHistory(organizationId, {
-        queryId,
-        limit: 100,
-      });
-      setExecutions(loaded);
-      setTotal(loadedTotal);
+      // Load both query executions and AI sessions in parallel
+      const [executionsResult, sessionsResult] = await Promise.all([
+        fetchQueryHistory(organizationId, {
+          queryId,
+          limit: 100,
+        }),
+        fetchAgentSessions(organizationId, {
+          queryId,
+          limit: 50,
+        }),
+      ]);
+
+      setExecutions(executionsResult.executions);
+      setTotal(executionsResult.total);
+      setSessions(sessionsResult.sessions);
     } catch (error) {
-      console.error('Failed to load query versions:', error);
+      console.error('Failed to load query history:', error);
     } finally {
       setLoading(false);
     }
@@ -157,21 +265,35 @@ export function QueryVersionsPanel({ queryId, currentSql, open, onClose }: Query
 
   useEffect(() => {
     if (open) {
-      loadExecutions();
+      loadData();
     }
-  }, [open, loadExecutions]);
+  }, [open, loadData]);
 
   const handleRestore = (sql: string) => {
     setCurrentQuery(sql);
     onClose();
   };
 
+  const handleResumeSession = async (session: AgentSession) => {
+    const success = await resumeSession(session);
+    if (success) {
+      onClose();
+    }
+  };
+
+  const handleLoadSession = (session: AgentSession) => {
+    loadConversationFromSession(session.id);
+    onClose();
+  };
+
+  const hasContent = executions.length > 0 || sessions.length > 0;
+
   return (
     <Drawer
       title={
         <Space>
           <HistoryOutlined />
-          <span>Query History</span>
+          <span>History</span>
           {total > 0 && (
             <Tag style={{ marginLeft: 4 }}>{total}</Tag>
           )}
@@ -186,7 +308,7 @@ export function QueryVersionsPanel({ queryId, currentSql, open, onClose }: Query
           type="text"
           size="small"
           icon={<ReloadOutlined />}
-          onClick={loadExecutions}
+          onClick={loadData}
           loading={loading}
         >
           Refresh
@@ -197,36 +319,70 @@ export function QueryVersionsPanel({ queryId, currentSql, open, onClose }: Query
         <div style={{ textAlign: 'center', padding: 40 }}>
           <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
           <div style={{ marginTop: 12 }}>
-            <Text type="secondary">Loading query history...</Text>
+            <Text type="secondary">Loading history...</Text>
           </div>
         </div>
-      ) : executions.length === 0 ? (
+      ) : !hasContent ? (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="No execution history yet"
+          description="No history yet"
         >
           <Text type="secondary" style={{ fontSize: 12 }}>
-            Run this query to start tracking its history
+            Run queries or start an AI session to build history
           </Text>
         </Empty>
       ) : (
         <>
-          <div style={{ marginBottom: 12 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Click on a previous version to restore it to the editor
-            </Text>
-          </div>
-          <List
-            dataSource={executions}
-            renderItem={(execution) => (
-              <VersionItem
-                key={execution.id}
-                execution={execution}
-                isCurrentVersion={execution.sql.trim() === currentSql.trim()}
-                onRestore={handleRestore}
+          {/* AI Sessions Section */}
+          {sessions.length > 0 && (
+            <>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ fontSize: 13 }}>
+                  <RobotOutlined style={{ marginRight: 6 }} />
+                  AI Sessions
+                </Text>
+              </div>
+              <List
+                size="small"
+                dataSource={sessions}
+                renderItem={(session) => (
+                  <SessionItem
+                    key={session.id}
+                    session={session}
+                    onResume={handleResumeSession}
+                    onLoad={handleLoadSession}
+                  />
+                )}
               />
-            )}
-          />
+              {executions.length > 0 && <Divider style={{ margin: '16px 0' }} />}
+            </>
+          )}
+
+          {/* Query Executions Section */}
+          {executions.length > 0 && (
+            <>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ fontSize: 13 }}>
+                  <HistoryOutlined style={{ marginRight: 6 }} />
+                  Query Executions
+                </Text>
+                <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+                  Click to restore
+                </Text>
+              </div>
+              <List
+                dataSource={executions}
+                renderItem={(execution) => (
+                  <VersionItem
+                    key={execution.id}
+                    execution={execution}
+                    isCurrentVersion={execution.sql.trim() === currentSql.trim()}
+                    onRestore={handleRestore}
+                  />
+                )}
+              />
+            </>
+          )}
         </>
       )}
     </Drawer>

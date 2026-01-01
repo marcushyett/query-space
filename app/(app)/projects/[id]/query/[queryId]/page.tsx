@@ -12,7 +12,6 @@ import {
   Form,
   Grid,
   Breadcrumb,
-  Badge,
   Tooltip,
 } from 'antd'
 import { TechSpinner } from '@/components/TechSpinner'
@@ -26,20 +25,17 @@ import {
   RobotOutlined,
   HomeOutlined,
   HistoryOutlined,
-  ClockCircleOutlined,
 } from '@ant-design/icons'
 import { SqlEditor } from '@/components/SqlEditor'
 import { QueryResults } from '@/components/QueryResults'
 import { TableBrowser } from '@/components/TableBrowser'
 import { AiChatPanel } from '@/components/AiChatPanel'
 import { QueryVersionsPanel } from '@/components/QueryVersionsPanel'
-import { QueryHistoryDrawer } from '@/components/QueryHistoryDrawer'
 import { useOrganization } from '../../../../layout'
 import { useQueryStore, saveQueryExecution } from '@/stores/queryStore'
 import { useSchemaStore } from '@/stores/schemaStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useAiChatStore } from '@/stores/aiChatStore'
-import { useAgentSessionStore } from '@/stores/agentSessionStore'
 import { formatSql, lintSql } from '@/lib/sql-formatter'
 
 const { Text } = Typography
@@ -66,12 +62,8 @@ export default function QueryEditorPage() {
   const { currentOrg } = useOrganization()
   const { setCurrentQuery, currentQuery, setQueryResults, queryResults, isExecuting, setIsExecuting, queryName: storeQueryName, setQueryName: setStoreQueryName } = useQueryStore()
   const { setTables, setLoading: setSchemaLoading, setError: setSchemaError } = useSchemaStore()
-  const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, setHistoryDrawerOpen, setCurrentProjectId, setCurrentQueryId } = useUiStore()
+  const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, setCurrentProjectId, setCurrentQueryId } = useUiStore()
   const { isOpen: aiChatOpen, setOpen: setAiChatOpen } = useAiChatStore()
-  const { sessions } = useAgentSessionStore()
-
-  // Check if there are paused AI sessions to show indicator
-  const pausedSessionCount = Object.values(sessions).filter(s => s.status === 'paused').length
 
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
@@ -623,17 +615,8 @@ export default function QueryEditorPage() {
             icon={<RobotOutlined />}
             onClick={() => setAiChatOpen(!aiChatOpen)}
           />
-          <Tooltip title="AI Sessions">
-            <Badge count={pausedSessionCount} size="small" offset={[-2, 2]} style={{ backgroundColor: '#faad14' }}>
-              <Button
-                type="text"
-                icon={<ClockCircleOutlined />}
-                onClick={() => setHistoryDrawerOpen(true)}
-              />
-            </Badge>
-          </Tooltip>
           {!isNew && (
-            <Tooltip title="Query Versions">
+            <Tooltip title="History">
               <Button
                 type="text"
                 icon={<HistoryOutlined />}
@@ -705,16 +688,13 @@ export default function QueryEditorPage() {
         />
       )}
 
-      {/* Query Versions Panel */}
+      {/* Query History Panel */}
       <QueryVersionsPanel
         queryId={queryId}
         currentSql={currentQuery}
         open={historyPanelOpen}
         onClose={() => setHistoryPanelOpen(false)}
       />
-
-      {/* Global AI Sessions / Query History Drawer */}
-      <QueryHistoryDrawer />
     </div>
   )
 }
