@@ -188,7 +188,7 @@ export default function QueryEditorPage() {
     }
 
     fetchQuery()
-  }, [queryId, isNew, projectId, router, setCurrentQuery, setQueryResults])
+  }, [queryId, isNew, projectId, router, setCurrentQuery, setQueryResults, setStoreQueryName])
 
   // Track unsaved changes
   useEffect(() => {

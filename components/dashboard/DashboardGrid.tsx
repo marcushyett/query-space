@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useCallback, useRef, useState, useEffect } from 'react';
-import { Responsive, WidthProvider } from 'react-grid-layout';
+import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { useDashboardStore, GridLayoutItem } from '@/stores/dashboardStore';
 import { DashboardWidget } from './DashboardWidget';
 import { Empty, Spin } from 'antd';
@@ -9,8 +8,10 @@ import { AppstoreAddOutlined } from '@ant-design/icons';
 
 import 'react-grid-layout/css/styles.css';
 
-// Create the responsive grid layout with width provider
-const ResponsiveGridLayout = WidthProvider(Responsive);
+// Import react-grid-layout using require for proper CommonJS interop
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ReactGridLayout = require('react-grid-layout');
+const ResponsiveGridLayout = ReactGridLayout.WidthProvider(ReactGridLayout.Responsive);
 
 // Breakpoints for responsive layout
 const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
@@ -64,7 +65,6 @@ function generateResponsiveLayouts(baseLayout: GridLayoutItem[]) {
 export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
-  const [isMounted, setIsMounted] = useState(false);
   const {
     dashboard,
     isEditMode,
@@ -73,10 +73,12 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
     setAddWidgetOpen,
   } = useDashboardStore();
 
-  // Wait for client-side mount to avoid hydration mismatches
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  // Use useSyncExternalStore to safely detect client-side mount
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   const baseLayout = getGridLayout();
   const layouts = generateResponsiveLayouts(baseLayout);
