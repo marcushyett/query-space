@@ -13,12 +13,14 @@ interface QueryExecutionRecord {
   rowCount: number | null;
   executionTime: number | null;
   agentSessionId: string | null;
+  queryId: string | null;
   createdAt: Date;
 }
 
 const createExecutionSchema = z.object({
   organizationId: z.string(),
   projectId: z.string().optional(),
+  queryId: z.string().optional(),
   sql: z.string().min(1),
   queryName: z.string().optional(),
   source: z.enum(['MANUAL', 'AI']).default('MANUAL'),
@@ -32,6 +34,7 @@ const createExecutionSchema = z.object({
 const listExecutionsSchema = z.object({
   organizationId: z.string(),
   projectId: z.string().optional(),
+  queryId: z.string().optional(),
   agentSessionId: z.string().optional(),
   source: z.enum(['MANUAL', 'AI']).optional(),
   success: z.enum(['true', 'false']).optional(),
@@ -58,7 +61,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { organizationId, projectId, agentSessionId, source, success, search, limit, offset } = parsed.data;
+    const { organizationId, projectId, queryId, agentSessionId, source, success, search, limit, offset } = parsed.data;
 
     // Check organization access
     const access = await checkOrganizationAccess(organizationId);
@@ -70,6 +73,7 @@ export async function GET(request: NextRequest) {
     const where: {
       organizationId: string;
       projectId?: string;
+      queryId?: string;
       agentSessionId?: string;
       source?: 'MANUAL' | 'AI';
       success?: boolean;
@@ -77,6 +81,7 @@ export async function GET(request: NextRequest) {
     } = { organizationId };
 
     if (projectId) where.projectId = projectId;
+    if (queryId) where.queryId = queryId;
     if (agentSessionId) where.agentSessionId = agentSessionId;
     if (source) where.source = source;
     if (success !== undefined) where.success = success === 'true';
@@ -109,6 +114,7 @@ export async function GET(request: NextRequest) {
         rowCount: e.rowCount,
         executionTime: e.executionTime,
         agentSessionId: e.agentSessionId,
+        queryId: e.queryId,
         createdAt: e.createdAt.getTime(),
       })),
       total,
@@ -139,7 +145,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { organizationId, projectId, sql, queryName, source, success, error, rowCount, executionTime, agentSessionId } = parsed.data;
+    const { organizationId, projectId, queryId, sql, queryName, source, success, error, rowCount, executionTime, agentSessionId } = parsed.data;
 
     // Check organization access
     const access = await checkOrganizationAccess(organizationId);
@@ -151,6 +157,7 @@ export async function POST(request: NextRequest) {
       data: {
         organizationId,
         projectId,
+        queryId,
         sql,
         queryName,
         source,
@@ -174,6 +181,7 @@ export async function POST(request: NextRequest) {
         rowCount: execution.rowCount,
         executionTime: execution.executionTime,
         agentSessionId: execution.agentSessionId,
+        queryId: execution.queryId,
         createdAt: execution.createdAt.getTime(),
       },
     }, { status: 201 });

@@ -17,6 +17,7 @@ export interface SavedQuery {
   executionTime: number | null;
   source: QuerySource;
   aiSessionId?: string;
+  queryId?: string;
   queryName?: string;
   success: boolean;
   error?: string;
@@ -131,6 +132,7 @@ export const useQueryStore = create<QueryStore>()((set, get) => ({
 // API helper functions for query executions
 export async function fetchQueryHistory(organizationId: string, options?: {
   projectId?: string;
+  queryId?: string;
   agentSessionId?: string;
   source?: 'MANUAL' | 'AI';
   search?: string;
@@ -139,6 +141,7 @@ export async function fetchQueryHistory(organizationId: string, options?: {
 }): Promise<{ executions: SavedQuery[]; total: number }> {
   const params = new URLSearchParams({ organizationId });
   if (options?.projectId) params.set('projectId', options.projectId);
+  if (options?.queryId) params.set('queryId', options.queryId);
   if (options?.agentSessionId) params.set('agentSessionId', options.agentSessionId);
   if (options?.source) params.set('source', options.source);
   if (options?.search) params.set('search', options.search);
@@ -162,6 +165,7 @@ export async function fetchQueryHistory(organizationId: string, options?: {
       rowCount?: number;
       executionTime?: number;
       agentSessionId?: string;
+      queryId?: string;
       createdAt: number;
     }) => ({
       id: e.id,
@@ -173,6 +177,7 @@ export async function fetchQueryHistory(organizationId: string, options?: {
       rowCount: e.rowCount ?? null,
       executionTime: e.executionTime ?? null,
       aiSessionId: e.agentSessionId,
+      queryId: e.queryId,
       timestamp: e.createdAt,
     })),
     total: data.total,
@@ -182,6 +187,7 @@ export async function fetchQueryHistory(organizationId: string, options?: {
 export async function saveQueryExecution(data: {
   organizationId: string;
   projectId?: string;
+  queryId?: string;
   sql: string;
   queryName?: string;
   source: 'MANUAL' | 'AI';
@@ -213,6 +219,7 @@ export async function saveQueryExecution(data: {
     rowCount: e.rowCount ?? null,
     executionTime: e.executionTime ?? null,
     aiSessionId: e.agentSessionId,
+    queryId: e.queryId,
     timestamp: e.createdAt,
   };
 }
