@@ -20,7 +20,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useQueryStore, type SavedQuery, type QuerySource, fetchQueryHistory } from '@/stores/queryStore';
 import { useAgentSessionStore, type AgentSession, fetchAgentSessions } from '@/stores/agentSessionStore';
-import { useAiAgent } from '@/hooks/useAiAgent';
+import { usePersistentAgent } from '@/hooks/usePersistentAgent';
 
 const { Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
@@ -273,7 +273,7 @@ export function QueryHistoryDrawer() {
   const { organizationId } = useConnectionStore();
   const { queryHistory, setQueryHistory, setCurrentQuery, removeFromHistory, clearHistory, getQueriesBySession, isLoadingHistory, setIsLoadingHistory } = useQueryStore();
   const { sessions, setSessions, isLoadingSessions, setIsLoadingSessions } = useAgentSessionStore();
-  const { resumeSession, loadConversationFromSession } = useAiAgent();
+  const { resumeSession, loadConversationFromSession } = usePersistentAgent();
   const screens = useBreakpoint();
 
   // Default to sessions tab if there are paused/running sessions to resume

@@ -494,6 +494,7 @@ model AgentSession {
   // Relations
   query           Query?              @relation(fields: [queryId], references: [id], onDelete: SetNull)
   queryExecutions QueryExecution[]
+  events          AgentEvent[]
 
   @@index([organizationId])
   @@index([projectId])
@@ -504,10 +505,31 @@ model AgentSession {
 }
 
 enum AgentSessionStatus {
+  PENDING   // Waiting to start
   RUNNING
   PAUSED
   COMPLETED
   FAILED
+}
+
+// ============================================================================
+// AGENT EVENTS (for persistent streaming)
+// ============================================================================
+
+model AgentEvent {
+  id             String   @id @default(cuid())
+  sessionId      String
+  sequenceNumber Int      // For ordering events
+  eventType      String   // step, text, tool_call_start, tool_call_result, error, complete
+  eventData      Json     // The full event payload
+  createdAt      DateTime @default(now())
+
+  session AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, sequenceNumber])
+  @@index([sessionId, sequenceNumber])
+  @@index([sessionId, createdAt])
+  @@map("agent_events")
 }
 
 // ============================================================================
