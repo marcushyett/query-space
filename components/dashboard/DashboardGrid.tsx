@@ -1,15 +1,13 @@
 'use client';
 
-import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useDashboardStore, GridLayoutItem } from '@/stores/dashboardStore';
 import { DashboardWidget } from './DashboardWidget';
 import { Empty, Spin } from 'antd';
 import { AppstoreAddOutlined } from '@ant-design/icons';
 
-import { Responsive, WidthProvider } from 'react-grid-layout';
+import { ResponsiveGridLayout, useContainerWidth } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
 
 // Breakpoints for responsive layout
 const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
@@ -61,7 +59,6 @@ function generateResponsiveLayouts(baseLayout: GridLayoutItem[]) {
 }
 
 export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const {
     dashboard,
@@ -71,12 +68,11 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
     setAddWidgetOpen,
   } = useDashboardStore();
 
-  // Use useSyncExternalStore to safely detect client-side mount
-  const isMounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
+  // Use the hook-based width provider for react-grid-layout v2.x
+  const { width, mounted: isMounted, containerRef } = useContainerWidth({
+    measureBeforeMount: false,
+    initialWidth: 1200,
+  });
 
   const baseLayout = getGridLayout();
   const layouts = generateResponsiveLayouts(baseLayout);
@@ -85,10 +81,10 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
   const isMobile = currentBreakpoint === 'xs' || currentBreakpoint === 'xxs';
 
   const handleLayoutChange = useCallback(
-    (_currentLayout: GridLayoutItem[], allLayouts: { [key: string]: GridLayoutItem[] }) => {
+    (_currentLayout: readonly GridLayoutItem[], allLayouts: Partial<Record<string, readonly GridLayoutItem[]>>) => {
       // Only save the large layout to the database (source of truth)
       if (allLayouts.lg) {
-        updateFromGridLayout(allLayouts.lg);
+        updateFromGridLayout([...allLayouts.lg]);
       }
       // Debounce save
       if (onSaveLayout) {
@@ -182,19 +178,22 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
     >
       <ResponsiveGridLayout
         className="dashboard-grid"
+        width={width}
         layouts={layouts}
         breakpoints={BREAKPOINTS}
         cols={COLS}
         rowHeight={isMobile ? 60 : 80}
         margin={isMobile ? [8, 8] : [16, 16]}
         containerPadding={[0, 0]}
-        isDraggable={isEditMode && !isMobile}
-        isResizable={isEditMode && !isMobile}
+        dragConfig={{
+          enabled: isEditMode && !isMobile,
+          handle: '.widget-drag-handle',
+        }}
+        resizeConfig={{
+          enabled: isEditMode && !isMobile,
+        }}
         onLayoutChange={handleLayoutChange}
         onBreakpointChange={handleBreakpointChange}
-        draggableHandle=".widget-drag-handle"
-        useCSSTransforms={true}
-        compactType="vertical"
       >
         {dashboard.widgets.map((widget) => (
           <div key={widget.id} className="dashboard-widget-container">
