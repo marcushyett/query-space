@@ -47,6 +47,10 @@ export interface AgentSession {
   // Final query name if set
   queryName?: string;
 
+  // Link to project and auto-created query
+  projectId?: string;
+  queryId?: string;
+
   // Query count (from API)
   queryCount?: number;
 }
@@ -180,11 +184,29 @@ export const useAgentSessionStore = create<AgentSessionStore>()((set, get) => ({
   },
 
   setSessions: (sessions: AgentSession[]) => {
-    const sessionsMap: Record<string, AgentSession> = {};
-    for (const session of sessions) {
-      sessionsMap[session.id] = session;
-    }
-    set({ sessions: sessionsMap });
+    set((state) => {
+      const sessionsMap: Record<string, AgentSession> = {};
+
+      // First, add all sessions from API
+      for (const session of sessions) {
+        sessionsMap[session.id] = session;
+      }
+
+      // Preserve local sessions that aren't in the API response yet
+      // These are sessions with temp IDs or sessions that haven't been synced
+      for (const [id, session] of Object.entries(state.sessions)) {
+        // Keep temp sessions (not yet saved to DB)
+        if (id.startsWith('temp-session-') && !sessionsMap[id]) {
+          sessionsMap[id] = session;
+        }
+        // Keep running sessions that might not be in API yet
+        if (session.status === 'running' && !sessionsMap[id]) {
+          sessionsMap[id] = session;
+        }
+      }
+
+      return { sessions: sessionsMap };
+    });
   },
 
   createSession: (goal: string, previousSql?: string) => {
@@ -372,6 +394,34 @@ export const useAgentSessionStore = create<AgentSessionStore>()((set, get) => ({
 // Export the context builder for use elsewhere
 export { buildResumptionContext };
 
+// Persist session state using sendBeacon (reliable for page unload)
+export function persistSessionOnUnload(
+  sessionId: string,
+  data: Partial<{
+    status: 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED';
+    currentStep: number;
+    toolCalls: ToolCallInfo[];
+    todos: AgentTodoItem[];
+    currentSql: string | null;
+    lastStreamingText: string;
+    lastError: string | null;
+    resumptionContext: string;
+    chatHistory: PersistedChatMessage[];
+  }>
+): boolean {
+  // Skip temp sessions that haven't been saved to DB yet
+  if (sessionId.startsWith('temp-session-')) {
+    return false;
+  }
+
+  try {
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    return navigator.sendBeacon(`/api/agent-sessions/${sessionId}`, blob);
+  } catch {
+    return false;
+  }
+}
+
 // API helper functions for agent sessions
 export async function fetchAgentSessions(organizationId: string, options?: {
   projectId?: string;
@@ -466,6 +516,8 @@ export async function createAgentSession(data: {
     resumptionContext: s.resumptionContext || '',
     chatHistory: s.chatHistory || [],
     queryName: s.queryName || undefined,
+    projectId: s.projectId || undefined,
+    queryId: s.queryId || undefined,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
   };

@@ -13,7 +13,7 @@ const updateQuerySchema = z.object({
 })
 
 // Helper to check query access
-async function checkQueryAccess(queryId: string) {
+async function checkQueryAccess(queryId: string, includeAgentSessions = false) {
   const user = await getCurrentUser()
   if (!user) return null
 
@@ -32,6 +32,13 @@ async function checkQueryAccess(queryId: string) {
           },
         },
       },
+      // Include linked agent sessions if requested
+      ...(includeAgentSessions && {
+        agentSessions: {
+          orderBy: { updatedAt: 'desc' as const },
+          take: 5, // Limit to last 5 sessions
+        },
+      }),
     },
   })
 
@@ -53,7 +60,7 @@ export async function GET(
 ) {
   try {
     const { id: queryId } = await params
-    const access = await checkQueryAccess(queryId)
+    const access = await checkQueryAccess(queryId, true) // Include agent sessions
 
     if (!access) {
       return NextResponse.json(
@@ -63,6 +70,27 @@ export async function GET(
     }
 
     const { query, canWrite } = access
+
+    // Transform agent sessions for response
+    const agentSessions = 'agentSessions' in query ? (query.agentSessions as Array<{
+      id: string;
+      goal: string;
+      status: string;
+      currentStep: number;
+      maxSteps: number;
+      currentSql: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }>).map(s => ({
+      id: s.id,
+      goal: s.goal,
+      status: s.status.toLowerCase(),
+      currentStep: s.currentStep,
+      maxSteps: s.maxSteps,
+      currentSql: s.currentSql,
+      createdAt: s.createdAt.getTime(),
+      updatedAt: s.updatedAt.getTime(),
+    })) : [];
 
     return NextResponse.json({
       query: {
@@ -76,6 +104,7 @@ export async function GET(
         projectId: query.projectId,
         createdAt: query.createdAt,
         updatedAt: query.updatedAt,
+        agentSessions,
       },
       canWrite,
     })

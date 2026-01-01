@@ -7,6 +7,8 @@ interface UiStore {
   connectionDialogOpen: boolean;
   tableDetailDrawerOpen: boolean;
   selectedTable: string | null;
+  currentProjectId: string | null;
+  currentQueryId: string | null;
   toggleTableBrowser: () => void;
   setTableBrowserOpen: (open: boolean) => void;
   toggleHistoryDrawer: () => void;
@@ -15,6 +17,8 @@ interface UiStore {
   setConnectionDialogOpen: (open: boolean) => void;
   setTableDetailDrawerOpen: (open: boolean) => void;
   setSelectedTable: (table: string | null) => void;
+  setCurrentProjectId: (projectId: string | null) => void;
+  setCurrentQueryId: (queryId: string | null) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -24,6 +28,8 @@ export const useUiStore = create<UiStore>((set) => ({
   connectionDialogOpen: false,
   tableDetailDrawerOpen: false,
   selectedTable: null,
+  currentProjectId: null,
+  currentQueryId: null,
 
   toggleTableBrowser: () =>
     set((state) => ({ tableBrowserOpen: !state.tableBrowserOpen })),
@@ -48,4 +54,10 @@ export const useUiStore = create<UiStore>((set) => ({
 
   setSelectedTable: (table: string | null) =>
     set({ selectedTable: table }),
+
+  setCurrentProjectId: (projectId: string | null) =>
+    set({ currentProjectId: projectId }),
+
+  setCurrentQueryId: (queryId: string | null) =>
+    set({ currentQueryId: queryId }),
 }));

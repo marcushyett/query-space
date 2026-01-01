@@ -111,10 +111,10 @@ export async function PATCH(
 
     const { id } = await params;
 
-    // Check session exists and get org ID
+    // Check session exists and get org ID and queryId
     const existing = await prisma.agentSession.findUnique({
       where: { id },
-      select: { organizationId: true },
+      select: { organizationId: true, queryId: true },
     });
 
     if (!existing) {
@@ -142,6 +142,28 @@ export async function PATCH(
       data: parsed.data,
     });
 
+    // If session completed and has a linked query, update the query with final SQL
+    if (parsed.data.status === 'COMPLETED' && existing.queryId) {
+      const updateData: { sql?: string; name?: string } = {};
+
+      // Update SQL if we have a final query
+      if (parsed.data.currentSql) {
+        updateData.sql = parsed.data.currentSql;
+      }
+
+      // Update name if provided
+      if (parsed.data.queryName) {
+        updateData.name = parsed.data.queryName;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await prisma.query.update({
+          where: { id: existing.queryId },
+          data: updateData,
+        });
+      }
+    }
+
     return NextResponse.json({
       session: {
         id: session.id,
@@ -158,12 +180,71 @@ export async function PATCH(
         resumptionContext: session.resumptionContext,
         chatHistory: session.chatHistory,
         queryName: session.queryName,
+        queryId: session.queryId,
         createdAt: session.createdAt.getTime(),
         updatedAt: session.updatedAt.getTime(),
       },
     });
   } catch (error) {
     console.error('Update agent session error:', error);
+    return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
+  }
+}
+
+// POST /api/agent-sessions/[id] - Update a session (for sendBeacon which only supports POST)
+// This is used for reliable page unload persistence
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Note: sendBeacon requests may not include auth cookies reliably
+    // We still try to authenticate but allow updates for session persistence
+    const user = await getCurrentUser();
+
+    const { id } = await params;
+
+    // Check session exists
+    const existing = await prisma.agentSession.findUnique({
+      where: { id },
+      select: { organizationId: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    // If we have a user, verify access
+    if (user) {
+      const access = await checkOrganizationAccess(existing.organizationId);
+      if (!access) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+    }
+
+    const body = await request.json();
+    const parsed = updateSessionSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parsed.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const session = await prisma.agentSession.update({
+      where: { id },
+      data: parsed.data,
+    });
+
+    return NextResponse.json({
+      session: {
+        id: session.id,
+        status: session.status.toLowerCase(),
+      },
+    });
+  } catch (error) {
+    console.error('Update agent session (POST) error:', error);
     return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
   }
 }

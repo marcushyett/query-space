@@ -228,6 +228,7 @@ model Query {
   charts    Chart[]
   dashboardWidgets DashboardWidget[]
   executions QueryExecution[]
+  agentSessions AgentSession[]
 
   @@index([projectId])
   @@map("queries")
@@ -483,15 +484,20 @@ model AgentSession {
   // Final query name if set
   queryName      String?
 
+  // Link to auto-saved query
+  queryId        String?
+
   createdById    String?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
   // Relations
+  query           Query?              @relation(fields: [queryId], references: [id], onDelete: SetNull)
   queryExecutions QueryExecution[]
 
   @@index([organizationId])
   @@index([projectId])
+  @@index([queryId])
   @@index([status])
   @@index([createdAt])
   @@map("agent_sessions")
