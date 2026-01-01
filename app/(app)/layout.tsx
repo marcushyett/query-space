@@ -363,26 +363,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Flex>
 
             <Flex align="center" gap={12}>
-              {/* Settings Link */}
-              <div
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: '8px',
-                  cursor: 'pointer',
-                  color: pathname === '/settings' ? '#fff' : '#888',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 6,
-                }}
-                onClick={() => router.push('/settings')}
-                role="button"
-                aria-label="Settings"
-              >
-                <SettingOutlined style={{ fontSize: 18 }} />
-              </div>
-
               {/* User Menu */}
               <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
                 <div style={{ cursor: 'pointer' }}>
