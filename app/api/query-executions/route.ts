@@ -3,6 +3,19 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
 import { getCurrentUser, checkOrganizationAccess } from '@/lib/auth/session';
 
+interface QueryExecutionRecord {
+  id: string;
+  sql: string;
+  queryName: string | null;
+  source: string;
+  success: boolean;
+  error: string | null;
+  rowCount: number | null;
+  executionTime: number | null;
+  agentSessionId: string | null;
+  createdAt: Date;
+}
+
 const createExecutionSchema = z.object({
   organizationId: z.string(),
   projectId: z.string().optional(),
@@ -86,7 +99,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     return NextResponse.json({
-      executions: executions.map((e) => ({
+      executions: executions.map((e: QueryExecutionRecord) => ({
         id: e.id,
         sql: e.sql,
         queryName: e.queryName,

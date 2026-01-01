@@ -3,6 +3,18 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
 import { getCurrentUser, checkOrganizationAccess } from '@/lib/auth/session';
 
+interface QueryExecutionRecord {
+  id: string;
+  sql: string;
+  queryName: string | null;
+  source: string;
+  success: boolean;
+  error: string | null;
+  rowCount: number | null;
+  executionTime: number | null;
+  createdAt: Date;
+}
+
 const updateSessionSchema = z.object({
   status: z.enum(['RUNNING', 'PAUSED', 'COMPLETED', 'FAILED']).optional(),
   currentStep: z.number().optional(),
@@ -67,7 +79,7 @@ export async function GET(
         queryName: session.queryName,
         createdAt: session.createdAt.getTime(),
         updatedAt: session.updatedAt.getTime(),
-        queryExecutions: session.queryExecutions.map((e) => ({
+        queryExecutions: session.queryExecutions.map((e: QueryExecutionRecord) => ({
           id: e.id,
           sql: e.sql,
           queryName: e.queryName,
