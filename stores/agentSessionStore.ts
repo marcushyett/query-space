@@ -47,6 +47,10 @@ export interface AgentSession {
   // Final query name if set
   queryName?: string;
 
+  // Link to project and auto-created query
+  projectId?: string;
+  queryId?: string;
+
   // Query count (from API)
   queryCount?: number;
 }
@@ -512,6 +516,8 @@ export async function createAgentSession(data: {
     resumptionContext: s.resumptionContext || '',
     chatHistory: s.chatHistory || [],
     queryName: s.queryName || undefined,
+    projectId: s.projectId || undefined,
+    queryId: s.queryId || undefined,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
   };

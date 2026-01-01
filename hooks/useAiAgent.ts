@@ -7,6 +7,7 @@ import { useSchemaStore } from '@/stores/schemaStore';
 import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata, AgentTodoItem } from '@/stores/aiChatStore';
 import { useQueryStore, QueryResult, saveQueryExecution } from '@/stores/queryStore';
 import { useAgentSessionStore, AgentSession, createAgentSession, updateAgentSession, persistSessionOnUnload, buildResumptionContext } from '@/stores/agentSessionStore';
+import { useUiStore } from '@/stores/uiStore';
 import type { AgentStreamEvent } from '@/lib/agent';
 import type { ChartConfig } from '@/lib/chart-utils';
 
@@ -15,6 +16,7 @@ const MAX_STEPS = 25;
 export function useAiAgent() {
   const { message } = App.useApp();
   const { organizationId } = useConnectionStore();
+  const { currentProjectId } = useUiStore();
   const tables = useSchemaStore((state) => state.tables);
   const { setCurrentQuery, setQueryName, setQueryResults, addToHistory, setIsExecuting } = useQueryStore();
 
@@ -195,8 +197,10 @@ export function useAiAgent() {
       });
 
       // Persist session to database asynchronously (don't block the agent)
+      // If we're in a project context, a query will be auto-created
       createAgentSession({
         organizationId,
+        projectId: currentProjectId || undefined,
         goal: prompt,
         previousSql: currentSql || undefined,
       }).then((dbSession) => {

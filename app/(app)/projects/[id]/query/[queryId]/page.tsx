@@ -66,7 +66,7 @@ export default function QueryEditorPage() {
   const { currentOrg } = useOrganization()
   const { setCurrentQuery, currentQuery, setQueryResults, queryResults, isExecuting, setIsExecuting, queryName: storeQueryName, setQueryName: setStoreQueryName } = useQueryStore()
   const { setTables, setLoading: setSchemaLoading, setError: setSchemaError } = useSchemaStore()
-  const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, setHistoryDrawerOpen } = useUiStore()
+  const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, setHistoryDrawerOpen, setCurrentProjectId, setCurrentQueryId } = useUiStore()
   const { isOpen: aiChatOpen, setOpen: setAiChatOpen } = useAiChatStore()
   const { sessions } = useAgentSessionStore()
 
@@ -226,6 +226,16 @@ export default function QueryEditorPage() {
     }
     fetchProject()
   }, [projectId])
+
+  // Set current project/query context for AI agent sessions
+  useEffect(() => {
+    setCurrentProjectId(projectId)
+    setCurrentQueryId(isNew ? null : queryId)
+    return () => {
+      setCurrentProjectId(null)
+      setCurrentQueryId(null)
+    }
+  }, [projectId, queryId, isNew, setCurrentProjectId, setCurrentQueryId])
 
   // Auto-open sidebars on desktop, close on mobile
   useEffect(() => {

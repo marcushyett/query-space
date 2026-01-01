@@ -111,10 +111,10 @@ export async function PATCH(
 
     const { id } = await params;
 
-    // Check session exists and get org ID
+    // Check session exists and get org ID and queryId
     const existing = await prisma.agentSession.findUnique({
       where: { id },
-      select: { organizationId: true },
+      select: { organizationId: true, queryId: true },
     });
 
     if (!existing) {
@@ -142,6 +142,28 @@ export async function PATCH(
       data: parsed.data,
     });
 
+    // If session completed and has a linked query, update the query with final SQL
+    if (parsed.data.status === 'COMPLETED' && existing.queryId) {
+      const updateData: { sql?: string; name?: string } = {};
+
+      // Update SQL if we have a final query
+      if (parsed.data.currentSql) {
+        updateData.sql = parsed.data.currentSql;
+      }
+
+      // Update name if provided
+      if (parsed.data.queryName) {
+        updateData.name = parsed.data.queryName;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await prisma.query.update({
+          where: { id: existing.queryId },
+          data: updateData,
+        });
+      }
+    }
+
     return NextResponse.json({
       session: {
         id: session.id,
@@ -158,6 +180,7 @@ export async function PATCH(
         resumptionContext: session.resumptionContext,
         chatHistory: session.chatHistory,
         queryName: session.queryName,
+        queryId: session.queryId,
         createdAt: session.createdAt.getTime(),
         updatedAt: session.updatedAt.getTime(),
       },
