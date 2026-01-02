@@ -50,7 +50,6 @@ export function usePersistentAgent() {
 
   // Session persistence
   const {
-    createSession,
     pauseSession,
     completeSession: completeSessionStore,
     getResumableSessions,
@@ -560,9 +559,6 @@ export function usePersistentAgent() {
         sessionIdRef.current = sessionId;
         setActiveSessionId(sessionId);
 
-        // Create local session for tracking
-        createSession(prompt, currentSql || undefined);
-
         // Add user message to session history
         addChatMessage(sessionId, {
           role: 'user',
@@ -615,7 +611,6 @@ export function usePersistentAgent() {
       startAgent,
       completeAgent,
       message,
-      createSession,
       pauseSession,
       completeSessionStore,
       addChatMessage,

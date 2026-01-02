@@ -4,7 +4,6 @@ import { QueryHistoryDrawer } from '../QueryHistoryDrawer';
 import { useUiStore } from '@/stores/uiStore';
 import { useQueryStore } from '@/stores/queryStore';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { useAgentSessionStore } from '@/stores/agentSessionStore';
 import { usePersistentAgent } from '@/hooks/usePersistentAgent';
 import type { HistoryItem } from '@/app/api/history/route';
 
@@ -22,7 +21,7 @@ vi.mock('@/stores/connectionStore', () => ({
 }));
 
 vi.mock('@/stores/agentSessionStore', () => ({
-  useAgentSessionStore: vi.fn(),
+  getAgentSession: vi.fn(),
 }));
 
 vi.mock('@/hooks/usePersistentAgent', () => ({
@@ -68,10 +67,6 @@ describe('QueryHistoryDrawer', () => {
 
     (useConnectionStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       organizationId: 'org-1',
-    });
-
-    (useAgentSessionStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      sessions: {},
     });
 
     (usePersistentAgent as unknown as ReturnType<typeof vi.fn>).mockReturnValue({

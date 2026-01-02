@@ -21,7 +21,7 @@ import {
 import { useUiStore } from '@/stores/uiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useQueryStore } from '@/stores/queryStore';
-import { useAgentSessionStore, type AgentSession } from '@/stores/agentSessionStore';
+import { getAgentSession } from '@/stores/agentSessionStore';
 import { usePersistentAgent } from '@/hooks/usePersistentAgent';
 import type { HistoryItem } from '@/app/api/history/route';
 
@@ -69,7 +69,6 @@ export function QueryHistoryDrawer({ projectId: filterProjectId }: QueryHistoryD
   const { historyDrawerOpen, setHistoryDrawerOpen, currentProjectId } = useUiStore();
   const { organizationId } = useConnectionStore();
   const { setCurrentQuery } = useQueryStore();
-  const { sessions } = useAgentSessionStore();
   const { resumeSession, loadConversationFromSession } = usePersistentAgent();
   const screens = useBreakpoint();
 
@@ -183,10 +182,12 @@ export function QueryHistoryDrawer({ projectId: filterProjectId }: QueryHistoryD
     return { groups: filtered, standalone: standaloneItems };
   }, [historyItems, filterType]);
 
-  // Count resumable sessions
+  // Count resumable sessions from history items
   const resumableSessionCount = useMemo(() => {
-    return Object.values(sessions).filter((s: AgentSession) => s.status === 'paused' || s.status === 'running').length;
-  }, [sessions]);
+    return historyItems.filter(
+      (item) => item.type === 'session' && (item.status === 'paused' || item.status === 'running')
+    ).length;
+  }, [historyItems]);
 
   const handleClose = () => {
     setHistoryDrawerOpen(false);
@@ -203,11 +204,16 @@ export function QueryHistoryDrawer({ projectId: filterProjectId }: QueryHistoryD
     router.push(`/projects/${projectId}/query/${queryId}`);
   };
 
-  const handleResumeSession = (item: HistoryItem) => {
-    const session = sessions[item.sessionId!];
-    if (session) {
+  const handleResumeSession = async (item: HistoryItem) => {
+    if (!item.sessionId) return;
+
+    try {
+      // Fetch full session from API
+      const session = await getAgentSession(item.sessionId);
       setHistoryDrawerOpen(false);
       resumeSession(session);
+    } catch (error) {
+      console.error('Failed to fetch session for resume:', error);
     }
   };
 
