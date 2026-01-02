@@ -184,6 +184,14 @@ export async function POST(request: NextRequest) {
         currentSql: previousSql,
         status: 'RUNNING',
         createdById: user.id,
+        // Include initial user message in chatHistory
+        chatHistory: [
+          {
+            role: 'user',
+            content: goal,
+            timestamp: Date.now(),
+          },
+        ],
       },
     });
 
