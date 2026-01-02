@@ -376,7 +376,7 @@ export function useAiAgent() {
                             .then(res => res.json())
                             .then(data => {
                               const existingHistory = (data.session?.chatHistory || []) as Array<{
-                                role: string;
+                                role: 'user' | 'assistant' | 'system';
                                 content: string;
                                 timestamp: number;
                                 sql?: string;
@@ -439,7 +439,7 @@ export function useAiAgent() {
                             .then(res => res.json())
                             .then(data => {
                               const existingHistory = (data.session?.chatHistory || []) as Array<{
-                                role: string;
+                                role: 'user' | 'assistant' | 'system';
                                 content: string;
                                 timestamp: number;
                               }>;
@@ -890,7 +890,7 @@ Instructions:
         .then(res => res.json())
         .then(data => {
           const existingHistory = (data.session?.chatHistory || []) as Array<{
-            role: string;
+            role: 'user' | 'assistant' | 'system';
             content: string;
             timestamp: number;
           }>;
@@ -1355,7 +1355,7 @@ If you encounter an error or need help, explain what went wrong.`;
           .then(res => res.json())
           .then(data => {
             const existingHistory = (data.session?.chatHistory || []) as Array<{
-              role: string;
+              role: 'user' | 'assistant' | 'system';
               content: string;
               timestamp: number;
             }>;
