@@ -84,7 +84,16 @@ export async function GET(
     ])
 
     return NextResponse.json({
-      charts: charts.map((chart) => ({
+      charts: charts.map((chart: {
+        id: string;
+        title: string | null;
+        type: string;
+        config: unknown;
+        query: { id: string; name: string | null; sql: string };
+        createdBy: { name: string | null; email: string } | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }) => ({
         id: chart.id,
         title: chart.title,
         type: chart.type,
