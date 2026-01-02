@@ -358,16 +358,37 @@ export function useAiAgent() {
                         suggestions: args.suggestions,
                       });
 
-                      // Add to session history
+                      // Add to session history (local store)
                       if (sessionIdRef.current) {
-                        addChatMessage(sessionIdRef.current, {
-                          role: 'assistant',
+                        const chatMessage = {
+                          role: 'assistant' as const,
                           content: args.explanation,
                           timestamp: Date.now(),
                           sql: args.sql,
                           explanation: args.explanation,
                           summary: args.summary,
-                        });
+                        };
+                        addChatMessage(sessionIdRef.current, chatMessage);
+
+                        // Also persist to database (don't await to avoid blocking)
+                        if (!sessionIdRef.current.startsWith('temp-session-')) {
+                          fetch(`/api/agent-sessions/${sessionIdRef.current}`)
+                            .then(res => res.json())
+                            .then(data => {
+                              const existingHistory = (data.session?.chatHistory || []) as Array<{
+                                role: 'user' | 'assistant' | 'system';
+                                content: string;
+                                timestamp: number;
+                                sql?: string;
+                                explanation?: string;
+                                summary?: string;
+                              }>;
+                              return updateAgentSession(sessionIdRef.current!, {
+                                chatHistory: [...existingHistory, chatMessage],
+                              });
+                            })
+                            .catch(err => console.error('Failed to persist assistant message:', err));
+                        }
                       }
 
                       setCurrentQuery(args.sql);
@@ -406,6 +427,28 @@ export function useAiAgent() {
                         addQueryMessage(queryMetadata);
                       } else if (result.error) {
                         addSystemMessage(`Query error: ${result.error}`);
+
+                        // Also persist error to database chat history
+                        if (sessionIdRef.current && !sessionIdRef.current.startsWith('temp-session-')) {
+                          const errorMessage = {
+                            role: 'system' as const,
+                            content: `Query error: ${result.error}`,
+                            timestamp: Date.now(),
+                          };
+                          fetch(`/api/agent-sessions/${sessionIdRef.current}`)
+                            .then(res => res.json())
+                            .then(data => {
+                              const existingHistory = (data.session?.chatHistory || []) as Array<{
+                                role: 'user' | 'assistant' | 'system';
+                                content: string;
+                                timestamp: number;
+                              }>;
+                              return updateAgentSession(sessionIdRef.current!, {
+                                chatHistory: [...existingHistory, errorMessage],
+                              });
+                            })
+                            .catch(err => console.error('Failed to persist error message:', err));
+                        }
                       }
                     }
 
@@ -835,6 +878,28 @@ Instructions:
 
     addUserMessage(continuePrompt);
     startAgent(agentProgress.goal, MAX_STEPS);
+
+    // Persist "Continue" message to database
+    if (sessionIdRef.current && !sessionIdRef.current.startsWith('temp-session-')) {
+      const continueMessage = {
+        role: 'user' as const,
+        content: 'Continue',
+        timestamp: Date.now(),
+      };
+      fetch(`/api/agent-sessions/${sessionIdRef.current}`)
+        .then(res => res.json())
+        .then(data => {
+          const existingHistory = (data.session?.chatHistory || []) as Array<{
+            role: 'user' | 'assistant' | 'system';
+            content: string;
+            timestamp: number;
+          }>;
+          return updateAgentSession(sessionIdRef.current!, {
+            chatHistory: [...existingHistory, continueMessage],
+          });
+        })
+        .catch(err => console.error('Failed to persist continue message:', err));
+    }
 
     try {
       const response = await fetch('/api/ai-agent', {
@@ -1278,6 +1343,28 @@ If you encounter an error or need help, explain what went wrong.`;
       // Use the existing session ID
       sessionIdRef.current = session.id;
       updateSession(session.id, { status: 'running' });
+
+      // Persist "Resume session" message to database
+      if (!session.id.startsWith('temp-session-')) {
+        const resumeMessage = {
+          role: 'user' as const,
+          content: 'Resume session',
+          timestamp: Date.now(),
+        };
+        fetch(`/api/agent-sessions/${session.id}`)
+          .then(res => res.json())
+          .then(data => {
+            const existingHistory = (data.session?.chatHistory || []) as Array<{
+              role: 'user' | 'assistant' | 'system';
+              content: string;
+              timestamp: number;
+            }>;
+            return updateAgentSession(session.id, {
+              chatHistory: [...existingHistory, resumeMessage],
+            });
+          })
+          .catch(err => console.error('Failed to persist resume message:', err));
+      }
 
       try {
         const response = await fetch('/api/ai-agent', {

@@ -80,13 +80,41 @@ export async function startBackgroundAgent(config: BackgroundAgentConfig): Promi
       } else if (event.type === 'tool_call_result') {
         const tc = event.toolCall;
 
-        // Update currentSql if this is update_query_ui
+        // Update currentSql and add assistant message to chatHistory if this is update_query_ui
         if (tc.toolName === 'update_query_ui') {
-          const args = tc.args as { sql?: string };
+          const args = tc.args as { sql?: string; explanation?: string; summary?: string };
           if (args.sql) {
+            // Get current session to append to chatHistory
+            const currentSession = await prisma.agentSession.findUnique({
+              where: { id: sessionId },
+              select: { chatHistory: true },
+            });
+
+            const existingHistory = (currentSession?.chatHistory as Array<{
+              role: string;
+              content: string;
+              timestamp: number;
+              sql?: string;
+              explanation?: string;
+              summary?: string;
+            }>) || [];
+
             await prisma.agentSession.update({
               where: { id: sessionId },
-              data: { currentSql: args.sql },
+              data: {
+                currentSql: args.sql,
+                chatHistory: [
+                  ...existingHistory,
+                  {
+                    role: 'assistant',
+                    content: args.explanation || 'Here is the generated query:',
+                    timestamp: Date.now(),
+                    sql: args.sql,
+                    explanation: args.explanation,
+                    summary: args.summary,
+                  },
+                ],
+              },
             });
           }
         }
@@ -102,13 +130,35 @@ export async function startBackgroundAgent(config: BackgroundAgentConfig): Promi
           }
         }
 
-        // Track errors
+        // Track errors and add to chatHistory
         if (tc.toolName === 'execute_query') {
           const result = tc.result as { success: boolean; error?: string };
           if (!result.success && result.error) {
+            // Get current session to append error to chatHistory
+            const currentSession = await prisma.agentSession.findUnique({
+              where: { id: sessionId },
+              select: { chatHistory: true },
+            });
+
+            const existingHistory = (currentSession?.chatHistory as Array<{
+              role: string;
+              content: string;
+              timestamp: number;
+            }>) || [];
+
             await prisma.agentSession.update({
               where: { id: sessionId },
-              data: { lastError: result.error },
+              data: {
+                lastError: result.error,
+                chatHistory: [
+                  ...existingHistory,
+                  {
+                    role: 'system',
+                    content: `Query error: ${result.error}`,
+                    timestamp: Date.now(),
+                  },
+                ],
+              },
             });
           }
         }
