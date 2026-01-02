@@ -691,6 +691,7 @@ export function useAiAgent() {
     },
     [
       organizationId,
+      currentProjectId,
       tables,
       currentSql,
       addUserMessage,
