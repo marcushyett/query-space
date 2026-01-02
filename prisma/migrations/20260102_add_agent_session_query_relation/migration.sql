@@ -1,6 +1,3 @@
--- Add PENDING to AgentSessionStatus enum (if not exists)
-ALTER TYPE "AgentSessionStatus" ADD VALUE IF NOT EXISTS 'PENDING';
-
 -- Add queryId column to agent_sessions
 ALTER TABLE "agent_sessions" ADD COLUMN "queryId" TEXT;
 
