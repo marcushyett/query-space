@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a new agent session in PENDING status
+    // Include the initial user message in chatHistory
     const session = await prisma.agentSession.create({
       data: {
         organizationId,
@@ -98,6 +99,13 @@ export async function POST(request: NextRequest) {
         maxSteps: 25,
         previousSql,
         createdById: user.id,
+        chatHistory: [
+          {
+            role: 'user',
+            content: prompt,
+            timestamp: Date.now(),
+          },
+        ],
       },
     });
 

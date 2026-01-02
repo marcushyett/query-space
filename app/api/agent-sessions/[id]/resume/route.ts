@@ -99,6 +99,27 @@ IMPORTANT: Use the EXACT item_id values shown above. Do NOT fabricate or guess I
     // Set the API key
     process.env.ANTHROPIC_API_KEY = effectiveApiKey;
 
+    // Add "Continue" message to chatHistory
+    const existingHistory = (session.chatHistory as Array<{
+      role: string;
+      content: string;
+      timestamp: number;
+    }>) || [];
+
+    await prisma.agentSession.update({
+      where: { id: sessionId },
+      data: {
+        chatHistory: [
+          ...existingHistory,
+          {
+            role: 'user',
+            content: 'Continue',
+            timestamp: Date.now(),
+          },
+        ],
+      },
+    });
+
     // Start the agent in background
     startBackgroundAgent({
       sessionId,
