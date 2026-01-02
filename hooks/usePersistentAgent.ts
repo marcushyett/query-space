@@ -913,23 +913,25 @@ export function usePersistentAgent() {
         }
         const data = await response.json();
         // Map the API response to our session format
+        // Note: data comes from result.session in the API response
+        const sessionData = data.session || data;
         session = {
-          id: data.id,
-          goal: data.goal,
-          status: (data.status?.toLowerCase() || 'completed') as 'running' | 'paused' | 'completed' | 'failed',
-          currentStep: data.currentStep || 0,
-          maxSteps: data.maxSteps || 25,
-          toolCalls: data.toolCalls || [],
-          todos: data.todos || [],
-          currentSql: data.currentSql,
-          previousSql: data.previousSql,
-          lastStreamingText: data.lastStreamingText || '',
-          lastError: data.lastError,
-          resumptionContext: data.resumptionContext || '',
-          chatHistory: data.chatHistory || [],
-          queryName: data.queryName,
-          createdAt: new Date(data.createdAt).getTime(),
-          updatedAt: new Date(data.updatedAt).getTime(),
+          id: sessionData.id,
+          goal: sessionData.goal,
+          status: (sessionData.status?.toLowerCase() || 'completed') as 'running' | 'paused' | 'completed' | 'failed',
+          currentStep: sessionData.currentStep || 0,
+          maxSteps: sessionData.maxSteps || 25,
+          toolCalls: sessionData.toolCalls || [],
+          todos: sessionData.todos || [],
+          currentSql: sessionData.currentSql,
+          previousSql: sessionData.previousSql,
+          lastStreamingText: sessionData.lastStreamingText || '',
+          lastError: sessionData.lastError,
+          resumptionContext: sessionData.resumptionContext || '',
+          chatHistory: sessionData.chatHistory || [],
+          queryName: sessionData.queryName,
+          createdAt: typeof sessionData.createdAt === 'number' ? sessionData.createdAt : new Date(sessionData.createdAt).getTime(),
+          updatedAt: typeof sessionData.updatedAt === 'number' ? sessionData.updatedAt : new Date(sessionData.updatedAt).getTime(),
         };
       } catch (error) {
         console.error('Failed to fetch session:', error);
@@ -940,22 +942,61 @@ export function usePersistentAgent() {
 
     startNewConversation();
 
-    session.chatHistory.forEach((msg) => {
-      if (msg.role === 'user') {
-        addUserMessage(msg.content);
-      } else if (msg.role === 'assistant') {
-        addAssistantMessage({
-          content: msg.content,
-          sql: msg.sql,
-          explanation: msg.explanation,
-          summary: msg.summary,
-        });
-      } else if (msg.role === 'system') {
-        addSystemMessage(msg.content);
-      }
-    });
+    // Check if we have chat history to display
+    const hasChatHistory = session.chatHistory && session.chatHistory.length > 0;
 
-    if (session.todos.length > 0) {
+    if (hasChatHistory) {
+      // Use existing chat history
+      session.chatHistory.forEach((msg) => {
+        if (msg.role === 'user') {
+          addUserMessage(msg.content);
+        } else if (msg.role === 'assistant') {
+          addAssistantMessage({
+            content: msg.content,
+            sql: msg.sql,
+            explanation: msg.explanation,
+            summary: msg.summary,
+          });
+        } else if (msg.role === 'system') {
+          addSystemMessage(msg.content);
+        }
+      });
+    } else {
+      // Reconstruct chat from session data when chatHistory is empty
+      // This handles sessions where chat wasn't persisted to the database
+
+      // Add the original user goal as first message
+      if (session.goal) {
+        addUserMessage(session.goal);
+      }
+
+      // If we have a final SQL, show it as the assistant's response
+      if (session.currentSql) {
+        addAssistantMessage({
+          content: session.queryName
+            ? `Here's the query for "${session.queryName}":`
+            : 'Here\'s the generated query:',
+          sql: session.currentSql,
+          explanation: session.queryName
+            ? `Query generated for: ${session.goal}`
+            : undefined,
+        });
+      }
+
+      // If there was an error, show it
+      if (session.lastError) {
+        addSystemMessage(`Error: ${session.lastError}`);
+      }
+
+      // Show session status if it's not completed successfully
+      if (session.status === 'paused') {
+        addSystemMessage('Session was paused. You can continue from where it left off.');
+      } else if (session.status === 'failed') {
+        addSystemMessage('Session failed to complete.');
+      }
+    }
+
+    if (session.todos && session.todos.length > 0) {
       setAgentTodos(session.todos);
       addTodoMessage(session.todos);
     }

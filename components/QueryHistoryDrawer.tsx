@@ -217,9 +217,9 @@ export function QueryHistoryDrawer({ projectId: filterProjectId }: QueryHistoryD
     }
   };
 
-  const handleLoadSession = (sessionId: string) => {
+  const handleLoadSession = async (sessionId: string) => {
     setHistoryDrawerOpen(false);
-    loadConversationFromSession(sessionId);
+    await loadConversationFromSession(sessionId);
   };
 
   const getStatusIcon = (status?: string) => {
