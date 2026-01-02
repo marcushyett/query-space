@@ -7,6 +7,7 @@ import { useSchemaStore } from '@/stores/schemaStore';
 import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata, AgentTodoItem } from '@/stores/aiChatStore';
 import { useQueryStore, QueryResult, saveQueryExecution } from '@/stores/queryStore';
 import { useAgentSessionStore, AgentSession } from '@/stores/agentSessionStore';
+import { useUiStore } from '@/stores/uiStore';
 import type { AgentStreamEvent } from '@/lib/agent';
 import type { ChartConfig } from '@/lib/chart-utils';
 
@@ -41,6 +42,7 @@ export function usePersistentAgent() {
   const { organizationId } = useConnectionStore();
   const tables = useSchemaStore((state) => state.tables);
   const { setCurrentQuery, setQueryName, setQueryResults, addToHistory, setIsExecuting } = useQueryStore();
+  const { currentProjectId, currentQueryId, setCurrentQueryId } = useUiStore();
 
   // Connection state
   const [isConnected, setIsConnected] = useState(true);
@@ -538,6 +540,7 @@ export function usePersistentAgent() {
           body: JSON.stringify({
             prompt: prompt.trim(),
             organizationId,
+            projectId: currentProjectId || undefined,
             schema: tables,
             previousSql: currentSql,
           }),
@@ -548,7 +551,12 @@ export function usePersistentAgent() {
           throw new Error(errorData.error || 'Failed to start agent');
         }
 
-        const { sessionId } = await response.json();
+        const { sessionId, queryId } = await response.json();
+
+        // If a query was auto-created, update the current query context
+        if (queryId && !currentQueryId) {
+          setCurrentQueryId(queryId);
+        }
         sessionIdRef.current = sessionId;
         setActiveSessionId(sessionId);
 
@@ -599,6 +607,9 @@ export function usePersistentAgent() {
       organizationId,
       tables,
       currentSql,
+      currentProjectId,
+      currentQueryId,
+      setCurrentQueryId,
       addUserMessage,
       addAssistantMessage,
       startAgent,

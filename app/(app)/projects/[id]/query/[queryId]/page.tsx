@@ -288,12 +288,38 @@ export default function QueryEditorPage() {
         executionTime: data.executionTime,
       })
 
-      // Save execution history for saved queries
-      if (!isNew) {
+      // For new queries, auto-create the query first so we can track executions
+      let effectiveQueryId = queryId
+      if (isNew) {
+        try {
+          const createRes = await fetch(`/api/projects/${projectId}/queries`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: queryName || 'Untitled Query',
+              sql: formattedQuery,
+              sampleResults: data.rows?.slice(0, 10),
+              rowCount: data.rowCount,
+              executionTime: data.executionTime,
+            }),
+          })
+          if (createRes.ok) {
+            const createData = await createRes.json()
+            effectiveQueryId = createData.query.id
+            // Redirect to the new query without reloading
+            router.replace(`/projects/${projectId}/query/${effectiveQueryId}`)
+          }
+        } catch (err) {
+          console.error('Failed to auto-create query:', err)
+        }
+      }
+
+      // Save execution history (always, since we now have a queryId)
+      if (effectiveQueryId && effectiveQueryId !== 'new') {
         saveQueryExecution({
           organizationId: currentOrg.id,
           projectId,
-          queryId,
+          queryId: effectiveQueryId,
           sql: formattedQuery,
           queryName: queryName || undefined,
           source: 'MANUAL',
@@ -322,7 +348,7 @@ export default function QueryEditorPage() {
     } finally {
       setIsExecuting(false)
     }
-  }, [currentQuery, currentOrg, setIsExecuting, setQueryResults, setCurrentQuery, isNew, projectId, queryId, queryName])
+  }, [currentQuery, currentOrg, setIsExecuting, setQueryResults, setCurrentQuery, isNew, projectId, queryId, queryName, router])
 
   const handleSave = useCallback(async () => {
     if (!currentQuery) {
