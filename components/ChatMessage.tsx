@@ -6,6 +6,7 @@ import {
   UserOutlined,
   RobotOutlined,
   CheckCircleOutlined,
+  CloseCircleOutlined,
   ThunderboltOutlined,
   QuestionCircleOutlined,
   BarChartOutlined,
@@ -101,7 +102,7 @@ export function ChatMessage({ message, isLatest, onLoadQuery, onResume }: ChatMe
     const icon = TOOL_ICONS[toolName] || <CodeOutlined />;
     const statusIcon = status === 'running' ? <LoadingOutlined spin /> :
                        status === 'success' ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> :
-                       <CheckCircleOutlined style={{ color: '#ff4d4f' }} />;
+                       <CloseCircleOutlined style={{ color: '#ff4d4f' }} />;
 
     return (
       <div className="chat-message chat-message-tool-activity">
