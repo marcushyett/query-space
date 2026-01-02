@@ -83,6 +83,7 @@ export function usePersistentAgent() {
     updateAgentToolCall,
     completeAgent,
     setAgentTodos,
+    setOpen,
   } = useAiChatStore();
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -969,9 +970,12 @@ export function usePersistentAgent() {
       setQueryName(session.queryName);
     }
 
+    // Open the AI chat panel so the user can see the loaded session
+    setOpen(true);
+
     message.success('Session loaded');
     return true;
-  }, [getSession, startNewConversation, addUserMessage, addAssistantMessage, addSystemMessage, setAgentTodos, addTodoMessage, setCurrentQuery, setCurrentSql, setIsAiGenerated, setQueryName, message]);
+  }, [getSession, startNewConversation, addUserMessage, addAssistantMessage, addSystemMessage, setAgentTodos, addTodoMessage, setCurrentQuery, setCurrentSql, setIsAiGenerated, setQueryName, setOpen, message]);
 
   return {
     messages,
