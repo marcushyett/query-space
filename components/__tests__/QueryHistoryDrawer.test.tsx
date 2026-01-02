@@ -45,7 +45,6 @@ describe('QueryHistoryDrawer', () => {
   const mockSetCurrentQuery = vi.fn();
   const mockResumeSession = vi.fn();
   const mockLoadConversationFromSession = vi.fn();
-  const mockRouterPush = vi.fn();
 
   const mockFetch = vi.fn();
 
