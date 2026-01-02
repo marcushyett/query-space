@@ -903,11 +903,43 @@ export function usePersistentAgent() {
   }, [startNewConversation, setCurrentQuery]);
 
   // Load a conversation from a saved query's session
-  const loadConversationFromSession = useCallback((sessionId: string) => {
-    const session = getSession(sessionId);
+  const loadConversationFromSession = useCallback(async (sessionId: string): Promise<boolean> => {
+    // First try local store
+    let session = getSession(sessionId);
+
+    // If not found locally, fetch from API
     if (!session) {
-      message.warning('Session not found');
-      return false;
+      try {
+        const response = await fetch(`/api/agent-sessions/${sessionId}`);
+        if (!response.ok) {
+          message.warning('Session not found');
+          return false;
+        }
+        const data = await response.json();
+        // Map the API response to our session format
+        session = {
+          id: data.id,
+          goal: data.goal,
+          status: (data.status?.toLowerCase() || 'completed') as 'running' | 'paused' | 'completed' | 'failed',
+          currentStep: data.currentStep || 0,
+          maxSteps: data.maxSteps || 25,
+          toolCalls: data.toolCalls || [],
+          todos: data.todos || [],
+          currentSql: data.currentSql,
+          previousSql: data.previousSql,
+          lastStreamingText: data.lastStreamingText || '',
+          lastError: data.lastError,
+          resumptionContext: data.resumptionContext || '',
+          chatHistory: data.chatHistory || [],
+          queryName: data.queryName,
+          createdAt: new Date(data.createdAt).getTime(),
+          updatedAt: new Date(data.updatedAt).getTime(),
+        };
+      } catch (error) {
+        console.error('Failed to fetch session:', error);
+        message.warning('Failed to load session');
+        return false;
+      }
     }
 
     startNewConversation();
@@ -942,6 +974,7 @@ export function usePersistentAgent() {
       setQueryName(session.queryName);
     }
 
+    message.success('Session loaded');
     return true;
   }, [getSession, startNewConversation, addUserMessage, addAssistantMessage, addSystemMessage, setAgentTodos, addTodoMessage, setCurrentQuery, setCurrentSql, setIsAiGenerated, setQueryName, message]);
 
