@@ -266,8 +266,8 @@ export function AiChatPanel() {
             />
           ))}
 
-          {/* Agent Progress */}
-          {agentProgress && agentProgress.isRunning && (
+          {/* Agent Progress - hide when final query has been shown */}
+          {agentProgress && agentProgress.isRunning && !agentProgress.hasShownFinalQuery && (
             <AgentProgress
               currentStep={agentProgress.currentStep}
               maxSteps={agentProgress.maxSteps}
