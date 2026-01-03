@@ -11,7 +11,7 @@ interface TableWidgetProps {
 }
 
 export function TableWidget({ widget }: TableWidgetProps) {
-  const { refreshingWidgets, widgetData, setWidgetData } = useDashboardStore();
+  const { refreshingWidgets, widgetData, setWidgetData, dashboard } = useDashboardStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,6 +23,7 @@ export function TableWidget({ widget }: TableWidgetProps) {
     const fetchData = async () => {
       if (!widget.query?.sql) return;
       if (cachedData) return; // Already have data
+      if (!dashboard?.organizationId) return;
 
       setIsLoading(true);
       setError(null);
@@ -31,7 +32,10 @@ export function TableWidget({ widget }: TableWidgetProps) {
         const response = await fetch('/api/query', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sql: widget.query.sql }),
+          body: JSON.stringify({
+            organizationId: dashboard.organizationId,
+            sql: widget.query.sql,
+          }),
         });
 
         if (!response.ok) {
@@ -52,7 +56,7 @@ export function TableWidget({ widget }: TableWidgetProps) {
     };
 
     fetchData();
-  }, [widget.id, widget.query?.sql, cachedData, setWidgetData]);
+  }, [widget.id, widget.query?.sql, cachedData, setWidgetData, dashboard?.organizationId]);
 
   // Re-fetch on refresh
   useEffect(() => {
@@ -60,12 +64,16 @@ export function TableWidget({ widget }: TableWidgetProps) {
 
     const fetchData = async () => {
       if (!widget.query?.sql) return;
+      if (!dashboard?.organizationId) return;
 
       try {
         const response = await fetch('/api/query', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sql: widget.query.sql }),
+          body: JSON.stringify({
+            organizationId: dashboard.organizationId,
+            sql: widget.query.sql,
+          }),
         });
 
         if (!response.ok) {
@@ -83,7 +91,7 @@ export function TableWidget({ widget }: TableWidgetProps) {
     };
 
     fetchData();
-  }, [isRefreshing, widget.id, widget.query?.sql, setWidgetData]);
+  }, [isRefreshing, widget.id, widget.query?.sql, setWidgetData, dashboard?.organizationId]);
 
   const columns = useMemo(() => {
     if (!cachedData?.fields) return [];

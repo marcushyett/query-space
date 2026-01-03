@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { Typography, Empty } from 'antd';
+import { Typography, Empty, Button, message } from 'antd';
+import { SaveOutlined } from '@ant-design/icons';
+import { useUiStore } from '@/stores/uiStore';
 import { ColumnChart } from './ColumnChart';
 import { BarChart } from './BarChart';
 import { LineChart } from './LineChart';
@@ -63,6 +65,9 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
   // Track result changes via key to reset user modifications
   const [lastResultKey, setLastResultKey] = useState('');
   const [userModifiedConfig, setUserModifiedConfig] = useState<ChartConfig | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const { currentQueryId } = useUiStore();
 
   // Compute default config from query result
   const defaultConfig = useMemo((): ChartConfig => {
@@ -90,6 +95,49 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
     setLastResultKey(currentResultKey);
     setUserModifiedConfig(newConfig);
   }, [currentResultKey]);
+
+  // Handle saving chart to database
+  const handleSaveChart = useCallback(async () => {
+    if (!currentQueryId || currentQueryId === 'new') {
+      message.warning('Please save the query first before saving a chart');
+      return;
+    }
+
+    if (!chartConfig.xAxis || chartConfig.yAxes.length === 0) {
+      message.warning('Please configure the chart before saving');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/queries/${currentQueryId}/charts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: null, // User can set title later if needed
+          type: chartConfig.type,
+          config: {
+            xAxis: chartConfig.xAxis,
+            yAxes: chartConfig.yAxes,
+            stacked: chartConfig.stacked,
+            breakdownBy: chartConfig.breakdownBy,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save chart');
+      }
+
+      message.success('Chart saved! You can now add it to dashboards.');
+    } catch (err) {
+      console.error('Failed to save chart:', err);
+      message.error(err instanceof Error ? err.message : 'Failed to save chart');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [currentQueryId, chartConfig]);
 
   // Get available columns for selectors
   const availableColumns = useMemo(() => {
@@ -663,6 +711,8 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
     }
   };
 
+  const canSave = chartConfig.xAxis && chartConfig.yAxes.length > 0;
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div
@@ -670,6 +720,10 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
           padding: '8px 16px',
           borderBottom: '1px solid #333',
           background: '#0a0a0a',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
         }}
       >
         <ChartSelector
@@ -679,6 +733,16 @@ export function VisualizationPanel({ queryResult }: VisualizationPanelProps) {
           breakdownColumns={breakdownColumns}
           onConfigChange={handleConfigChange}
         />
+        <Button
+          type="primary"
+          icon={<SaveOutlined />}
+          onClick={handleSaveChart}
+          loading={isSaving}
+          disabled={!canSave}
+          size="small"
+        >
+          Save Chart
+        </Button>
       </div>
 
       <div style={{ flex: 1, minHeight: 300, padding: 16 }}>

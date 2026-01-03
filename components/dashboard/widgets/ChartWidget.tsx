@@ -31,7 +31,7 @@ interface ChartWidgetProps {
 }
 
 export function ChartWidget({ widget }: ChartWidgetProps) {
-  const { refreshingWidgets, widgetData, setWidgetData } = useDashboardStore();
+  const { refreshingWidgets, widgetData, setWidgetData, dashboard } = useDashboardStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +43,7 @@ export function ChartWidget({ widget }: ChartWidgetProps) {
     const fetchData = async () => {
       if (!widget.chart?.query?.sql) return;
       if (cachedData) return; // Already have data
+      if (!dashboard?.organizationId) return;
 
       setIsLoading(true);
       setError(null);
@@ -51,7 +52,10 @@ export function ChartWidget({ widget }: ChartWidgetProps) {
         const response = await fetch('/api/query', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sql: widget.chart.query.sql }),
+          body: JSON.stringify({
+            organizationId: dashboard.organizationId,
+            sql: widget.chart.query.sql,
+          }),
         });
 
         if (!response.ok) {
@@ -72,7 +76,7 @@ export function ChartWidget({ widget }: ChartWidgetProps) {
     };
 
     fetchData();
-  }, [widget.id, widget.chart?.query?.sql, cachedData, setWidgetData]);
+  }, [widget.id, widget.chart?.query?.sql, cachedData, setWidgetData, dashboard?.organizationId]);
 
   // Re-fetch on refresh
   useEffect(() => {
@@ -80,12 +84,16 @@ export function ChartWidget({ widget }: ChartWidgetProps) {
 
     const fetchData = async () => {
       if (!widget.chart?.query?.sql) return;
+      if (!dashboard?.organizationId) return;
 
       try {
         const response = await fetch('/api/query', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sql: widget.chart.query.sql }),
+          body: JSON.stringify({
+            organizationId: dashboard.organizationId,
+            sql: widget.chart.query.sql,
+          }),
         });
 
         if (!response.ok) {
@@ -103,7 +111,7 @@ export function ChartWidget({ widget }: ChartWidgetProps) {
     };
 
     fetchData();
-  }, [isRefreshing, widget.id, widget.chart?.query?.sql, setWidgetData]);
+  }, [isRefreshing, widget.id, widget.chart?.query?.sql, setWidgetData, dashboard?.organizationId]);
 
   const chartConfig = useMemo((): ChartConfig | null => {
     if (!widget.chart?.config) return null;

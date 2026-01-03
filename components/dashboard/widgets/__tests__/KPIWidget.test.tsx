@@ -26,6 +26,18 @@ const mockKPIWidget: DashboardWidget = {
   },
 }
 
+const mockDashboard = {
+  id: 'dashboard-1',
+  title: 'Test Dashboard',
+  description: null,
+  organizationId: 'org-1',
+  organizationName: 'Test Org',
+  projects: [],
+  widgets: [],
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+}
+
 const renderWithProviders = (component: React.ReactNode) => {
   return render(<ConfigProvider>{component}</ConfigProvider>)
 }
@@ -52,6 +64,9 @@ describe('KPIWidget', () => {
 
   describe('loading state', () => {
     it('should display spinner during loading', () => {
+      // Set dashboard with organizationId so fetch is triggered
+      useDashboardStore.setState({ dashboard: mockDashboard })
+
       // Widget with no cached data will trigger loading
       const { container } = renderWithProviders(<KPIWidget widget={mockKPIWidget} />)
       // Ant Design Spin component adds the ant-spin class
@@ -201,6 +216,9 @@ describe('KPIWidget', () => {
 
   describe('error state', () => {
     it('should display error message when query fails', async () => {
+      // Set dashboard with organizationId so fetch is triggered
+      useDashboardStore.setState({ dashboard: mockDashboard })
+
       mockFetch.mockResolvedValueOnce({
         ok: false,
         json: async () => ({ error: 'Query failed' }),

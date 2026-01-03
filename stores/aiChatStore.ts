@@ -99,6 +99,7 @@ export interface AgentProgress {
   todos: AgentTodoItem[];
   stopReason: 'goal_complete' | 'step_limit' | 'incomplete_todos' | 'error' | 'timeout' | null;
   hasIncompleteTodos: boolean;
+  hasShownFinalQuery: boolean;
 }
 
 interface AiChatStore {
@@ -143,6 +144,7 @@ interface AiChatStore {
   updateAgentToolCall: (id: string, update: Partial<ToolCallInfo>) => void;
   completeAgent: (reachedStepLimit: boolean, stopReason?: AgentProgress['stopReason'], hasIncompleteTodos?: boolean) => void;
   resetAgentProgress: () => void;
+  setHasShownFinalQuery: (hasShown: boolean) => void;
 
   // Agent todo actions
   setAgentTodos: (todos: AgentTodoItem[]) => void;
@@ -402,6 +404,7 @@ export const useAiChatStore = create<AiChatStore>((set) => ({
         todos: [],
         stopReason: null,
         hasIncompleteTodos: false,
+        hasShownFinalQuery: false,
       },
       isGenerating: true,
     });
@@ -470,6 +473,14 @@ export const useAiChatStore = create<AiChatStore>((set) => ({
 
   resetAgentProgress: () => {
     set({ agentProgress: null });
+  },
+
+  setHasShownFinalQuery: (hasShown: boolean) => {
+    set((state) => ({
+      agentProgress: state.agentProgress
+        ? { ...state.agentProgress, hasShownFinalQuery: hasShown }
+        : null,
+    }));
   },
 
   // Agent todo actions
