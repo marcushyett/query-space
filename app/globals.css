@@ -1932,6 +1932,8 @@ body {
   border-radius: 8px;
   padding: 16px;
   cursor: pointer;
+  overflow: hidden;
+  min-width: 0;
   transition: all 0.15s;
 }
 
@@ -1945,12 +1947,17 @@ body {
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 12px;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .query-card-title {
   font-weight: 500;
   color: #fff;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .query-card-meta {
