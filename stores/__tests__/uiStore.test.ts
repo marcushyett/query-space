@@ -6,7 +6,6 @@ describe('uiStore', () => {
     // Reset store to initial state before each test
     useUiStore.setState({
       tableBrowserOpen: true,
-      historyDrawerOpen: false,
       shortcutsHelpOpen: false,
       connectionDialogOpen: false,
       tableDetailDrawerOpen: false,
@@ -18,11 +17,6 @@ describe('uiStore', () => {
     it('should have table browser open by default', () => {
       const state = useUiStore.getState()
       expect(state.tableBrowserOpen).toBe(true)
-    })
-
-    it('should have history drawer closed by default', () => {
-      const state = useUiStore.getState()
-      expect(state.historyDrawerOpen).toBe(false)
     })
 
     it('should have shortcuts help closed by default', () => {
@@ -72,24 +66,6 @@ describe('uiStore', () => {
 
       useUiStore.getState().toggleTableBrowser()
       expect(useUiStore.getState().tableBrowserOpen).toBe(false)
-    })
-  })
-
-  describe('setHistoryDrawerOpen', () => {
-    it('should open history drawer when set to true', () => {
-      useUiStore.setState({ historyDrawerOpen: false })
-      useUiStore.getState().setHistoryDrawerOpen(true)
-
-      const state = useUiStore.getState()
-      expect(state.historyDrawerOpen).toBe(true)
-    })
-
-    it('should close history drawer when set to false', () => {
-      useUiStore.setState({ historyDrawerOpen: true })
-      useUiStore.getState().setHistoryDrawerOpen(false)
-
-      const state = useUiStore.getState()
-      expect(state.historyDrawerOpen).toBe(false)
     })
   })
 

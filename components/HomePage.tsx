@@ -7,7 +7,6 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DatabaseOutlined,
-  HistoryOutlined,
   PlayCircleOutlined,
   RobotOutlined,
   SettingOutlined,
@@ -16,7 +15,6 @@ import { SqlEditor } from './SqlEditor';
 import { QueryResults } from './QueryResults';
 import { TableBrowser } from './TableBrowser';
 import { TableDetailDrawer } from './TableDetailDrawer';
-import { HistoryPanel } from './HistoryPanel';
 import { AiChatPanel } from './AiChatPanel';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -38,7 +36,7 @@ const TOOLBAR_HEIGHT = 48; // Secondary toolbar
 export function HomePage() {
   const router = useRouter();
   const { organizationId } = useConnectionStore();
-  const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, historyDrawerOpen, setHistoryDrawerOpen } = useUiStore();
+  const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen } = useUiStore();
   const { currentQuery, isExecuting } = useQueryStore();
   const { isOpen: aiChatOpen, setOpen: setAiChatOpen, isGenerating: isAiGenerating, agentProgress } = useAiChatStore();
   const isAgentWorking = isAiGenerating || (agentProgress?.isRunning ?? false);
@@ -143,12 +141,6 @@ export function HomePage() {
             onClick={() => router.push('/settings')}
             aria-label="Settings"
           />
-          <Button
-            type="text"
-            icon={<HistoryOutlined />}
-            onClick={() => setHistoryDrawerOpen(true)}
-            aria-label="AI History"
-          />
           {!isMobile && (
             <Text type="secondary" style={{ fontSize: 11 }}>
               Cmd+Enter to run
@@ -191,10 +183,6 @@ export function HomePage() {
       </Layout>
 
       <TableDetailDrawer />
-      <HistoryPanel
-        open={historyDrawerOpen}
-        onClose={() => setHistoryDrawerOpen(false)}
-      />
     </Layout>
   );
 }

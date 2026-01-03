@@ -2,7 +2,6 @@ import { create } from 'zustand';
 
 interface UiStore {
   tableBrowserOpen: boolean;
-  historyDrawerOpen: boolean;
   shortcutsHelpOpen: boolean;
   connectionDialogOpen: boolean;
   tableDetailDrawerOpen: boolean;
@@ -11,7 +10,6 @@ interface UiStore {
   currentQueryId: string | null;
   toggleTableBrowser: () => void;
   setTableBrowserOpen: (open: boolean) => void;
-  setHistoryDrawerOpen: (open: boolean) => void;
   setShortcutsHelpOpen: (open: boolean) => void;
   setConnectionDialogOpen: (open: boolean) => void;
   setTableDetailDrawerOpen: (open: boolean) => void;
@@ -22,7 +20,6 @@ interface UiStore {
 
 export const useUiStore = create<UiStore>((set) => ({
   tableBrowserOpen: true,
-  historyDrawerOpen: false,
   shortcutsHelpOpen: false,
   connectionDialogOpen: false,
   tableDetailDrawerOpen: false,
@@ -35,9 +32,6 @@ export const useUiStore = create<UiStore>((set) => ({
 
   setTableBrowserOpen: (open: boolean) =>
     set({ tableBrowserOpen: open }),
-
-  setHistoryDrawerOpen: (open: boolean) =>
-    set({ historyDrawerOpen: open }),
 
   setShortcutsHelpOpen: (open: boolean) =>
     set({ shortcutsHelpOpen: open }),
