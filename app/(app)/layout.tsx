@@ -321,44 +321,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
               {/* Navigation Links */}
               {!isMobile && (
-                <Flex align="center" gap={4} style={{ marginLeft: 8 }}>
-                  <div
-                    style={{
-                      padding: '4px 12px',
-                      borderRadius: 4,
-                      cursor: 'pointer',
-                      color: pathname === '/' || pathname.startsWith('/projects') ? '#fff' : '#888',
-                      fontSize: 13,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      background: pathname === '/' || pathname.startsWith('/projects') ? '#1a1a1a' : 'transparent',
-                    }}
-                    onClick={() => router.push('/')}
-                    role="button"
-                  >
-                    <FolderOutlined style={{ fontSize: 14 }} />
-                    Projects
-                  </div>
-                  <div
-                    style={{
-                      padding: '4px 12px',
-                      borderRadius: 4,
-                      cursor: 'pointer',
-                      color: pathname.startsWith('/dashboards') ? '#fff' : '#888',
-                      fontSize: 13,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      background: pathname.startsWith('/dashboards') ? '#1a1a1a' : 'transparent',
-                    }}
-                    onClick={() => router.push('/dashboards')}
-                    role="button"
-                  >
-                    <AppstoreOutlined style={{ fontSize: 14 }} />
-                    Dashboards
-                  </div>
-                </Flex>
+                <Menu
+                  mode="horizontal"
+                  selectedKeys={[
+                    pathname === '/' || pathname.startsWith('/projects') ? 'projects' :
+                    pathname.startsWith('/dashboards') ? 'dashboards' : ''
+                  ]}
+                  style={{
+                    background: 'transparent',
+                    borderBottom: 'none',
+                    marginLeft: 8,
+                    lineHeight: '46px',
+                  }}
+                  items={[
+                    {
+                      key: 'projects',
+                      icon: <FolderOutlined />,
+                      label: 'Projects',
+                      onClick: () => router.push('/'),
+                    },
+                    {
+                      key: 'dashboards',
+                      icon: <AppstoreOutlined />,
+                      label: 'Dashboards',
+                      onClick: () => router.push('/dashboards'),
+                    },
+                  ]}
+                />
               )}
             </Flex>
 
