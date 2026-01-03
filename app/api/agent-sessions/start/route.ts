@@ -15,6 +15,7 @@ interface StartAgentRequest {
   schema: SchemaInfo[];
   previousSql?: string;
   previousContext?: string;
+  model?: string;
 }
 
 /**
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
       schema,
       previousSql,
       previousContext,
+      model,
     } = body;
 
     if (!prompt || !prompt.trim()) {
@@ -122,6 +124,7 @@ export async function POST(request: NextRequest) {
       schema,
       previousSql,
       previousContext,
+      model,
     }).catch((error) => {
       // Log error but don't throw - the session status will be updated by the runner
       console.error('Background agent error:', error);

@@ -38,7 +38,11 @@ export interface AgentConfig {
   schema: SchemaInfo[];
   previousSql?: string;
   previousContext?: string;  // Summary of previous work for continue functionality
+  model?: string;  // Claude model ID to use
 }
+
+// Default model if none specified
+const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
 
 function buildSystemPrompt(goal: string, isFollowUp: boolean, context?: string): string {
   return `You are an expert PostgreSQL query builder. Help users create and refine SQL queries.
@@ -355,7 +359,7 @@ export async function* streamQueryAgent(
     ? `Current SQL query:\n\`\`\`sql\n${config.previousSql}\n\`\`\`\n\nUser request: ${userMessage}`
     : userMessage;
 
-  const model = anthropic('claude-haiku-4-5-20251001');
+  const model = anthropic(config.model || DEFAULT_MODEL);
 
   try {
     // Detect if this is a follow-up (has previous SQL context)

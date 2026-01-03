@@ -14,6 +14,7 @@ interface RouteParams {
 
 interface ResumeRequest {
   schema: SchemaInfo[];
+  model?: string;
 }
 
 /**
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { id: sessionId } = await params;
 
     const body: ResumeRequest = await request.json();
-    const { schema } = body;
+    const { schema, model } = body;
 
     // Get the session
     const session = await prisma.agentSession.findUnique({
@@ -129,6 +130,7 @@ IMPORTANT: Use the EXACT item_id values shown above. Do NOT fabricate or guess I
       schema,
       previousSql: session.currentSql || undefined,
       previousContext: session.resumptionContext || undefined,
+      model,
     }).catch((error) => {
       console.error('Background agent resume error:', error);
     });

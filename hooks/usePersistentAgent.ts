@@ -4,7 +4,7 @@ import { useCallback, useRef, useEffect, useState } from 'react';
 import { App } from 'antd';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useSchemaStore } from '@/stores/schemaStore';
-import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata, AgentTodoItem } from '@/stores/aiChatStore';
+import { useAiChatStore, ToolCallInfo, ChatChartData, QueryMetadata, AgentTodoItem, ClaudeModelId } from '@/stores/aiChatStore';
 import { useQueryStore, QueryResult, saveQueryExecution } from '@/stores/queryStore';
 import { useAgentSessionStore, AgentSession } from '@/stores/agentSessionStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -64,6 +64,7 @@ export function usePersistentAgent() {
     isGenerating,
     isAiGenerated,
     agentProgress,
+    selectedModel,
     addUserMessage,
     addAssistantMessage,
     addSystemMessage,
@@ -549,6 +550,7 @@ export function usePersistentAgent() {
             projectId: currentProjectId || undefined,
             schema: tables,
             previousSql: currentSql,
+            model: selectedModel,
           }),
         });
 
@@ -612,6 +614,7 @@ export function usePersistentAgent() {
       currentSql,
       currentProjectId,
       currentQueryId,
+      selectedModel,
       setCurrentQueryId,
       addUserMessage,
       addAssistantMessage,
@@ -673,6 +676,7 @@ export function usePersistentAgent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           schema: tables,
+          model: selectedModel,
         }),
       });
 
@@ -718,6 +722,7 @@ export function usePersistentAgent() {
     agentProgress,
     activeSessionId,
     tables,
+    selectedModel,
     addUserMessage,
     addAssistantMessage,
     startAgent,
@@ -757,6 +762,7 @@ export function usePersistentAgent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             schema: tables,
+            model: selectedModel,
           }),
         });
 
@@ -799,6 +805,7 @@ export function usePersistentAgent() {
     [
       organizationId,
       tables,
+      selectedModel,
       addUserMessage,
       addAssistantMessage,
       addTodoMessage,
