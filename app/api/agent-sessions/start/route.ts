@@ -12,6 +12,7 @@ interface StartAgentRequest {
   prompt: string;
   organizationId: string;
   projectId?: string;
+  queryId?: string; // Existing query to link session to
   schema: SchemaInfo[];
   previousSql?: string;
   previousContext?: string;
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
       prompt,
       organizationId,
       projectId,
+      queryId: providedQueryId,
       schema,
       previousSql,
       previousContext,
@@ -71,10 +73,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    // Auto-create a query if projectId is provided (so AI sessions are linked to queries)
-    let queryId: string | undefined;
-    if (projectId) {
-      // Generate a temporary query name from the goal
+    // Use provided queryId or auto-create a query if projectId is provided
+    let queryId: string | undefined = providedQueryId;
+
+    if (providedQueryId) {
+      // Verify the provided query exists and belongs to the project
+      const existingQuery = await prisma.query.findUnique({
+        where: { id: providedQueryId },
+        select: { id: true, projectId: true },
+      });
+      if (!existingQuery) {
+        return NextResponse.json(
+          { error: 'Query not found' },
+          { status: 404 }
+        );
+      }
+      queryId = existingQuery.id;
+    } else if (projectId) {
+      // Fallback: auto-create a query if none provided but projectId is available
       const queryName = prompt.slice(0, 50).trim() + (prompt.length > 50 ? '...' : '');
       const query = await prisma.query.create({
         data: {

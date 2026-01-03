@@ -547,6 +547,7 @@ export function usePersistentAgent() {
             prompt: prompt.trim(),
             organizationId,
             projectId: currentProjectId || undefined,
+            queryId: currentQueryId || undefined, // Pass existing queryId to link session
             schema: tables,
             previousSql: currentSql,
             model: selectedModel,
@@ -560,7 +561,7 @@ export function usePersistentAgent() {
 
         const { sessionId, queryId } = await response.json();
 
-        // If a query was auto-created, update the current query context
+        // If a query was auto-created (shouldn't happen now), update the current query context
         if (queryId && !currentQueryId) {
           setCurrentQueryId(queryId);
         }
@@ -911,116 +912,366 @@ export function usePersistentAgent() {
   }, [startNewConversation, setCurrentQuery]);
 
   // Load a conversation from a saved query's session
+  // This replays all events to show the full session history including thinking, tool calls, etc.
   const loadConversationFromSession = useCallback(async (sessionId: string): Promise<boolean> => {
-    // First try local store
-    let session = getSession(sessionId);
+    // Always fetch from API to get full event history
+    let sessionData: {
+      id: string;
+      goal: string;
+      status: string;
+      currentStep: number;
+      maxSteps: number;
+      toolCalls: unknown[];
+      todos: AgentTodoItem[];
+      currentSql: string | null;
+      previousSql: string | null;
+      lastStreamingText: string;
+      lastError: string | null;
+      resumptionContext: string;
+      chatHistory: { role: string; content: string; sql?: string; explanation?: string; summary?: string }[];
+      queryName: string | null;
+      createdAt: number;
+      updatedAt: number;
+      events?: { sequence: number; type: string; data: AgentStreamEvent; timestamp: string }[];
+    };
 
-    // If not found locally, fetch from API
-    if (!session) {
-      try {
-        const response = await fetch(`/api/agent-sessions/${sessionId}`);
-        if (!response.ok) {
-          message.warning('Session not found');
-          return false;
-        }
-        const data = await response.json();
-        // Map the API response to our session format
-        // Note: data comes from result.session in the API response
-        const sessionData = data.session || data;
-        session = {
-          id: sessionData.id,
-          goal: sessionData.goal,
-          status: (sessionData.status?.toLowerCase() || 'completed') as 'running' | 'paused' | 'completed' | 'failed',
-          currentStep: sessionData.currentStep || 0,
-          maxSteps: sessionData.maxSteps || 25,
-          toolCalls: sessionData.toolCalls || [],
-          todos: sessionData.todos || [],
-          currentSql: sessionData.currentSql,
-          previousSql: sessionData.previousSql,
-          lastStreamingText: sessionData.lastStreamingText || '',
-          lastError: sessionData.lastError,
-          resumptionContext: sessionData.resumptionContext || '',
-          chatHistory: sessionData.chatHistory || [],
-          queryName: sessionData.queryName,
-          createdAt: typeof sessionData.createdAt === 'number' ? sessionData.createdAt : new Date(sessionData.createdAt).getTime(),
-          updatedAt: typeof sessionData.updatedAt === 'number' ? sessionData.updatedAt : new Date(sessionData.updatedAt).getTime(),
-        };
-      } catch (error) {
-        console.error('Failed to fetch session:', error);
-        message.warning('Failed to load session');
+    try {
+      const response = await fetch(`/api/agent-sessions/${sessionId}`);
+      if (!response.ok) {
+        message.warning('Session not found');
         return false;
       }
+      const data = await response.json();
+      const rawSession = data.session || data;
+      sessionData = {
+        id: rawSession.id,
+        goal: rawSession.goal,
+        status: (rawSession.status?.toLowerCase() || 'completed'),
+        currentStep: rawSession.currentStep || 0,
+        maxSteps: rawSession.maxSteps || 25,
+        toolCalls: rawSession.toolCalls || [],
+        todos: rawSession.todos || [],
+        currentSql: rawSession.currentSql,
+        previousSql: rawSession.previousSql,
+        lastStreamingText: rawSession.lastStreamingText || '',
+        lastError: rawSession.lastError,
+        resumptionContext: rawSession.resumptionContext || '',
+        chatHistory: rawSession.chatHistory || [],
+        queryName: rawSession.queryName,
+        createdAt: typeof rawSession.createdAt === 'number' ? rawSession.createdAt : new Date(rawSession.createdAt).getTime(),
+        updatedAt: typeof rawSession.updatedAt === 'number' ? rawSession.updatedAt : new Date(rawSession.updatedAt).getTime(),
+        events: rawSession.events || [],
+      };
+    } catch (error) {
+      console.error('Failed to fetch session:', error);
+      message.warning('Failed to load session');
+      return false;
     }
 
     startNewConversation();
 
-    // Check if we have chat history to display
-    const hasChatHistory = session.chatHistory && session.chatHistory.length > 0;
+    // Add the user's goal as the first message
+    if (sessionData.goal) {
+      addUserMessage(sessionData.goal);
+    }
 
-    if (hasChatHistory) {
-      // Use existing chat history
-      session.chatHistory.forEach((msg) => {
-        if (msg.role === 'user') {
-          addUserMessage(msg.content);
-        } else if (msg.role === 'assistant') {
-          addAssistantMessage({
-            content: msg.content,
-            sql: msg.sql,
-            explanation: msg.explanation,
-            summary: msg.summary,
-          });
-        } else if (msg.role === 'system') {
-          addSystemMessage(msg.content);
+    // Check if we have events to replay (preferred - full history)
+    const hasEvents = sessionData.events && sessionData.events.length > 0;
+
+    if (hasEvents && sessionData.events) {
+      // Replay all events to rebuild full UI state
+      let accumulatedText = '';
+      let lastTodos: AgentTodoItem[] = [];
+
+      for (const eventWrapper of sessionData.events) {
+        const event = eventWrapper.data;
+
+        switch (event.type) {
+          case 'step': {
+            // When we get a step event, finalize any accumulated text as a thinking message
+            if (accumulatedText.trim()) {
+              addThinkingMessage(accumulatedText.trim());
+              accumulatedText = '';
+            }
+            break;
+          }
+
+          case 'text':
+            // Accumulate streaming text
+            accumulatedText += event.text;
+            break;
+
+          case 'tool_call_start': {
+            // Show tool activity
+            const toolLabels: Record<string, string> = {
+              get_table_schema: 'Getting database schema...',
+              execute_query: 'Running query...',
+              validate_query: 'Validating query...',
+            };
+            if (toolLabels[event.toolName]) {
+              addToolActivityMessage(event.toolName, 'running', toolLabels[event.toolName]);
+            }
+            break;
+          }
+
+          case 'tool_call_result': {
+            const tc = event.toolCall;
+            const errorValue = (tc.result as { error?: unknown })?.error;
+            const hasError = typeof errorValue === 'string' && errorValue.length > 0;
+            const toolStatus = hasError ? 'error' : 'success';
+
+            const toolsWithActivity = ['get_table_schema', 'execute_query', 'validate_query'];
+            if (toolsWithActivity.includes(tc.toolName)) {
+              const errorMessage = hasError ? String(errorValue) : undefined;
+              updateLatestToolActivityMessage(tc.toolName, toolStatus, errorMessage);
+            }
+
+            // Handle update_query_ui - show assistant response with SQL
+            if (tc.toolName === 'update_query_ui') {
+              const args = tc.args as {
+                sql: string;
+                explanation: string;
+                summary?: string;
+                confidence?: string;
+                suggestions?: string[];
+              };
+
+              addAssistantMessage({
+                content: args.explanation,
+                sql: args.sql,
+                previousSql: sessionData.previousSql || undefined,
+                explanation: args.explanation,
+                summary: args.summary,
+                confidence: args.confidence as 'high' | 'medium' | 'low',
+                suggestions: args.suggestions,
+              });
+            }
+
+            // Handle execute_query results - show query result card
+            if (tc.toolName === 'execute_query') {
+              const args = tc.args as { sql: string; title?: string; description?: string };
+              const result = tc.result as {
+                success: boolean;
+                rowCount?: number;
+                executionTime?: number;
+                rows?: Record<string, unknown>[];
+                error?: string;
+                title?: string;
+                description?: string;
+              };
+
+              if (result.success) {
+                const queryMetadata: QueryMetadata = {
+                  sql: args.sql,
+                  title: result.title || args.title || 'Query Result',
+                  description: result.description || args.description || '',
+                  rowCount: result.rowCount || 0,
+                  executionTime: result.executionTime || 0,
+                  sampleResults: result.rows?.slice(0, 5),
+                };
+                addQueryMessage(queryMetadata);
+              }
+            }
+
+            // Handle generate_chart - show chart
+            if (tc.toolName === 'generate_chart') {
+              const args = tc.args as { title?: string; description?: string };
+              const result = tc.result as {
+                success: boolean;
+                chartConfig?: ChartConfig;
+                chartData?: Record<string, unknown>[];
+                xAxisKey?: string;
+                yAxisKeys?: string[];
+                message?: string;
+                title?: string;
+                description?: string;
+              };
+
+              if (result.success && result.chartConfig && result.chartData) {
+                const chartData: ChatChartData = {
+                  config: result.chartConfig,
+                  data: result.chartData,
+                  xAxisKey: result.xAxisKey || '',
+                  yAxisKeys: result.yAxisKeys || [],
+                  title: result.title || args.title,
+                  description: result.description || args.description,
+                };
+                addChartMessage(chartData, result.message);
+              }
+            }
+
+            // Handle manage_todo - update and show todos
+            if (tc.toolName === 'manage_todo') {
+              const result = tc.result as {
+                success: boolean;
+                action: string;
+                items?: { id: string; text: string; status: string }[];
+                item_id?: string;
+                item?: { id: string; text: string; status: string };
+              };
+
+              if (result.success) {
+                switch (result.action) {
+                  case 'create':
+                    if (result.items) {
+                      lastTodos = result.items.map((item) => ({
+                        id: item.id,
+                        text: item.text,
+                        status: item.status as AgentTodoItem['status'],
+                        createdAt: Date.now(),
+                      }));
+                      addTodoMessage(lastTodos);
+                    }
+                    break;
+                  case 'set_current':
+                    if (result.item_id) {
+                      lastTodos = lastTodos.map((t) => ({
+                        ...t,
+                        status: t.id === result.item_id ? 'in_progress' as const : (t.status === 'in_progress' ? 'pending' as const : t.status),
+                      }));
+                      addTodoMessage(lastTodos);
+                    }
+                    break;
+                  case 'complete':
+                    if (result.item_id) {
+                      lastTodos = lastTodos.map((t) => ({
+                        ...t,
+                        status: t.id === result.item_id ? 'completed' as const : t.status,
+                        completedAt: t.id === result.item_id ? Date.now() : t.completedAt,
+                      }));
+                      addTodoMessage(lastTodos);
+                    }
+                    break;
+                  case 'skip':
+                    if (result.item_id) {
+                      lastTodos = lastTodos.map((t) => ({
+                        ...t,
+                        status: t.id === result.item_id ? 'skipped' as const : t.status,
+                      }));
+                      addTodoMessage(lastTodos);
+                    }
+                    break;
+                  case 'add':
+                    if (result.item) {
+                      const newTodo: AgentTodoItem = {
+                        id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        text: result.item.text,
+                        status: result.item.status as AgentTodoItem['status'],
+                        createdAt: Date.now(),
+                        addedDuringExecution: true,
+                      };
+                      lastTodos = [...lastTodos, newTodo];
+                      addTodoMessage(lastTodos);
+                    }
+                    break;
+                }
+              }
+            }
+            break;
+          }
+
+          case 'error':
+            addSystemMessage(`Error: ${event.error}`);
+            break;
+
+          case 'complete': {
+            // Any remaining accumulated text becomes a thinking message
+            if (accumulatedText.trim()) {
+              addThinkingMessage(accumulatedText.trim());
+              accumulatedText = '';
+            }
+
+            const state = event.state;
+            const reachedLimit = state.reachedStepLimit;
+            const hasIncompleteTodos = state.hasIncompleteTodos;
+            const stopReason = state.stopReason;
+
+            // Show status message for non-completed sessions
+            if (stopReason === 'timeout') {
+              addSystemMessage('Agent paused due to execution time limit.');
+            } else if (reachedLimit) {
+              addSystemMessage(`Agent reached ${MAX_STEPS} step limit.`);
+            } else if (hasIncompleteTodos && sessionData.status !== 'completed') {
+              const incompleteTodos = lastTodos.filter(t => t.status === 'pending' || t.status === 'in_progress');
+              const completedCount = lastTodos.filter(t => t.status === 'completed').length;
+              addSystemMessage(
+                `Session ended with ${incompleteTodos.length} task(s) remaining (${completedCount}/${lastTodos.length} completed).`
+              );
+            }
+            break;
+          }
         }
-      });
+      }
+
+      // Any remaining text not yet processed
+      if (accumulatedText.trim()) {
+        addThinkingMessage(accumulatedText.trim());
+      }
+
+      // Update final todos from session data
+      if (sessionData.todos && sessionData.todos.length > 0) {
+        setAgentTodos(sessionData.todos);
+      } else if (lastTodos.length > 0) {
+        setAgentTodos(lastTodos);
+      }
     } else {
-      // Reconstruct chat from session data when chatHistory is empty
-      // This handles sessions where chat wasn't persisted to the database
-
-      // Add the original user goal as first message
-      if (session.goal) {
-        addUserMessage(session.goal);
-      }
-
-      // If we have a final SQL, show it as the assistant's response
-      if (session.currentSql) {
-        addAssistantMessage({
-          content: session.queryName
-            ? `Here's the query for "${session.queryName}":`
-            : 'Here\'s the generated query:',
-          sql: session.currentSql,
-          explanation: session.queryName
-            ? `Query generated for: ${session.goal}`
-            : undefined,
+      // Fallback: no events, use chatHistory or minimal reconstruction
+      if (sessionData.chatHistory && sessionData.chatHistory.length > 0) {
+        sessionData.chatHistory.forEach((msg) => {
+          if (msg.role === 'user' && msg.content !== sessionData.goal) {
+            addUserMessage(msg.content);
+          } else if (msg.role === 'assistant') {
+            addAssistantMessage({
+              content: msg.content,
+              sql: msg.sql,
+              explanation: msg.explanation,
+              summary: msg.summary,
+            });
+          } else if (msg.role === 'system') {
+            addSystemMessage(msg.content);
+          }
         });
+      } else {
+        // Minimal reconstruction from session fields
+        if (sessionData.currentSql) {
+          addAssistantMessage({
+            content: sessionData.queryName
+              ? `Here's the query for "${sessionData.queryName}":`
+              : 'Here\'s the generated query:',
+            sql: sessionData.currentSql,
+            explanation: sessionData.queryName
+              ? `Query generated for: ${sessionData.goal}`
+              : undefined,
+          });
+        }
+
+        if (sessionData.lastError) {
+          addSystemMessage(`Error: ${sessionData.lastError}`);
+        }
+
+        if (sessionData.status === 'paused') {
+          addSystemMessage('Session was paused. You can continue from where it left off.');
+        } else if (sessionData.status === 'failed') {
+          addSystemMessage('Session failed to complete.');
+        }
       }
 
-      // If there was an error, show it
-      if (session.lastError) {
-        addSystemMessage(`Error: ${session.lastError}`);
-      }
-
-      // Show session status if it's not completed successfully
-      if (session.status === 'paused') {
-        addSystemMessage('Session was paused. You can continue from where it left off.');
-      } else if (session.status === 'failed') {
-        addSystemMessage('Session failed to complete.');
+      // Set todos from session data
+      if (sessionData.todos && sessionData.todos.length > 0) {
+        setAgentTodos(sessionData.todos);
+        addTodoMessage(sessionData.todos);
       }
     }
 
-    if (session.todos && session.todos.length > 0) {
-      setAgentTodos(session.todos);
-      addTodoMessage(session.todos);
-    }
-
-    if (session.currentSql) {
-      setCurrentQuery(session.currentSql);
-      setCurrentSql(session.currentSql);
+    // Update query state
+    if (sessionData.currentSql) {
+      setCurrentQuery(sessionData.currentSql);
+      setCurrentSql(sessionData.currentSql);
       setIsAiGenerated(true);
     }
 
-    if (session.queryName) {
-      setQueryName(session.queryName);
+    if (sessionData.queryName) {
+      setQueryName(sessionData.queryName);
     }
 
     // Open the AI chat panel so the user can see the loaded session
@@ -1028,7 +1279,7 @@ export function usePersistentAgent() {
 
     message.success('Session loaded');
     return true;
-  }, [getSession, startNewConversation, addUserMessage, addAssistantMessage, addSystemMessage, setAgentTodos, addTodoMessage, setCurrentQuery, setCurrentSql, setIsAiGenerated, setQueryName, setOpen, message]);
+  }, [startNewConversation, addUserMessage, addAssistantMessage, addSystemMessage, addThinkingMessage, addToolActivityMessage, updateLatestToolActivityMessage, addQueryMessage, addChartMessage, addTodoMessage, setAgentTodos, setCurrentQuery, setCurrentSql, setIsAiGenerated, setQueryName, setOpen, message]);
 
   return {
     messages,

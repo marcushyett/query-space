@@ -150,10 +150,10 @@ export default function QueryEditorPage() {
     fetchSchema()
   }, [currentOrg, setTables, setSchemaLoading, setSchemaError])
 
-  // Fetch existing query data
+  // Fetch existing query data or create new query immediately
   useEffect(() => {
     if (isNew) {
-      // Reset all state for new query
+      // Reset all state first
       setCurrentQuery('')
       setQueryResults(null)
       setQueryName('')
@@ -163,6 +163,32 @@ export default function QueryEditorPage() {
       setHasUnsavedChanges(false)
       // Clear AI chat state so new query doesn't show previous session
       clearChat()
+
+      // Create a new "Untitled" query immediately and redirect to it
+      const createNewQuery = async () => {
+        try {
+          const createRes = await fetch(`/api/projects/${projectId}/queries`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: 'Untitled',
+              sql: '',
+            }),
+          })
+          if (createRes.ok) {
+            const createData = await createRes.json()
+            // Redirect to the new query URL
+            router.replace(`/projects/${projectId}/query/${createData.query.id}`)
+          } else {
+            console.error('Failed to create new query')
+            message.error('Failed to create new query')
+          }
+        } catch (err) {
+          console.error('Failed to create new query:', err)
+          message.error('Failed to create new query')
+        }
+      }
+      createNewQuery()
       return
     }
 
@@ -217,7 +243,7 @@ export default function QueryEditorPage() {
     }
 
     fetchQuery()
-  }, [queryId, isNew, projectId, router, setCurrentQuery, setQueryResults, setStoreQueryName])
+  }, [queryId, isNew, projectId, router, setCurrentQuery, setQueryResults, setStoreQueryName, clearChat, message])
 
   // Track unsaved changes
   useEffect(() => {

@@ -30,7 +30,7 @@ export interface HistoryItem {
   executionTime?: number;
   // Session fields (for type: 'session')
   goal?: string;
-  status?: 'running' | 'paused' | 'completed' | 'failed';
+  status?: 'pending' | 'running' | 'paused' | 'completed' | 'failed';
   sessionId?: string;
   queryCount?: number;
 }
@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
           queryId: query.id,
           queryName: session.queryName || query.name || undefined,
           goal: session.goal,
-          status: session.status.toLowerCase() as 'running' | 'paused' | 'completed' | 'failed',
+          status: session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed',
           queryCount: session._count.queryExecutions,
           timestamp: session.updatedAt.getTime(),
           projectId: query.project.id,
@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
         id: session.id,
         sessionId: session.id,
         goal: session.goal,
-        status: session.status.toLowerCase() as 'running' | 'paused' | 'completed' | 'failed',
+        status: session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed',
         queryCount: session._count.queryExecutions,
         timestamp: session.updatedAt.getTime(),
       });
