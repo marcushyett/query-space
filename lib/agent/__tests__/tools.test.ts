@@ -154,6 +154,22 @@ describe('Agent Tools', () => {
       expect(mockEnd).toHaveBeenCalled()
     })
 
+    it('should filter to only objects to avoid array errors', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ key: 'name' }],
+      })
+
+      await tools.get_json_keys.execute!(
+        { table: 'users', column: 'metadata' },
+        opts
+      )
+
+      // Verify the SQL includes jsonb_typeof filter to handle arrays gracefully
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining(`jsonb_typeof("metadata"::jsonb) = 'object'`)
+      )
+    })
+
     it('should fetch JSON keys with nested path', async () => {
       mockQuery.mockResolvedValueOnce({
         rows: [{ key: 'street' }, { key: 'city' }],
