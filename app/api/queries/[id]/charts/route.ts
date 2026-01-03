@@ -2,7 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db/prisma'
 import { getCurrentUser } from '@/lib/auth/session'
-import { ChartType } from '@prisma/client'
+
+// ChartType enum values matching Prisma schema
+const ChartTypeEnum = {
+  LINE: 'LINE',
+  COLUMN: 'COLUMN',
+  AREA: 'AREA',
+  PIE: 'PIE',
+  DONUT: 'DONUT',
+  SCATTER: 'SCATTER',
+  FUNNEL: 'FUNNEL',
+  WATERFALL: 'WATERFALL',
+  HEATMAP: 'HEATMAP',
+  RADAR: 'RADAR',
+} as const
+
+type ChartTypeValue = typeof ChartTypeEnum[keyof typeof ChartTypeEnum]
 
 const createChartSchema = z.object({
   title: z.string().max(200).optional().nullable(),
@@ -16,21 +31,21 @@ const createChartSchema = z.object({
 })
 
 // Map chart type strings to Prisma enum values
-function mapChartType(type: string): ChartType {
-  const mapping: Record<string, ChartType> = {
-    'line': ChartType.LINE,
-    'column': ChartType.COLUMN,
-    'bar': ChartType.COLUMN, // Map bar to column (horizontal is just a config option)
-    'area': ChartType.AREA,
-    'pie': ChartType.PIE,
-    'donut': ChartType.DONUT,
-    'scatter': ChartType.SCATTER,
-    'funnel': ChartType.FUNNEL,
-    'waterfall': ChartType.WATERFALL,
-    'heatmap': ChartType.HEATMAP,
-    'radar': ChartType.RADAR,
+function mapChartType(type: string): ChartTypeValue {
+  const mapping: Record<string, ChartTypeValue> = {
+    'line': ChartTypeEnum.LINE,
+    'column': ChartTypeEnum.COLUMN,
+    'bar': ChartTypeEnum.COLUMN, // Map bar to column (horizontal is just a config option)
+    'area': ChartTypeEnum.AREA,
+    'pie': ChartTypeEnum.PIE,
+    'donut': ChartTypeEnum.DONUT,
+    'scatter': ChartTypeEnum.SCATTER,
+    'funnel': ChartTypeEnum.FUNNEL,
+    'waterfall': ChartTypeEnum.WATERFALL,
+    'heatmap': ChartTypeEnum.HEATMAP,
+    'radar': ChartTypeEnum.RADAR,
   }
-  return mapping[type] || ChartType.COLUMN
+  return mapping[type] || ChartTypeEnum.COLUMN
 }
 
 // Helper to check query access
@@ -98,7 +113,14 @@ export async function GET(
     })
 
     return NextResponse.json({
-      charts: charts.map((chart) => ({
+      charts: charts.map((chart: {
+        id: string;
+        title: string | null;
+        type: string;
+        config: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      }) => ({
         id: chart.id,
         title: chart.title,
         type: chart.type.toLowerCase(),

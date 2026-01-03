@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Pre-commit hook to run TypeScript type checking
+# This runs tsc on the entire project to catch type errors
+
+echo "Running TypeScript type check..."
+
+# Run tsc with noEmit to check types without generating output
+# --skipLibCheck speeds up checking by skipping d.ts files
+npx tsc --noEmit --skipLibCheck
+
+# Capture the exit code
+TSC_EXIT_CODE=$?
+
+if [ $TSC_EXIT_CODE -ne 0 ]; then
+  echo ""
+  echo "TypeScript type check failed. Please fix the errors above before committing."
+  echo ""
+  exit 1
+fi
+
+echo "TypeScript type check passed."
+exit 0
