@@ -147,29 +147,29 @@ export async function GET(request: NextRequest) {
     ];
 
     // Find stale sessions (marked RUNNING but not actually running and not updated recently)
-    const staleSessions = allSessions.filter(s => {
-      if (s.status !== 'RUNNING') return false;
-      if (isAgentRunning(s.id)) return false;
-      return now - s.updatedAt.getTime() > staleThreshold;
-    });
+    const staleSessionIds = allSessions
+      .filter(s => {
+        if (s.status !== 'RUNNING') return false;
+        if (isAgentRunning(s.id)) return false;
+        return now - s.updatedAt.getTime() > staleThreshold;
+      })
+      .map(s => s.id);
 
     // Update stale sessions to PAUSED
-    if (staleSessions.length > 0) {
+    if (staleSessionIds.length > 0) {
       await prisma.agentSession.updateMany({
         where: {
-          id: { in: staleSessions.map(s => s.id) },
+          id: { in: staleSessionIds },
         },
         data: {
           status: 'PAUSED',
           lastError: 'Session interrupted - can be resumed',
         },
       });
-
-      // Update local session objects to reflect new status
-      for (const session of staleSessions) {
-        session.status = 'PAUSED';
-      }
     }
+
+    // Create a set for quick lookup of stale session IDs
+    const staleSessionIdSet = new Set(staleSessionIds);
 
     // Build unified history items
     const historyItems: HistoryItem[] = [];
@@ -209,6 +209,10 @@ export async function GET(request: NextRequest) {
 
       // Add sessions under this query
       for (const session of query.agentSessions) {
+        // Use corrected status if this session was just marked as stale
+        const effectiveStatus = staleSessionIdSet.has(session.id)
+          ? 'paused'
+          : session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed';
         historyItems.push({
           type: 'session',
           id: session.id,
@@ -216,7 +220,7 @@ export async function GET(request: NextRequest) {
           queryId: query.id,
           queryName: session.queryName || query.name || undefined,
           goal: session.goal,
-          status: session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed',
+          status: effectiveStatus,
           queryCount: session._count.queryExecutions,
           timestamp: session.updatedAt.getTime(),
           projectId: query.project.id,
@@ -243,12 +247,16 @@ export async function GET(request: NextRequest) {
 
     // Add standalone sessions
     for (const session of standaloneSessions) {
+      // Use corrected status if this session was just marked as stale
+      const effectiveStatus = staleSessionIdSet.has(session.id)
+        ? 'paused'
+        : session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed';
       historyItems.push({
         type: 'session',
         id: session.id,
         sessionId: session.id,
         goal: session.goal,
-        status: session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed',
+        status: effectiveStatus,
         queryCount: session._count.queryExecutions,
         timestamp: session.updatedAt.getTime(),
       });

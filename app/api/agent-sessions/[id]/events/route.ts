@@ -131,8 +131,7 @@ async function pollEvents(
           lastError: 'Session interrupted - can be resumed',
         },
       });
-      // Update local session object to reflect new status
-      session.status = AgentStatus.PAUSED;
+      // Session is now paused - isRunning stays false
     } else {
       // Give it a bit more time - might still be starting up
       isRunning = true;
