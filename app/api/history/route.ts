@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
         project: {
           select: { id: true, title: true },
         },
-        queryExecutions: {
+        executions: {
           orderBy: { createdAt: 'desc' },
           take: 10, // Last 10 executions per query
         },
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
       });
 
       // Add executions under this query
-      for (const exec of query.queryExecutions) {
+      for (const exec of query.executions) {
         historyItems.push({
           type: 'execution',
           id: exec.id,
