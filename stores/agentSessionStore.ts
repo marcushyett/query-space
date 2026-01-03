@@ -135,11 +135,6 @@ function buildResumptionContext(session: AgentSession): string {
         if (result?.tableCount) {
           summaryParts.push(`- Retrieved schema: ${result.tableCount} tables`);
         }
-      } else if (tc.toolName === 'get_json_keys') {
-        const result = tc.result as { keys?: string[]; table?: string; column?: string };
-        if (result?.keys) {
-          summaryParts.push(`- Explored JSON keys in ${result.table}.${result.column}`);
-        }
       } else if (tc.toolName === 'execute_query') {
         const result = tc.result as { success: boolean; error?: string; rowCount?: number };
         const args = tc.args as { sql?: string; title?: string };

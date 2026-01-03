@@ -20,7 +20,6 @@ interface AgentProgressProps {
 
 const TOOL_LABELS: Record<string, string> = {
   get_table_schema: 'Getting schema',
-  get_json_keys: 'Exploring JSON fields',
   execute_query: 'Running query',
   validate_query: 'Validating query',
   update_query_ui: 'Updating query',

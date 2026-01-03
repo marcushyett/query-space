@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createQueryAgentTools, type SchemaInfo, type ToolContext } from '../tools'
 
 // Type definitions for tool results
-type JsonKeysResult = { table: string; column: string; nestedPath: string | null; keys: string[] | null; keyCount: number; sampleValues: Record<string, unknown[]> | null; hint: string; error: string | null; suggestion: string | null }
 type ExecuteQueryResult = { success: boolean; error?: string; suggestion?: string; rowCount: number | null; executionTime?: number; columns: string[] | null; rows: Record<string, unknown>[] | null; hasMoreRows: boolean | null; warning: string | null; emptyColumns: string[] | null; title: string; description: string; dataQuality?: unknown }
 type ValidateQueryResult = { isValid: boolean; message?: string; error?: string; suggestion?: string }
 type UpdateQueryUIResult = { action: string; sql: string; explanation: string; summary: string; message: string; changes: string[]; confidence: string; suggestions: string[] }
@@ -130,104 +129,10 @@ describe('Agent Tools', () => {
       expect(idColumn?.isPrimaryKey).toBe(true)
     })
 
-    it('should include hint about JSON keys', async () => {
+    it('should include hint about JSON syntax', async () => {
       const result = await tools.get_table_schema.execute!({}, { abortSignal: undefined as unknown as AbortSignal, toolCallId: 'test', messages: [] }) as { tableCount: number; tables: Array<{ name: string; type: string; columns: Array<{ name: string; type: string; isPrimaryKey: boolean }> }>; error: null; hint: string }
 
-      expect(result.hint).toContain('get_json_keys')
-    })
-  })
-
-  describe('get_json_keys', () => {
-    it('should fetch JSON keys from a column', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ key: 'name' }, { key: 'age' }, { key: 'email' }],
-      })
-
-      const result = await tools.get_json_keys.execute!(
-        { table: 'users', column: 'metadata' },
-        opts
-      ) as JsonKeysResult
-
-      expect(result.keys).toEqual(['name', 'age', 'email'])
-      expect(result.keyCount).toBe(3)
-      expect(result.error).toBeNull()
-      expect(mockEnd).toHaveBeenCalled()
-    })
-
-    it('should filter to only objects to avoid array errors', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ key: 'name' }],
-      })
-
-      await tools.get_json_keys.execute!(
-        { table: 'users', column: 'metadata' },
-        opts
-      )
-
-      // Verify the SQL includes jsonb_typeof filter to handle arrays gracefully
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining(`jsonb_typeof("metadata"::jsonb) = 'object'`)
-      )
-    })
-
-    it('should fetch JSON keys with nested path', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ key: 'street' }, { key: 'city' }],
-      })
-
-      const result = await tools.get_json_keys.execute!(
-        { table: 'users', column: 'metadata', nestedPath: 'address' },
-        opts
-      ) as JsonKeysResult
-
-      expect(result.nestedPath).toBe('address')
-      expect(result.keys).toEqual(['street', 'city'])
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining(`"metadata"->'address'`)
-      )
-    })
-
-    it('should fetch sample values when requested', async () => {
-      mockQuery
-        .mockResolvedValueOnce({ rows: [{ key: 'name' }, { key: 'age' }] })
-        .mockResolvedValueOnce({ rows: [{ value: 'John' }, { value: 'Jane' }] })
-        .mockResolvedValueOnce({ rows: [{ value: '25' }, { value: '30' }] })
-
-      const result = await tools.get_json_keys.execute!(
-        { table: 'users', column: 'metadata', sampleValues: true },
-        opts
-      ) as JsonKeysResult
-
-      expect(result.sampleValues).toEqual({
-        name: ['John', 'Jane'],
-        age: ['25', '30'],
-      })
-    })
-
-    it('should handle empty JSON column', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] })
-
-      const result = await tools.get_json_keys.execute!(
-        { table: 'users', column: 'metadata' },
-        opts
-      ) as JsonKeysResult
-
-      expect(result.keys).toEqual([])
-      expect(result.keyCount).toBe(0)
-      expect(result.hint).toContain('No keys found')
-    })
-
-    it('should handle database errors', async () => {
-      mockQuery.mockRejectedValueOnce(new Error('Column not found'))
-
-      const result = await tools.get_json_keys.execute!(
-        { table: 'users', column: 'nonexistent' },
-        opts
-      ) as JsonKeysResult
-
-      expect(result.error).toBe('Column not found')
-      expect(result.keys).toBeNull()
-      expect(result.suggestion).toContain('Check that the table and column names are correct')
+      expect(result.hint).toContain('jsonKeys')
     })
   })
 

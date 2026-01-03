@@ -10,6 +10,7 @@ export interface SchemaColumn {
   name: string;
   type: string;
   isPrimaryKey: boolean;
+  jsonKeys?: string[]; // For JSON/JSONB columns, the unique keys found in sample data
 }
 
 export interface SchemaTable {
@@ -115,6 +116,62 @@ export async function POST(request: NextRequest) {
       type: row.type === 'VIEW' ? 'view' : 'table',
       columns: row.columns || [],
     }));
+
+    // For tables with JSON/JSONB columns, fetch sample data to extract JSON keys
+    const tablesWithJsonColumns = tables.filter(table =>
+      table.columns.some(col =>
+        col.type.toLowerCase() === 'json' || col.type.toLowerCase() === 'jsonb'
+      )
+    );
+
+    // Fetch sample data for tables with JSON columns (in parallel, limited to 10)
+    const jsonKeyPromises = tablesWithJsonColumns.slice(0, 10).map(async (table) => {
+      try {
+        const tableName = table.schema === 'public'
+          ? `"${table.name}"`
+          : `"${table.schema}"."${table.name}"`;
+
+        const sampleResult = await client.query(
+          `SELECT * FROM ${tableName} LIMIT 20`
+        );
+
+        if (sampleResult.rows.length === 0) return { table, jsonKeys: {} };
+
+        // Extract JSON keys for each JSON column
+        const jsonKeys: Record<string, string[]> = {};
+
+        for (const col of table.columns) {
+          if (col.type.toLowerCase() === 'json' || col.type.toLowerCase() === 'jsonb') {
+            const keys = new Set<string>();
+            for (const row of sampleResult.rows) {
+              const value = row[col.name];
+              if (value && typeof value === 'object' && !Array.isArray(value)) {
+                Object.keys(value).forEach(k => keys.add(k));
+              }
+            }
+            if (keys.size > 0) {
+              jsonKeys[col.name] = Array.from(keys).sort().slice(0, 50); // Limit to 50 keys
+            }
+          }
+        }
+
+        return { table, jsonKeys };
+      } catch {
+        // If we can't fetch sample data for a table, just skip it
+        return { table, jsonKeys: {} };
+      }
+    });
+
+    const jsonKeyResults = await Promise.all(jsonKeyPromises);
+
+    // Merge JSON keys into the table schema
+    for (const { table, jsonKeys } of jsonKeyResults) {
+      for (const col of table.columns) {
+        if (jsonKeys[col.name]) {
+          col.jsonKeys = jsonKeys[col.name];
+        }
+      }
+    }
 
     return NextResponse.json({ tables } as SchemaResponse);
   } catch (error: unknown) {

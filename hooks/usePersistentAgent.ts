@@ -193,7 +193,6 @@ export function usePersistentAgent() {
 
           const toolLabels: Record<string, string> = {
             get_table_schema: 'Getting database schema...',
-            get_json_keys: 'Exploring JSON fields...',
             execute_query: 'Running query...',
             validate_query: 'Validating query...',
           };
@@ -215,7 +214,7 @@ export function usePersistentAgent() {
             status: toolStatus,
           });
 
-          const toolsWithActivity = ['get_table_schema', 'get_json_keys', 'execute_query', 'validate_query'];
+          const toolsWithActivity = ['get_table_schema', 'execute_query', 'validate_query'];
           if (toolsWithActivity.includes(tc.toolName)) {
             // Pass error message as result so it's visible to the user
             const errorMessage = hasError ? String(errorValue) : undefined;
