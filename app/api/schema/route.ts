@@ -124,6 +124,9 @@ export async function POST(request: NextRequest) {
       )
     );
 
+    // Capture client reference for use in async callbacks (TypeScript narrowing)
+    const dbClient = client;
+
     // Fetch sample data for tables with JSON columns (in parallel, limited to 10)
     const jsonKeyPromises = tablesWithJsonColumns.slice(0, 10).map(async (table) => {
       try {
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
           ? `"${table.name}"`
           : `"${table.schema}"."${table.name}"`;
 
-        const sampleResult = await client.query(
+        const sampleResult = await dbClient.query(
           `SELECT * FROM ${tableName} LIMIT 20`
         );
 
