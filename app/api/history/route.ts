@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
 import { getCurrentUser, checkOrganizationAccess } from '@/lib/auth/session';
+import { isAgentRunning } from '@/lib/agent/backgroundRunner';
 
 const listHistorySchema = z.object({
   organizationId: z.string(),
@@ -134,6 +135,41 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: 'desc' },
       take: 50,
     });
+
+    // Clean up stale RUNNING sessions that are no longer actually running
+    const staleThreshold = 30 * 1000; // 30 seconds
+    const now = Date.now();
+
+    // Collect all sessions from queries and standalone
+    const allSessions = [
+      ...queries.flatMap(q => q.agentSessions),
+      ...standaloneSessions,
+    ];
+
+    // Find stale sessions (marked RUNNING but not actually running and not updated recently)
+    const staleSessions = allSessions.filter(s => {
+      if (s.status !== 'RUNNING') return false;
+      if (isAgentRunning(s.id)) return false;
+      return now - s.updatedAt.getTime() > staleThreshold;
+    });
+
+    // Update stale sessions to PAUSED
+    if (staleSessions.length > 0) {
+      await prisma.agentSession.updateMany({
+        where: {
+          id: { in: staleSessions.map(s => s.id) },
+        },
+        data: {
+          status: 'PAUSED',
+          lastError: 'Session interrupted - can be resumed',
+        },
+      });
+
+      // Update local session objects to reflect new status
+      for (const session of staleSessions) {
+        session.status = 'PAUSED';
+      }
+    }
 
     // Build unified history items
     const historyItems: HistoryItem[] = [];
