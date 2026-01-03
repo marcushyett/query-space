@@ -21,6 +21,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { useDashboardStore, DashboardWidget, WidgetType } from '@/stores/dashboardStore';
+import { getColumnNames } from '@/lib/sql-column-parser';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -63,8 +64,9 @@ export function AddWidgetDrawer() {
 
   // KPI widget form
   const [kpiForm] = Form.useForm();
-  // Track selected query for KPI widget
-  const [, setSelectedKpiQuery] = useState<Query | null>(null);
+  // Track selected query for KPI widget and its available columns
+  const [selectedKpiQuery, setSelectedKpiQuery] = useState<Query | null>(null);
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
 
   // Fetch charts and queries when drawer opens
   useEffect(() => {
@@ -320,6 +322,7 @@ export function AddWidgetDrawer() {
       setAddWidgetOpen(false);
       kpiForm.resetFields();
       setSelectedKpiQuery(null);
+      setAvailableColumns([]);
     } catch (error) {
       console.error('Failed to add widget:', error);
       message.error('Failed to add widget');
@@ -391,6 +394,7 @@ export function AddWidgetDrawer() {
     textForm.resetFields();
     kpiForm.resetFields();
     setSelectedKpiQuery(null);
+    setAvailableColumns([]);
   };
 
   const tabItems = [
@@ -524,6 +528,15 @@ export function AddWidgetDrawer() {
               onChange={(value) => {
                 const query = queries.find((q) => q.id === value);
                 setSelectedKpiQuery(query || null);
+                // Parse columns from the selected query's SQL
+                if (query) {
+                  const columns = getColumnNames(query.sql);
+                  setAvailableColumns(columns);
+                } else {
+                  setAvailableColumns([]);
+                }
+                // Clear the valueColumn when query changes
+                kpiForm.setFieldValue('valueColumn', undefined);
               }}
             >
               {queries.map((query) => (
@@ -537,9 +550,24 @@ export function AddWidgetDrawer() {
           <Form.Item
             name="valueColumn"
             label="Value Column"
-            rules={[{ required: true, message: 'Please specify the value column' }]}
+            rules={[{ required: true, message: 'Please select a value column' }]}
+            extra={selectedKpiQuery && availableColumns.length === 0 ?
+              "No columns detected. You may type a column name manually." : undefined}
           >
-            <Input placeholder="e.g., count, total, value" />
+            <Select
+              placeholder="Select a column"
+              showSearch
+              allowClear
+              disabled={!selectedKpiQuery}
+              optionFilterProp="children"
+              notFoundContent={selectedKpiQuery ? "No columns found" : "Select a query first"}
+            >
+              {availableColumns.map((column) => (
+                <Select.Option key={column} value={column}>
+                  {column}
+                </Select.Option>
+              ))}
+            </Select>
           </Form.Item>
 
           <Form.Item
