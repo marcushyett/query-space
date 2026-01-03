@@ -10,6 +10,7 @@ const {
   mockRequireUser,
   mockGetClaudeApiKey,
   mockRequireDatabaseConnection,
+  mockAfter,
 } = vi.hoisted(() => ({
   mockQueryFindUnique: vi.fn(),
   mockQueryCreate: vi.fn(),
@@ -18,6 +19,10 @@ const {
   mockRequireUser: vi.fn().mockResolvedValue({ id: 'user-1', email: 'test@test.com' }),
   mockGetClaudeApiKey: vi.fn().mockResolvedValue('test-api-key'),
   mockRequireDatabaseConnection: vi.fn().mockResolvedValue('postgresql://localhost/test'),
+  // Mock after to immediately execute its callback
+  mockAfter: vi.fn((callback: () => Promise<void>) => {
+    callback().catch(() => {});
+  }),
 }))
 
 // Mock modules using hoisted functions
@@ -45,6 +50,15 @@ vi.mock('@/lib/auth/organization-settings', () => ({
 vi.mock('@/lib/agent/durableAgentWorkflow', () => ({
   runDurableAgent: mockRunDurableAgent,
 }))
+
+// Mock next/server to capture the after callback
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('next/server')>()
+  return {
+    ...actual,
+    after: mockAfter,
+  }
+})
 
 // Import after mocks
 import { POST } from '../route'

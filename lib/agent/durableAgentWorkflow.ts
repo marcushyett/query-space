@@ -24,10 +24,8 @@ export interface DurableAgentConfig {
 
 /**
  * Update session status in database.
- * Marked as a step for durability and automatic retries.
  */
 async function updateSessionStatus(sessionId: string, status: string) {
-  'use step';
   await prisma.agentSession.update({
     where: { id: sessionId },
     data: { status },
@@ -39,7 +37,6 @@ async function updateSessionStatus(sessionId: string, status: string) {
  * Returns true if the session status is PAUSED (user requested stop).
  */
 async function shouldStopSession(sessionId: string): Promise<boolean> {
-  'use step';
   const session = await prisma.agentSession.findUnique({
     where: { id: sessionId },
     select: { status: true },
@@ -49,7 +46,6 @@ async function shouldStopSession(sessionId: string): Promise<boolean> {
 
 /**
  * Store an agent event in the database.
- * Marked as a step for durability and automatic retries.
  */
 async function storeAgentEvent(
   sessionId: string,
@@ -57,7 +53,6 @@ async function storeAgentEvent(
   eventType: string,
   eventData: Record<string, unknown>
 ) {
-  'use step';
   await prisma.agentEvent.create({
     data: {
       sessionId,
@@ -70,7 +65,6 @@ async function storeAgentEvent(
 
 /**
  * Update session state based on tool call result.
- * Marked as a step for durability and automatic retries.
  */
 async function handleToolCallResult(
   sessionId: string,
@@ -78,8 +72,6 @@ async function handleToolCallResult(
   args: Record<string, unknown>,
   result: unknown
 ) {
-  'use step';
-
   // Update currentSql and add assistant message to chatHistory if this is update_query_ui
   if (toolName === 'update_query_ui') {
     const typedArgs = args as { sql?: string; explanation?: string; summary?: string };
@@ -179,10 +171,8 @@ async function handleToolCallResult(
 
 /**
  * Update session step count.
- * Marked as a step for durability.
  */
 async function updateSessionStep(sessionId: string, step: number) {
-  'use step';
   await prisma.agentSession.update({
     where: { id: sessionId },
     data: { currentStep: step },
@@ -191,7 +181,6 @@ async function updateSessionStep(sessionId: string, step: number) {
 
 /**
  * Finalize session with completion status.
- * Marked as a step for durability.
  */
 async function finalizeSession(
   sessionId: string,
@@ -201,8 +190,6 @@ async function finalizeSession(
   todos: { id: string; text: string; status: string }[],
   hasIncompleteTodos: boolean
 ) {
-  'use step';
-
   let finalStatus: string = AgentStatus.COMPLETED;
   if (stopReason === 'timeout' || stopReason === 'step_limit') {
     finalStatus = AgentStatus.PAUSED;
@@ -225,11 +212,8 @@ async function finalizeSession(
 
 /**
  * Mark session as failed with error.
- * Marked as a step for durability.
  */
 async function markSessionFailed(sessionId: string, errorMessage: string, sequenceNumber: number) {
-  'use step';
-
   // Store error event
   await prisma.agentEvent.create({
     data: {
@@ -250,19 +234,20 @@ async function markSessionFailed(sessionId: string, errorMessage: string, sequen
 }
 
 /**
- * Durable agent workflow that runs the AI agent.
+ * Run the AI agent with full state persistence.
  *
- * This workflow uses the "use workflow" directive to make it durable:
- * - It survives serverless function restarts
- * - It can resume from where it left off if interrupted
- * - It persists state automatically
- * - It can run for longer than the standard serverless timeout
+ * This function runs the agent and persists all events to the database,
+ * allowing clients to reconnect and catch up on progress at any time.
  *
- * The workflow will continue running even if the client disconnects.
+ * Use with waitUntil() from next/server to run in the background
+ * after the HTTP response is sent:
+ *
+ * ```
+ * import { waitUntil } from 'next/server';
+ * waitUntil(runDurableAgent(config));
+ * ```
  */
 export async function runDurableAgent(config: DurableAgentConfig): Promise<{ success: boolean; sessionId: string }> {
-  'use workflow';
-
   const { sessionId, connectionString, schema, prompt, previousSql, previousContext, model } = config;
 
   // Update session status to RUNNING

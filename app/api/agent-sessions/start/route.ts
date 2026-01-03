@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getClaudeApiKey, requireDatabaseConnection } from '@/lib/auth/organization-settings';
 import { requireUser } from '@/lib/auth/session';
@@ -130,21 +130,25 @@ export async function POST(request: NextRequest) {
     // Set the API key in environment for the Claude Agent SDK
     process.env.ANTHROPIC_API_KEY = effectiveApiKey;
 
-    // Start the durable agent workflow
-    // The workflow runs durably and will survive serverless restarts
-    // We don't await this - it runs independently via Vercel Workflows
-    runDurableAgent({
-      sessionId: session.id,
-      organizationId,
-      prompt: prompt.trim(),
-      connectionString,
-      schema,
-      previousSql,
-      previousContext,
-      model,
-    }).catch((error) => {
-      // Log error but don't throw - the session status will be updated by the workflow
-      console.error('Durable agent workflow error:', error);
+    // Start the agent in the background using after()
+    // This allows the agent to continue running after the HTTP response is sent
+    // The agent persists all state to the database, so clients can reconnect anytime
+    after(async () => {
+      try {
+        await runDurableAgent({
+          sessionId: session.id,
+          organizationId,
+          prompt: prompt.trim(),
+          connectionString,
+          schema,
+          previousSql,
+          previousContext,
+          model,
+        });
+      } catch (error) {
+        // Log error - the session status will be updated by the agent
+        console.error('Agent workflow error:', error);
+      }
     });
 
     // Return the session ID immediately along with the query ID if created

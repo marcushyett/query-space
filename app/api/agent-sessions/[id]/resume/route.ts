@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getClaudeApiKey, requireDatabaseConnection } from '@/lib/auth/organization-settings';
 import { requireUser } from '@/lib/auth/session';
@@ -121,18 +121,22 @@ IMPORTANT: Use the EXACT item_id values shown above. Do NOT fabricate or guess I
       },
     });
 
-    // Start the durable agent workflow
-    runDurableAgent({
-      sessionId,
-      organizationId: session.organizationId,
-      prompt: resumePrompt,
-      connectionString,
-      schema,
-      previousSql: session.currentSql || undefined,
-      previousContext: session.resumptionContext || undefined,
-      model,
-    }).catch((error) => {
-      console.error('Durable agent resume error:', error);
+    // Start the agent in the background using after()
+    after(async () => {
+      try {
+        await runDurableAgent({
+          sessionId,
+          organizationId: session.organizationId,
+          prompt: resumePrompt,
+          connectionString,
+          schema,
+          previousSql: session.currentSql || undefined,
+          previousContext: session.resumptionContext || undefined,
+          model,
+        });
+      } catch (error) {
+        console.error('Agent resume error:', error);
+      }
     });
 
     return NextResponse.json({
