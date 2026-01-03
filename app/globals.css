@@ -711,21 +711,40 @@ body {
 
 /* Editor pane - SQL editor */
 .editor-pane {
-  height: 200px;
-  min-height: 150px;
-  max-height: 50%;
-  border-bottom: 1px solid var(--border-color);
+  height: 100%;
   overflow: hidden;
-  flex-shrink: 0;
 }
 
 /* Results pane - Query results */
 .results-pane {
-  flex: 1;
+  height: 100%;
   overflow: hidden;
-  min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Splitter styling for query editor/results */
+.editor-results-container .ant-splitter-bar {
+  background: var(--border-color);
+}
+
+.editor-results-container .ant-splitter-bar:hover,
+.editor-results-container .ant-splitter-bar-dragger:hover {
+  background: var(--color-primary);
+}
+
+.editor-results-container .ant-splitter-bar-dragger {
+  background: var(--border-color);
+}
+
+.editor-results-container .ant-splitter-bar-dragger::before,
+.editor-results-container .ant-splitter-bar-dragger::after {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.editor-results-container .ant-splitter-bar-dragger:hover::before,
+.editor-results-container .ant-splitter-bar-dragger:hover::after {
+  background: rgba(255, 255, 255, 0.6);
 }
 
 /* Mobile layout adjustments for query page */
@@ -740,10 +759,7 @@ body {
     padding: 6px 10px;
   }
 
-  .editor-pane {
-    height: 150px;
-    min-height: 120px;
-  }
+  /* Editor pane height is now managed by Splitter component */
 
   /* On mobile, main content is just editor/results (AI chat overlays) */
   .main-content-area {

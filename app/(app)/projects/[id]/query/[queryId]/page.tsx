@@ -13,6 +13,7 @@ import {
   Grid,
   Breadcrumb,
   Tooltip,
+  Splitter,
 } from 'antd'
 import { TechSpinner } from '@/components/TechSpinner'
 import {
@@ -80,10 +81,32 @@ export default function QueryEditorPage() {
   const lastSavedSqlRef = useRef<string>('')
   const [autoSaving, setAutoSaving] = useState(false)
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false)
+  const [editorHeight, setEditorHeight] = useState<number | string>(() => {
+    // Load saved height from localStorage on initial render
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('queryEditorHeight')
+      if (saved) {
+        const parsed = parseInt(saved, 10)
+        if (!isNaN(parsed) && parsed >= 100) {
+          return parsed
+        }
+      }
+    }
+    return 200
+  })
 
   const isMobile = !screens.md
   const isDesktop = screens.lg
   const TABLE_BROWSER_WIDTH = isMobile ? 200 : 280
+
+  // Handle splitter resize and persist to localStorage
+  const handleSplitterResize = useCallback((sizes: number[]) => {
+    if (sizes[0]) {
+      const newHeight = sizes[0]
+      setEditorHeight(newHeight)
+      localStorage.setItem('queryEditorHeight', String(Math.round(newHeight)))
+    }
+  }, [])
 
   // Sync store queryName with local state (from AI agent)
   useEffect(() => {
@@ -694,12 +717,26 @@ export default function QueryEditorPage() {
 
         <div className="main-content-area">
           <div className="editor-results-container">
-            <div className="editor-pane">
-              <SqlEditor />
-            </div>
-            <div className="results-pane">
-              <QueryResults />
-            </div>
+            <Splitter
+              layout="vertical"
+              onResizeEnd={handleSplitterResize}
+              style={{ height: '100%' }}
+            >
+              <Splitter.Panel
+                size={editorHeight}
+                min={100}
+                max="70%"
+              >
+                <div className="editor-pane">
+                  <SqlEditor />
+                </div>
+              </Splitter.Panel>
+              <Splitter.Panel min={100}>
+                <div className="results-pane">
+                  <QueryResults />
+                </div>
+              </Splitter.Panel>
+            </Splitter>
           </div>
 
           <AiChatPanel />
