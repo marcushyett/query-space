@@ -30,8 +30,6 @@ model User {
   projectAccess         ProjectAccess[]
   createdQueries        Query[]              @relation("QueryCreator")
   createdCharts         Chart[]              @relation("ChartCreator")
-  createdAIChats        AIChat[]             @relation("AIChatCreator")
-  createdAIChatMessages AIChatMessage[]      @relation("MessageCreator")
   sentInvites           OrganizationInvite[] @relation("InviteSender")
 
   @@map("users")
@@ -177,7 +175,6 @@ model Project {
   // Relations
   organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   queries           Query[]
-  aiChats           AIChat[]
   projectAccess     ProjectAccess[]
   dashboardProjects DashboardProject[]
 
@@ -342,67 +339,6 @@ enum WidgetType {
   TEXT
 }
 
-// ============================================================================
-// AI CHATS
-// ============================================================================
-
-model AIChat {
-  id          String   @id @default(cuid())
-  projectId   String
-  title       String?  // Auto-generated or user-set
-  createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy User?           @relation("AIChatCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  messages  AIChatMessage[]
-
-  @@index([projectId])
-  @@map("ai_chats")
-}
-
-model AIChatMessage {
-  id          String      @id @default(cuid())
-  chatId      String
-  role        MessageRole
-  content     String      @db.Text
-
-  // Optional SQL and related metadata
-  sql         String?     @db.Text
-  explanation String?     @db.Text
-  error       String?     @db.Text
-
-  // Query result sample (limited for storage efficiency)
-  queryResultSample Json?
-
-  // Chart data if visualization was generated
-  chartData   Json?
-
-  // Tool calls for agent messages
-  toolCalls   Json?
-
-  // Agent todo list state
-  todos       Json?
-
-  createdById String?
-  createdAt   DateTime    @default(now())
-
-  // Relations
-  chat      AIChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  createdBy User?  @relation("MessageCreator", fields: [createdById], references: [id], onDelete: SetNull)
-
-  @@index([chatId])
-  @@map("ai_chat_messages")
-}
-
-enum MessageRole {
-  USER
-  ASSISTANT
-  SYSTEM
-  TOOL
-}
 
 // ============================================================================
 // QUERY EXECUTION HISTORY

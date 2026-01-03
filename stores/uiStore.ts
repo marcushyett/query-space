@@ -11,7 +11,6 @@ interface UiStore {
   currentQueryId: string | null;
   toggleTableBrowser: () => void;
   setTableBrowserOpen: (open: boolean) => void;
-  toggleHistoryDrawer: () => void;
   setHistoryDrawerOpen: (open: boolean) => void;
   setShortcutsHelpOpen: (open: boolean) => void;
   setConnectionDialogOpen: (open: boolean) => void;
@@ -36,9 +35,6 @@ export const useUiStore = create<UiStore>((set) => ({
 
   setTableBrowserOpen: (open: boolean) =>
     set({ tableBrowserOpen: open }),
-
-  toggleHistoryDrawer: () =>
-    set((state) => ({ historyDrawerOpen: !state.historyDrawerOpen })),
 
   setHistoryDrawerOpen: (open: boolean) =>
     set({ historyDrawerOpen: open }),
