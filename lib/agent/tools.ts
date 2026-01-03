@@ -984,9 +984,9 @@ Returns analysis with recommendations for query refinement.`,
 Use this tool to give the query a clear, concise name that describes what it does.
 
 WHEN TO USE:
-- Call this AFTER update_query_ui once the query has been finalized
-- This should be your LAST tool call, signaling completion of the task
-- The name should reflect the actual query that was built, not the initial question
+- Call this ONCE at the start of a new session, based on the user's initial question
+- Only call this tool once per session - do not call it again
+- This helps users identify their query from the beginning
 
 NAME GUIDELINES:
 - Keep it short (2-5 words)
@@ -994,7 +994,7 @@ NAME GUIDELINES:
 - Avoid generic names like "Query 1" or "New Query"
 - Use title case
 - Focus on what the data shows, not how it's retrieved
-- Base the name on the final query result`,
+- Base the name on what the user is asking for`,
       inputSchema: z.object({
         name: z.string().describe('A short, descriptive name for the query (2-5 words, title case)'),
       }),
