@@ -104,11 +104,17 @@ export async function GET(request: NextRequest) {
     });
 
     // Fetch standalone executions (not linked to a query)
+    // Include executions that match the project OR have no project (organization-wide executions)
     const standaloneExecutions = await prisma.queryExecution.findMany({
       where: {
         organizationId,
         queryId: null,
-        ...(projectId ? { projectId } : {}),
+        ...(projectId ? {
+          OR: [
+            { projectId },
+            { projectId: null },
+          ],
+        } : {}),
         ...(search ? {
           OR: [
             { sql: { contains: search, mode: 'insensitive' } },
@@ -121,11 +127,17 @@ export async function GET(request: NextRequest) {
     });
 
     // Fetch standalone sessions (not linked to a query)
+    // Include sessions that match the project OR have no project (organization-wide sessions)
     const standaloneSessions = await prisma.agentSession.findMany({
       where: {
         organizationId,
         queryId: null,
-        ...(projectId ? { projectId } : {}),
+        ...(projectId ? {
+          OR: [
+            { projectId },
+            { projectId: null },
+          ],
+        } : {}),
         ...(search ? { goal: { contains: search, mode: 'insensitive' } } : {}),
       },
       include: {

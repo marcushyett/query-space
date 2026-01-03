@@ -102,13 +102,19 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
         const data = await response.json();
         setItems(data.items);
         setCounts(data.counts);
+      } else {
+        // Log and show error to user
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Failed to load history:', response.status, errorData);
+        message.error(`Failed to load history: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to load history:', error);
+      message.error('Failed to load history');
     } finally {
       setIsLoading(false);
     }
-  }, [organizationId, projectId, queryId, searchQuery]);
+  }, [organizationId, projectId, queryId, searchQuery, message]);
 
   useEffect(() => {
     if (open && organizationId) {

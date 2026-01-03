@@ -15,6 +15,15 @@ interface QueryExecutionRecord {
   createdAt: Date;
 }
 
+interface AgentEventRecord {
+  id: string;
+  sessionId: string;
+  sequenceNumber: number;
+  eventType: string;
+  eventData: unknown;
+  createdAt: Date;
+}
+
 const updateSessionSchema = z.object({
   status: z.enum(['RUNNING', 'PAUSED', 'COMPLETED', 'FAILED']).optional(),
   currentStep: z.number().optional(),
@@ -47,6 +56,9 @@ export async function GET(
       include: {
         queryExecutions: {
           orderBy: { createdAt: 'asc' },
+        },
+        events: {
+          orderBy: { sequenceNumber: 'asc' },
         },
       },
     });
@@ -89,6 +101,13 @@ export async function GET(
           rowCount: e.rowCount,
           executionTime: e.executionTime,
           createdAt: e.createdAt.getTime(),
+        })),
+        // Include all events for full session replay
+        events: session.events.map((e: AgentEventRecord) => ({
+          sequence: e.sequenceNumber,
+          type: e.eventType,
+          data: e.eventData,
+          timestamp: e.createdAt.toISOString(),
         })),
       },
     });
