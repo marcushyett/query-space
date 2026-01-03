@@ -64,7 +64,7 @@ export default function QueryEditorPage() {
   const { setCurrentQuery, currentQuery, setQueryResults, queryResults, isExecuting, setIsExecuting, queryName: storeQueryName, setQueryName: setStoreQueryName } = useQueryStore()
   const { setTables, setLoading: setSchemaLoading, setError: setSchemaError } = useSchemaStore()
   const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, setCurrentProjectId, setCurrentQueryId } = useUiStore()
-  const { isOpen: aiChatOpen, setOpen: setAiChatOpen } = useAiChatStore()
+  const { isOpen: aiChatOpen, setOpen: setAiChatOpen, clearChat } = useAiChatStore()
 
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
@@ -161,6 +161,8 @@ export default function QueryEditorPage() {
       setQueryData(null)
       lastSavedSqlRef.current = ''
       setHasUnsavedChanges(false)
+      // Clear AI chat state so new query doesn't show previous session
+      clearChat()
       return
     }
 
