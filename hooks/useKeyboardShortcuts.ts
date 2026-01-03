@@ -13,7 +13,6 @@ export function useKeyboardShortcuts() {
   const organizationId = useConnectionStore((state) => state.organizationId);
   const {
     toggleTableBrowser,
-    setHistoryDrawerOpen,
     setShortcutsHelpOpen,
     setConnectionDialogOpen,
   } = useUiStore();
@@ -33,11 +32,6 @@ export function useKeyboardShortcuts() {
   // Toggle table browser (Cmd+B)
   useHotkeys('mod+b', () => {
     toggleTableBrowser();
-  });
-
-  // Toggle history (Cmd+H)
-  useHotkeys('mod+h', () => {
-    setHistoryDrawerOpen(true);
   });
 
   // Show shortcuts help (Cmd+/)
