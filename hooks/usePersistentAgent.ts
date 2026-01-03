@@ -204,7 +204,9 @@ export function usePersistentAgent() {
 
         case 'tool_call_result': {
           const tc = event.toolCall;
-          const hasError = !!(tc.result as { error?: string })?.error;
+          // Check if error is a non-empty string (not null, undefined, or empty string)
+          const errorValue = (tc.result as { error?: unknown })?.error;
+          const hasError = typeof errorValue === 'string' && errorValue.length > 0;
           const toolStatus = hasError ? 'error' : 'success';
 
           updateAgentToolCall(tc.id, {

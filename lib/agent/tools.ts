@@ -116,10 +116,12 @@ This helps you write correct JSON path expressions like data->>'fieldName'.`,
             : `"${column}"`;
 
           // Get unique keys from the JSON field (limit to 50 for efficiency)
+          // Filter to only objects - jsonb_object_keys fails on arrays
           const keysQuery = `
             SELECT DISTINCT jsonb_object_keys(${jsonExpr}::jsonb) as key
             FROM ${table}
             WHERE ${jsonExpr} IS NOT NULL
+              AND jsonb_typeof(${jsonExpr}::jsonb) = 'object'
             LIMIT 50
           `;
 
@@ -134,6 +136,7 @@ This helps you write correct JSON path expressions like data->>'fieldName'.`,
                 SELECT DISTINCT ${jsonExpr}->>'${key}' as value
                 FROM ${table}
                 WHERE ${jsonExpr}->>'${key}' IS NOT NULL
+                  AND jsonb_typeof(${jsonExpr}::jsonb) = 'object'
                 LIMIT 3
               `;
               const sampleResult = await client.query(sampleQuery);
