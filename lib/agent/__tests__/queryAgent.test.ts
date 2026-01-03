@@ -27,7 +27,6 @@ vi.mock('@ai-sdk/anthropic', () => ({
 vi.mock('../tools', () => ({
   createQueryAgentTools: vi.fn(() => ({
     get_table_schema: { execute: vi.fn() },
-    get_json_keys: { execute: vi.fn() },
     execute_query: { execute: vi.fn() },
     validate_query: { execute: vi.fn() },
     update_query_ui: { execute: vi.fn() },

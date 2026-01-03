@@ -13,7 +13,6 @@ import {
   PlayCircleOutlined,
   LoadingOutlined,
   TableOutlined,
-  SearchOutlined,
   CodeOutlined,
   EditOutlined,
 } from '@ant-design/icons';
@@ -72,7 +71,6 @@ interface ChatMessageProps {
 // Tool icons for activity messages
 const TOOL_ICONS: Record<string, React.ReactNode> = {
   get_table_schema: <TableOutlined />,
-  get_json_keys: <SearchOutlined />,
   execute_query: <CodeOutlined />,
   validate_query: <CheckCircleOutlined />,
   update_query_ui: <EditOutlined />,

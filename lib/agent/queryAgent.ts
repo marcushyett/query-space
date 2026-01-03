@@ -182,15 +182,14 @@ Do NOT ask for clarification about:
 
 ## TOOLS
 1. **manage_todo** - REQUIRED FIRST for non-trivial queries (see above)
-2. get_table_schema - Get database structure (use first if needed)
-3. get_json_keys - Explore JSON column structure
-4. execute_query - Test queries (ALWAYS provide title and description) - includes data quality analysis
-5. validate_query - Check syntax without running
-6. update_query_ui - Finalize and present query to user (ALWAYS provide summary AND assumptions)
-7. generate_chart - Create a visualization for query results (ALWAYS provide title and description)
-8. analyze_data_quality - Deep analysis of data quality issues when needed
-9. **review_results** - Check for statistical validity (use for percentage/proportion queries)
-10. **set_query_name** - ALWAYS call this after update_query_ui to name the query
+2. get_table_schema - Get database structure including JSON column keys (use first if needed)
+3. execute_query - Test queries (ALWAYS provide title and description) - includes data quality analysis
+4. validate_query - Check syntax without running
+5. update_query_ui - Finalize and present query to user (ALWAYS provide summary AND assumptions)
+6. generate_chart - Create a visualization for query results (ALWAYS provide title and description)
+7. analyze_data_quality - Deep analysis of data quality issues when needed
+8. **review_results** - Check for statistical validity (use for percentage/proportion queries)
+9. **set_query_name** - ALWAYS call this after update_query_ui to name the query
 
 ## TODO LIST WORKFLOW
 1. Call manage_todo(action="create", items=[...]) at the START
@@ -251,7 +250,7 @@ For update_query_ui:
 - Only SELECT queries allowed
 - Quote table/column names with double quotes
 - Test complex queries before finalizing
-- If columns return NULL, check field names with get_json_keys
+- For JSON columns, check the jsonKeys in the schema to find the correct field names
 
 ## CHART GENERATION
 After executing a query with execute_query, consider using generate_chart when:

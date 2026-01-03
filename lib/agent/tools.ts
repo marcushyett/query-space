@@ -40,6 +40,7 @@ export interface SchemaInfo {
     name: string;
     type: string;
     isPrimaryKey: boolean;
+    jsonKeys?: string[]; // For JSON/JSONB columns, the unique keys found in sample data
   }[];
 }
 
@@ -67,7 +68,8 @@ export function createQueryAgentTools(context: ToolContext) {
     get_table_schema: tool({
       description: `Get the complete database schema including all tables, views, and their column definitions.
 Use this tool first to understand the database structure before writing queries.
-Returns a list of tables with their columns, data types, and primary key information.`,
+Returns a list of tables with their columns, data types, primary key information, and JSON field keys.
+For JSON/JSONB columns, the unique keys found in sample data are included - no need to call a separate tool.`,
       inputSchema: z.object({
         includeViews: z.boolean().optional().describe('Whether to include views in the result. Defaults to true.'),
       }),
@@ -83,100 +85,21 @@ Returns a list of tables with their columns, data types, and primary key informa
             name: col.name,
             type: col.type,
             isPrimaryKey: col.isPrimaryKey,
+            // Include JSON keys if available
+            ...(col.jsonKeys && col.jsonKeys.length > 0 ? { jsonKeys: col.jsonKeys } : {}),
           })),
         }));
 
         return {
           tableCount: result.length,
           tables: result,
-          hint: 'Use get_json_keys to explore JSON/JSONB column structures if needed.',
+          hint: 'For JSON/JSONB columns, jsonKeys shows the available fields. Use column->>\'key\' for text or column->\'key\' for nested objects.',
           error: null,
         };
       },
     }),
 
-    // Tool 2: Get JSON keys
-    get_json_keys: tool({
-      description: `Extract the unique keys from a JSON or JSONB column to understand its structure.
-Use this when you need to query a JSON field but don't know what keys it contains.
-This helps you write correct JSON path expressions like data->>'fieldName'.`,
-      inputSchema: z.object({
-        table: z.string().describe('The table name (e.g., "users" or "schema"."table")'),
-        column: z.string().describe('The JSON/JSONB column name to inspect'),
-        nestedPath: z.string().optional().describe('Optional nested path to explore (e.g., "data" to get keys from column->\'data\')'),
-        sampleValues: z.boolean().optional().describe('Whether to include sample values for each key. Defaults to false.'),
-      }),
-      execute: async ({ table, column, nestedPath, sampleValues = false }) => {
-        const client = await createClient(connectionString);
-
-        try {
-          // Build the JSON path expression
-          const jsonExpr = nestedPath
-            ? `"${column}"->'${nestedPath}'`
-            : `"${column}"`;
-
-          // Get unique keys from the JSON field (limit to 50 for efficiency)
-          // Filter to only objects - jsonb_object_keys fails on arrays
-          const keysQuery = `
-            SELECT DISTINCT jsonb_object_keys(${jsonExpr}::jsonb) as key
-            FROM ${table}
-            WHERE ${jsonExpr} IS NOT NULL
-              AND jsonb_typeof(${jsonExpr}::jsonb) = 'object'
-            LIMIT 50
-          `;
-
-          const keysResult = await client.query(keysQuery);
-          const keys = keysResult.rows.map((r: Record<string, unknown>) => r.key as string);
-
-          // Optionally get sample values for each key
-          const samples: Record<string, unknown[]> = {};
-          if (sampleValues && keys.length > 0) {
-            for (const key of keys.slice(0, 10)) {
-              const sampleQuery = `
-                SELECT DISTINCT ${jsonExpr}->>'${key}' as value
-                FROM ${table}
-                WHERE ${jsonExpr}->>'${key}' IS NOT NULL
-                  AND jsonb_typeof(${jsonExpr}::jsonb) = 'object'
-                LIMIT 3
-              `;
-              const sampleResult = await client.query(sampleQuery);
-              samples[key] = sampleResult.rows.map((r: Record<string, unknown>) => r.value);
-            }
-          }
-
-          return {
-            table,
-            column,
-            nestedPath: nestedPath ?? null,
-            keys,
-            keyCount: keys.length,
-            // Use null instead of undefined to prevent JSON serialization issues
-            sampleValues: sampleValues ? samples : null,
-            hint: keys.length === 0
-              ? 'No keys found. The column might be empty, an array, or have a different structure.'
-              : `Found ${keys.length} unique keys. Use these in your query like: ${column}->>'${keys[0]}'`,
-            error: null,
-            suggestion: null,
-          };
-        } catch (error) {
-          return {
-            table,
-            column,
-            nestedPath: nestedPath ?? null,
-            keys: null,
-            keyCount: null,
-            sampleValues: null,
-            hint: null,
-            error: error instanceof Error ? error.message : 'Failed to get JSON keys',
-            suggestion: 'Check that the table and column names are correct.',
-          };
-        } finally {
-          await client.end();
-        }
-      },
-    }),
-
-    // Tool 3: Execute query
+    // Tool 2: Execute query
     execute_query: tool({
       description: `Execute a read-only SQL query against the database and return results.
 IMPORTANT: Only SELECT queries are allowed. Any INSERT, UPDATE, DELETE, DROP, or other mutation queries will be rejected.
@@ -298,7 +221,7 @@ REQUIRED: Always provide a title and description for the query so users understa
             success: false,
             error: errorMessage,
             suggestion: errorMessage.includes('column')
-              ? 'Check column names against the schema. Use get_table_schema or get_json_keys to verify field names.'
+              ? 'Check column names against the schema. Use get_table_schema to verify field names and JSON keys.'
               : errorMessage.includes('syntax')
               ? 'There is a syntax error in your SQL. Review the query structure.'
               : 'Review the query and try again.',
@@ -319,7 +242,7 @@ REQUIRED: Always provide a title and description for the query so users understa
       },
     }),
 
-    // Tool 4: Validate query
+    // Tool 3: Validate query
     validate_query: tool({
       description: `Validate that a SQL query is syntactically correct PostgreSQL without actually running it.
 Use EXPLAIN to check query validity and get execution plan information.
@@ -385,7 +308,7 @@ This is useful for validating complex queries before proposing them to the user.
       },
     }),
 
-    // Tool 5: Update query UI (signals completion)
+    // Tool 4: Update query UI (signals completion)
     update_query_ui: tool({
       description: `Update the query in the UI for the user to review and run.
 Call this when you have a final query that meets the user's goal.
@@ -431,7 +354,7 @@ IMPORTANT: Always document assumptions made during analysis, especially:
       },
     }),
 
-    // Tool 6: Generate chart visualization
+    // Tool 5: Generate chart visualization
     generate_chart: tool({
       description: `Generate a chart visualization for query results.
 Use this after executing a query when the results would benefit from a visual representation.
@@ -686,7 +609,7 @@ REQUIRED: Always provide a title and description so users understand the visuali
       },
     }),
 
-    // Tool 7: Manage todo list for complex queries
+    // Tool 6: Manage todo list for complex queries
     manage_todo: tool({
       description: `Manage a todo list to track progress on complex queries.
 Use this tool to create a plan at the start of complex queries, and update progress as you work.
@@ -818,7 +741,7 @@ BAD TODO ITEMS (too vague):
       },
     }),
 
-    // Tool 8: Analyze data quality
+    // Tool 7: Analyze data quality
     analyze_data_quality: tool({
       description: `Analyze data quality for a query's results to detect issues like NULL values, zeros, infinite values, type mismatches, and outliers.
 Use this tool after executing a query to understand data quality before finalizing.
@@ -910,7 +833,7 @@ The tool provides a quality score (0-100) and specific issues to address.`,
       },
     }),
 
-    // Tool 9: Review results for statistical validity
+    // Tool 8: Review results for statistical validity
     review_results: tool({
       description: `Review query results for statistical validity and detect trivial or misleading results.
 Use this tool after execute_query when dealing with proportion/percentage queries or rankings.
@@ -1055,7 +978,7 @@ Returns analysis with recommendations for query refinement.`,
       },
     }),
 
-    // Tool 10: Set query name
+    // Tool 9: Set query name
     set_query_name: tool({
       description: `Set a descriptive name for the current query.
 Use this tool to give the query a clear, concise name that describes what it does.
