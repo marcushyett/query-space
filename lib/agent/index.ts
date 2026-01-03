@@ -17,6 +17,13 @@ export {
   type ColumnStats,
 } from './dataQuality';
 export {
+  runDurableAgent,
+  type DurableAgentConfig,
+} from './durableAgentWorkflow';
+
+// Legacy exports for backwards compatibility (deprecated)
+// These are kept for any tests or code that might still reference them
+export {
   startBackgroundAgent,
   stopBackgroundAgent,
   isAgentRunning,

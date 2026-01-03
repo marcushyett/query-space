@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { requireUser } from '@/lib/auth/session';
-import { isAgentRunning } from '@/lib/agent/backgroundRunner';
 
 // Status constants matching Prisma enum
 const AgentStatus = {
@@ -94,8 +93,8 @@ async function pollEvents(
     take: 100, // Limit to prevent huge responses
   });
 
-  // Check if agent is still running
-  const isRunning = isAgentRunning(sessionId) || currentStatus === AgentStatus.RUNNING;
+  // Check if agent is still running (using database status for durable workflows)
+  const isRunning = currentStatus === AgentStatus.RUNNING || currentStatus === AgentStatus.PENDING;
 
   // Get the latest session state
   const session = await prisma.agentSession.findUnique({
@@ -192,8 +191,12 @@ function streamEvents(
         // Poll for new events every 500ms while agent is running
         const pollInterval = setInterval(async () => {
           try {
-            // Check if agent is still running
-            const running = isAgentRunning(sessionId);
+            // Check if agent is still running (using database status for durable workflows)
+            const currentSession = await prisma.agentSession.findUnique({
+              where: { id: sessionId },
+              select: { status: true },
+            });
+            const running = currentSession?.status === AgentStatus.RUNNING;
 
             // Get new events
             const newEvents = await prisma.agentEvent.findMany({

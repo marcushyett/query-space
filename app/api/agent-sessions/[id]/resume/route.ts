@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getClaudeApiKey, requireDatabaseConnection } from '@/lib/auth/organization-settings';
 import { requireUser } from '@/lib/auth/session';
-import { startBackgroundAgent, isAgentRunning } from '@/lib/agent/backgroundRunner';
+import { runDurableAgent } from '@/lib/agent/durableAgentWorkflow';
 import type { SchemaInfo } from '@/lib/agent';
 
 export const runtime = 'nodejs';
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if already running
-    if (isAgentRunning(sessionId) || session.status === 'RUNNING') {
+    if (session.status === 'RUNNING') {
       return NextResponse.json({ error: 'Session is already running' }, { status: 400 });
     }
 
@@ -121,18 +121,22 @@ IMPORTANT: Use the EXACT item_id values shown above. Do NOT fabricate or guess I
       },
     });
 
-    // Start the agent in background
-    startBackgroundAgent({
-      sessionId,
-      organizationId: session.organizationId,
-      prompt: resumePrompt,
-      connectionString,
-      schema,
-      previousSql: session.currentSql || undefined,
-      previousContext: session.resumptionContext || undefined,
-      model,
-    }).catch((error) => {
-      console.error('Background agent resume error:', error);
+    // Start the agent in the background using after()
+    after(async () => {
+      try {
+        await runDurableAgent({
+          sessionId,
+          organizationId: session.organizationId,
+          prompt: resumePrompt,
+          connectionString,
+          schema,
+          previousSql: session.currentSql || undefined,
+          previousContext: session.resumptionContext || undefined,
+          model,
+        });
+      } catch (error) {
+        console.error('Agent resume error:', error);
+      }
     });
 
     return NextResponse.json({
