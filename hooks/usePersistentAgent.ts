@@ -281,9 +281,8 @@ export function usePersistentAgent() {
                 sampleResults: result.rows?.slice(0, 5),
               };
               addQueryMessage(queryMetadata);
-            } else if (result.error) {
-              addSystemMessage(`Query error: ${result.error}`);
             }
+            // Note: Query errors are already displayed in the inline tool activity message
           }
 
           // Handle generate_chart
@@ -889,14 +888,14 @@ export function usePersistentAgent() {
         message.success(`Query executed (${result.result.executionTime}ms)`);
         return true;
       } else if (result.error) {
-        addSystemMessage(`Query error: ${result.error}`);
+        // Only show toast notification, no need for system message alert
         message.error(result.error);
         return false;
       }
 
       return false;
     },
-    [currentSql, executeQuery, addSystemMessage, message]
+    [currentSql, executeQuery, message]
   );
 
   const startNew = useCallback(() => {

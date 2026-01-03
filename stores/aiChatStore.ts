@@ -281,35 +281,60 @@ export const useAiChatStore = create<AiChatStore>((set) => ({
   },
 
   addQueryMessage: (queryMetadata: QueryMetadata) => {
-    const queryMessage: ChatMessage = {
-      id: `query-${Date.now()}`,
-      role: 'system',
-      content: queryMetadata.title,
-      timestamp: Date.now(),
-      queryMetadata,
-      queryResult: {
-        rowCount: queryMetadata.rowCount,
-        executionTime: queryMetadata.executionTime,
-        sampleResults: queryMetadata.sampleResults,
-      },
-    };
-    set((state) => ({
-      messages: [...state.messages, queryMessage],
-    }));
+    set((state) => {
+      // Check if the last query message has the same SQL to avoid duplicates
+      const lastQueryMessage = state.messages.findLast((m) => m.queryMetadata);
+      if (lastQueryMessage?.queryMetadata?.sql === queryMetadata.sql) {
+        // Skip duplicate query result
+        return {};
+      }
+
+      const queryMessage: ChatMessage = {
+        id: `query-${Date.now()}`,
+        role: 'system',
+        content: queryMetadata.title,
+        timestamp: Date.now(),
+        queryMetadata,
+        queryResult: {
+          rowCount: queryMetadata.rowCount,
+          executionTime: queryMetadata.executionTime,
+          sampleResults: queryMetadata.sampleResults,
+        },
+      };
+      return { messages: [...state.messages, queryMessage] };
+    });
   },
 
   addTodoMessage: (todos: AgentTodoItem[]) => {
-    // Always add a new snapshot of the todo list to show progress inline
-    const todoMessage: ChatMessage = {
-      id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      role: 'system',
-      content: '',
-      timestamp: Date.now(),
-      todos: todos.map(t => ({ ...t })),
-    };
-    set((state) => ({
-      messages: [...state.messages, todoMessage],
-    }));
+    // Add a new snapshot of the todo list, but skip if identical to the last one
+    set((state) => {
+      // Find the last todo message to check for duplicates
+      const lastTodoMessage = state.messages.findLast((m) => m.todos && m.todos.length > 0);
+
+      if (lastTodoMessage?.todos) {
+        // Check if the new todos state is identical to the last one
+        const lastTodos = lastTodoMessage.todos;
+        if (lastTodos.length === todos.length) {
+          const isIdentical = todos.every((t, i) =>
+            lastTodos[i].id === t.id && lastTodos[i].status === t.status
+          );
+          if (isIdentical) {
+            // Skip adding duplicate todo snapshot
+            return {};
+          }
+        }
+      }
+
+      // Add new snapshot showing the updated state
+      const todoMessage: ChatMessage = {
+        id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        role: 'system',
+        content: '',
+        timestamp: Date.now(),
+        todos: todos.map(t => ({ ...t })),
+      };
+      return { messages: [...state.messages, todoMessage] };
+    });
   },
 
   addThinkingMessage: (content: string) => {
@@ -327,21 +352,31 @@ export const useAiChatStore = create<AiChatStore>((set) => ({
   },
 
   addToolActivityMessage: (toolName: string, status: 'running' | 'success' | 'error', description: string, result?: string) => {
-    const activityMessage: ChatMessage = {
-      id: `tool-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      role: 'system',
-      content: description,
-      timestamp: Date.now(),
-      toolActivity: {
-        toolName,
-        status,
-        description,
-        result,
-      },
-    };
-    set((state) => ({
-      messages: [...state.messages, activityMessage],
-    }));
+    set((state) => {
+      // Don't add duplicate "running" messages for the same tool
+      if (status === 'running') {
+        const hasRunningMessage = state.messages.some(
+          (m) => m.toolActivity?.toolName === toolName && m.toolActivity?.status === 'running'
+        );
+        if (hasRunningMessage) {
+          return {};
+        }
+      }
+
+      const activityMessage: ChatMessage = {
+        id: `tool-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        role: 'system',
+        content: description,
+        timestamp: Date.now(),
+        toolActivity: {
+          toolName,
+          status,
+          description,
+          result,
+        },
+      };
+      return { messages: [...state.messages, activityMessage] };
+    });
   },
 
   updateLatestToolActivityMessage: (toolName: string, status: 'running' | 'success' | 'error', result?: string) => {
