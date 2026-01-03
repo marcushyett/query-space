@@ -74,7 +74,7 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
   const screens = useBreakpoint();
   const { organizationId } = useConnectionStore();
   const { setCurrentQuery } = useQueryStore();
-  const { loadConversationFromSession, resumeSession } = usePersistentAgent();
+  const { loadConversationFromSession, resumeSession, reconnectToSession } = usePersistentAgent();
   const { setOpen: setAiChatOpen } = useAiChatStore();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -133,6 +133,19 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
     handleClose();
     await loadConversationFromSession(sessionId);
     setAiChatOpen(true);
+  };
+
+  // Handle joining a running session
+  const handleJoinRunningSession = async (sessionId: string) => {
+    handleClose();
+    const success = await reconnectToSession(sessionId);
+    if (success) {
+      setAiChatOpen(true);
+    } else {
+      // Fall back to viewing if reconnect fails (session might have completed)
+      await loadConversationFromSession(sessionId);
+      setAiChatOpen(true);
+    }
   };
 
   // Handle resuming a paused session
@@ -250,7 +263,24 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
     const actions: React.ReactNode[] = [];
 
     if (item.type === 'session') {
-      if (item.status === 'paused') {
+      if (item.status === 'running') {
+        actions.push(
+          <Button
+            key="view"
+            type="primary"
+            size="small"
+            icon={<SyncOutlined spin />}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (item.sessionId) {
+                handleJoinRunningSession(item.sessionId);
+              }
+            }}
+          >
+            View
+          </Button>
+        );
+      } else if (item.status === 'paused') {
         actions.push(
           <Button
             key="resume"
@@ -306,7 +336,12 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
 
   const handleItemClick = (item: HistoryItem) => {
     if (item.type === 'session' && item.sessionId) {
-      handleViewSession(item.sessionId);
+      // For running sessions, join/reconnect to see live updates
+      if (item.status === 'running') {
+        handleJoinRunningSession(item.sessionId);
+      } else {
+        handleViewSession(item.sessionId);
+      }
     } else if (item.type === 'execution' && item.sql) {
       handleRestoreSql(item.sql);
     }

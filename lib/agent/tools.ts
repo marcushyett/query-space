@@ -984,16 +984,17 @@ Returns analysis with recommendations for query refinement.`,
 Use this tool to give the query a clear, concise name that describes what it does.
 
 WHEN TO USE:
-- After successfully building a query with update_query_ui
-- When you understand what the query retrieves
-- To help users identify and organize their queries
+- IMMEDIATELY at the start of a new session, based on the user's initial question
+- This should be your FIRST tool call to help users identify their query from the beginning
+- Update the name if the query's purpose changes significantly during analysis
 
 NAME GUIDELINES:
 - Keep it short (2-5 words)
 - Be descriptive and specific (e.g., "Monthly Revenue by Region", "Active Users Last Week")
 - Avoid generic names like "Query 1" or "New Query"
 - Use title case
-- Focus on what the data shows, not how it's retrieved`,
+- Focus on what the data shows, not how it's retrieved
+- Base the name on what the user is asking for, even before building the query`,
       inputSchema: z.object({
         name: z.string().describe('A short, descriptive name for the query (2-5 words, title case)'),
       }),
