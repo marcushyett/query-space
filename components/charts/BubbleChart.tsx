@@ -91,7 +91,7 @@ export function BubbleChart({
   const yPadding = (yMax - yMin) * 0.1 || 1;
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
       <ScatterChart margin={{ top: 20, right: 30, bottom: 60, left: 60 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#333" />
         <XAxis

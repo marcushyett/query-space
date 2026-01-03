@@ -42,7 +42,7 @@ export function DonutChart({
   const total = pieData.reduce((sum, item) => sum + (item.value as number), 0);
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
       <RechartsPieChart>
         <Pie
           data={pieData}

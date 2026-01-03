@@ -30,7 +30,7 @@ export function BarChart({
   const colors = getChartColors();
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
       <RechartsBarChart
         data={data}
         layout="vertical"

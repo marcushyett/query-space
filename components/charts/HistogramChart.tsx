@@ -131,7 +131,7 @@ export function HistogramChart({
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <ComposedChart
           data={histogramData}
           margin={{ top: 20, right: 30, bottom: 60, left: 60 }}

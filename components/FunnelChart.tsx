@@ -43,7 +43,7 @@ export function FunnelChart({
   });
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
       <RechartsFunnelChart margin={{ top: 20, right: 120, left: 20, bottom: 20 }}>
         <Tooltip
           contentStyle={{
