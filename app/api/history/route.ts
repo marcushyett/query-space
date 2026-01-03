@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
 import { getCurrentUser, checkOrganizationAccess } from '@/lib/auth/session';
+import { isAgentRunning } from '@/lib/agent/backgroundRunner';
 
 const listHistorySchema = z.object({
   organizationId: z.string(),
@@ -135,6 +136,41 @@ export async function GET(request: NextRequest) {
       take: 50,
     });
 
+    // Clean up stale RUNNING sessions that are no longer actually running
+    const staleThreshold = 30 * 1000; // 30 seconds
+    const now = Date.now();
+
+    // Collect all sessions from queries and standalone
+    const allSessions = [
+      ...queries.flatMap(q => q.agentSessions),
+      ...standaloneSessions,
+    ];
+
+    // Find stale sessions (marked RUNNING but not actually running and not updated recently)
+    const staleSessionIds = allSessions
+      .filter(s => {
+        if (s.status !== 'RUNNING') return false;
+        if (isAgentRunning(s.id)) return false;
+        return now - s.updatedAt.getTime() > staleThreshold;
+      })
+      .map(s => s.id);
+
+    // Update stale sessions to PAUSED
+    if (staleSessionIds.length > 0) {
+      await prisma.agentSession.updateMany({
+        where: {
+          id: { in: staleSessionIds },
+        },
+        data: {
+          status: 'PAUSED',
+          lastError: 'Session interrupted - can be resumed',
+        },
+      });
+    }
+
+    // Create a set for quick lookup of stale session IDs
+    const staleSessionIdSet = new Set(staleSessionIds);
+
     // Build unified history items
     const historyItems: HistoryItem[] = [];
 
@@ -173,6 +209,10 @@ export async function GET(request: NextRequest) {
 
       // Add sessions under this query
       for (const session of query.agentSessions) {
+        // Use corrected status if this session was just marked as stale
+        const effectiveStatus = staleSessionIdSet.has(session.id)
+          ? 'paused'
+          : session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed';
         historyItems.push({
           type: 'session',
           id: session.id,
@@ -180,7 +220,7 @@ export async function GET(request: NextRequest) {
           queryId: query.id,
           queryName: session.queryName || query.name || undefined,
           goal: session.goal,
-          status: session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed',
+          status: effectiveStatus,
           queryCount: session._count.queryExecutions,
           timestamp: session.updatedAt.getTime(),
           projectId: query.project.id,
@@ -207,12 +247,16 @@ export async function GET(request: NextRequest) {
 
     // Add standalone sessions
     for (const session of standaloneSessions) {
+      // Use corrected status if this session was just marked as stale
+      const effectiveStatus = staleSessionIdSet.has(session.id)
+        ? 'paused'
+        : session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed';
       historyItems.push({
         type: 'session',
         id: session.id,
         sessionId: session.id,
         goal: session.goal,
-        status: session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed',
+        status: effectiveStatus,
         queryCount: session._count.queryExecutions,
         timestamp: session.updatedAt.getTime(),
       });

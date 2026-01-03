@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Drawer,
-  List,
   Typography,
   Button,
   Empty,
@@ -14,7 +13,6 @@ import {
   Spin,
   Grid,
   App,
-  Tooltip,
 } from 'antd';
 import {
   ClockCircleOutlined,
@@ -38,7 +36,7 @@ import { usePersistentAgent } from '@/hooks/usePersistentAgent';
 import { useAiChatStore } from '@/stores/aiChatStore';
 import type { HistoryItem } from '@/app/api/history/route';
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 interface HistoryPanelProps {
@@ -212,54 +210,56 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
   };
 
   const getItemIcon = (item: HistoryItem) => {
+    const iconStyle = { color: '#888', fontSize: 14 };
+
     if (item.type === 'session') {
       switch (item.status) {
         case 'running':
-          return <SyncOutlined spin style={{ color: '#1890ff' }} />;
+          return <SyncOutlined spin style={iconStyle} />;
         case 'paused':
-          return <PauseCircleOutlined style={{ color: '#faad14' }} />;
+          return <PauseCircleOutlined style={iconStyle} />;
         case 'completed':
-          return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+          return <CheckCircleOutlined style={iconStyle} />;
         case 'failed':
-          return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />;
+          return <CloseCircleOutlined style={iconStyle} />;
         default:
-          return <RobotOutlined style={{ color: '#1890ff' }} />;
+          return <RobotOutlined style={iconStyle} />;
       }
     }
 
     if (item.type === 'execution') {
       if (item.source === 'ai') {
-        return item.success
-          ? <RobotOutlined style={{ color: '#52c41a' }} />
-          : <RobotOutlined style={{ color: '#ff4d4f' }} />;
+        return <RobotOutlined style={iconStyle} />;
       }
-      return item.success
-        ? <UserOutlined style={{ color: '#52c41a' }} />
-        : <UserOutlined style={{ color: '#ff4d4f' }} />;
+      return <UserOutlined style={iconStyle} />;
     }
 
-    return <CodeOutlined style={{ color: '#666' }} />;
+    return <CodeOutlined style={iconStyle} />;
   };
 
   const getStatusTag = (item: HistoryItem) => {
+    const tagStyle = {
+      fontSize: 10,
+      marginRight: 4,
+      background: '#1a1a1a',
+      border: '1px solid #333',
+      color: '#888',
+    };
+
     if (item.type === 'session' && item.status) {
-      const colors: Record<string, 'processing' | 'warning' | 'success' | 'error'> = {
-        running: 'processing',
-        paused: 'warning',
-        completed: 'success',
-        failed: 'error',
-      };
       return (
-        <Tag color={colors[item.status]} style={{ fontSize: 10, marginRight: 4 }}>
+        <Tag style={tagStyle}>
           {item.status}
         </Tag>
       );
     }
 
     if (item.type === 'execution') {
-      return item.success
-        ? <Tag color="success" style={{ fontSize: 10, marginRight: 4 }}>OK</Tag>
-        : <Tooltip title={item.error}><Tag color="error" style={{ fontSize: 10, marginRight: 4 }}>Error</Tag></Tooltip>;
+      return (
+        <Tag style={tagStyle}>
+          {item.success ? 'OK' : 'Error'}
+        </Tag>
+      );
     }
 
     return null;
@@ -267,15 +267,23 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
 
   const renderItemActions = (item: HistoryItem) => {
     const actions: React.ReactNode[] = [];
+    const btnStyle = {
+      background: '#1a1a1a',
+      border: '1px solid #333',
+      color: '#fff',
+      fontSize: 11,
+      height: 28,
+      padding: '0 10px',
+    };
 
     if (item.type === 'session') {
       if (item.status === 'running') {
         actions.push(
           <Button
             key="view"
-            type="primary"
             size="small"
-            icon={<SyncOutlined spin />}
+            style={btnStyle}
+            icon={<SyncOutlined spin style={{ fontSize: 11, color: '#888' }} />}
             onClick={(e) => {
               e.stopPropagation();
               if (item.sessionId) {
@@ -290,9 +298,9 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
         actions.push(
           <Button
             key="resume"
-            type="primary"
             size="small"
-            icon={<PlayCircleOutlined />}
+            style={btnStyle}
+            icon={<PlayCircleOutlined style={{ fontSize: 11, color: '#888' }} />}
             onClick={(e) => {
               e.stopPropagation();
               handleResumeSession(item);
@@ -313,27 +321,12 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
         >
           <Button
             size="small"
-            danger
-            icon={<DeleteOutlined />}
+            style={{ ...btnStyle, padding: '0 8px' }}
+            icon={<DeleteOutlined style={{ fontSize: 11, color: '#888' }} />}
             loading={deletingId === item.sessionId}
             onClick={(e) => e.stopPropagation()}
           />
         </Popconfirm>
-      );
-    }
-
-    if (item.type === 'execution' && item.sql) {
-      actions.push(
-        <Button
-          key="restore"
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleRestoreSql(item.sql!);
-          }}
-        >
-          Restore
-        </Button>
       );
     }
 
@@ -360,14 +353,83 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
   const activeSessions = sessions.filter(s => s.status === 'running' || s.status === 'paused' || s.status === 'pending');
   const completedSessions = sessions.filter(s => s.status === 'completed' || s.status === 'failed');
 
+  // Render a single history item
+  const renderHistoryItem = (item: HistoryItem) => (
+    <div
+      key={item.sessionId || item.executionId || item.timestamp}
+      onClick={() => handleItemClick(item)}
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 12,
+        padding: '12px 0',
+        borderBottom: '1px solid #222',
+        cursor: 'pointer',
+      }}
+    >
+      {/* Icon */}
+      <div style={{ paddingTop: 2 }}>
+        {getItemIcon(item)}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          {getStatusTag(item)}
+          <Text
+            style={{
+              fontSize: 12,
+              color: '#fff',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {item.type === 'session'
+              ? truncateText(item.goal || item.queryName || 'Untitled', 50)
+              : truncateText(item.sql || 'Query', 50)}
+          </Text>
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <Text style={{ fontSize: 11, color: '#666' }}>
+            <ClockCircleOutlined style={{ marginRight: 4 }} />
+            {formatRelativeTime(item.timestamp)}
+          </Text>
+          {item.type === 'session' && item.queryCount !== undefined && item.queryCount > 0 && (
+            <Text style={{ fontSize: 11, color: '#666' }}>
+              {item.queryCount} queries
+            </Text>
+          )}
+          {item.type === 'execution' && item.rowCount !== undefined && (
+            <Text style={{ fontSize: 11, color: '#666' }}>
+              {item.rowCount} rows
+            </Text>
+          )}
+          {item.type === 'execution' && item.executionTime !== undefined && (
+            <Text style={{ fontSize: 11, color: '#666' }}>
+              {item.executionTime}ms
+            </Text>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        {renderItemActions(item)}
+      </div>
+    </div>
+  );
+
   return (
     <Drawer
       title={
         <Space>
-          <HistoryOutlined />
+          <HistoryOutlined style={{ color: '#888' }} />
           <span>History</span>
           {(counts.sessions > 0 || counts.executions > 0) && (
-            <Tag>{counts.sessions + counts.executions}</Tag>
+            <Tag style={{ background: '#1a1a1a', border: '1px solid #333', color: '#888' }}>
+              {counts.sessions + counts.executions}
+            </Tag>
           )}
         </Space>
       }
@@ -375,13 +437,17 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
       width={drawerWidth}
       open={open}
       onClose={handleClose}
+      styles={{
+        body: { padding: screens.md ? 16 : 12 },
+      }}
       extra={
         <Button
           type="text"
           size="small"
-          icon={<ReloadOutlined />}
+          icon={<ReloadOutlined style={{ color: '#888' }} />}
           onClick={loadHistory}
           loading={isLoading}
+          style={{ background: 'transparent' }}
         />
       }
     >
@@ -394,24 +460,30 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
           onChange={(e) => setSearchQuery(e.target.value)}
           onPressEnter={loadHistory}
           allowClear
+          style={{
+            background: '#0a0a0a',
+            border: '1px solid #333',
+          }}
         />
       </div>
 
       {/* Content */}
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
+          <Spin indicator={<LoadingOutlined style={{ fontSize: 24, color: '#888' }} spin />} />
           <div style={{ marginTop: 12 }}>
-            <Text type="secondary">Loading history...</Text>
+            <Text style={{ color: '#666' }}>Loading history...</Text>
           </div>
         </div>
       ) : items.length === 0 ? (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={
-            searchQuery
-              ? "No matching items"
-              : "No history yet. Run queries or start AI sessions."
+            <span style={{ color: '#666' }}>
+              {searchQuery
+                ? "No matching items"
+                : "No history yet. Run queries or start AI sessions."}
+            </span>
           }
         />
       ) : (
@@ -419,114 +491,22 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
           {/* Active Sessions (Running/Paused) */}
           {activeSessions.length > 0 && (
             <div style={{ marginBottom: 20 }}>
-              <Text strong style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 8 }}>
+              <Text style={{ fontSize: 11, color: '#666', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 Active Sessions
               </Text>
-              <List
-                size="small"
-                dataSource={activeSessions}
-                renderItem={(item) => (
-                  <List.Item
-                    style={{
-                      padding: '10px 12px',
-                      background: item.status === 'paused' ? 'rgba(250, 173, 20, 0.05)' : 'rgba(24, 144, 255, 0.05)',
-                      borderRadius: 6,
-                      marginBottom: 6,
-                      border: `1px solid ${item.status === 'paused' ? 'rgba(250, 173, 20, 0.2)' : 'rgba(24, 144, 255, 0.2)'}`,
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => handleItemClick(item)}
-                    actions={renderItemActions(item)}
-                  >
-                    <List.Item.Meta
-                      avatar={getItemIcon(item)}
-                      title={
-                        <Space size={4}>
-                          {getStatusTag(item)}
-                          <Text style={{ fontSize: 12 }} ellipsis>
-                            {truncateText(item.goal || item.queryName || 'Untitled', 50)}
-                          </Text>
-                        </Space>
-                      }
-                      description={
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          <ClockCircleOutlined /> {formatRelativeTime(item.timestamp)}
-                          {item.queryCount !== undefined && item.queryCount > 0 && (
-                            <span style={{ marginLeft: 8 }}>{item.queryCount} queries</span>
-                          )}
-                        </Text>
-                      }
-                    />
-                  </List.Item>
-                )}
-              />
+              {activeSessions.map(renderHistoryItem)}
             </div>
           )}
 
-          {/* Recent Activity (Completed Sessions + Executions mixed by time) */}
+          {/* Recent Activity */}
           {(completedSessions.length > 0 || executions.length > 0) && (
             <div>
-              <Text strong style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 8 }}>
+              <Text style={{ fontSize: 11, color: '#666', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 Recent Activity
               </Text>
-              <List
-                size="small"
-                dataSource={[...completedSessions, ...executions].sort((a, b) => b.timestamp - a.timestamp)}
-                renderItem={(item) => (
-                  <List.Item
-                    style={{
-                      padding: '10px 12px',
-                      background: '#fafafa',
-                      borderRadius: 6,
-                      marginBottom: 6,
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => handleItemClick(item)}
-                    actions={renderItemActions(item)}
-                  >
-                    <List.Item.Meta
-                      avatar={getItemIcon(item)}
-                      title={
-                        <Space size={4}>
-                          {getStatusTag(item)}
-                          <Text style={{ fontSize: 12 }} ellipsis>
-                            {item.type === 'session'
-                              ? truncateText(item.goal || 'AI Session', 50)
-                              : truncateText(item.sql || 'Query', 50)}
-                          </Text>
-                        </Space>
-                      }
-                      description={
-                        <Space size={12}>
-                          <Text type="secondary" style={{ fontSize: 11 }}>
-                            <ClockCircleOutlined /> {formatRelativeTime(item.timestamp)}
-                          </Text>
-                          {item.type === 'execution' && item.rowCount !== undefined && (
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              {item.rowCount} rows
-                            </Text>
-                          )}
-                          {item.type === 'execution' && item.executionTime !== undefined && (
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              {item.executionTime}ms
-                            </Text>
-                          )}
-                          {item.type === 'session' && item.queryCount !== undefined && item.queryCount > 0 && (
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              {item.queryCount} queries
-                            </Text>
-                          )}
-                          {item.projectName && (
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              {item.projectName}
-                            </Text>
-                          )}
-                        </Space>
-                      }
-                    />
-                  </List.Item>
-                )}
-              />
+              {[...completedSessions, ...executions]
+                .sort((a, b) => b.timestamp - a.timestamp)
+                .map(renderHistoryItem)}
             </div>
           )}
         </div>

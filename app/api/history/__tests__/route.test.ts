@@ -9,8 +9,10 @@ const {
   mockQueryExecutionCount,
   mockAgentSessionFindMany,
   mockAgentSessionCount,
+  mockAgentSessionUpdateMany,
   mockGetCurrentUser,
   mockCheckOrganizationAccess,
+  mockIsAgentRunning,
 } = vi.hoisted(() => ({
   mockQueryFindMany: vi.fn(),
   mockQueryCount: vi.fn(),
@@ -18,8 +20,10 @@ const {
   mockQueryExecutionCount: vi.fn(),
   mockAgentSessionFindMany: vi.fn(),
   mockAgentSessionCount: vi.fn(),
+  mockAgentSessionUpdateMany: vi.fn(),
   mockGetCurrentUser: vi.fn().mockResolvedValue({ id: 'user-1', email: 'test@test.com' }),
   mockCheckOrganizationAccess: vi.fn().mockResolvedValue(true),
+  mockIsAgentRunning: vi.fn().mockReturnValue(false),
 }))
 
 vi.mock('@/lib/db/prisma', () => ({
@@ -35,8 +39,13 @@ vi.mock('@/lib/db/prisma', () => ({
     agentSession: {
       findMany: mockAgentSessionFindMany,
       count: mockAgentSessionCount,
+      updateMany: mockAgentSessionUpdateMany,
     },
   },
+}))
+
+vi.mock('@/lib/agent/backgroundRunner', () => ({
+  isAgentRunning: mockIsAgentRunning,
 }))
 
 vi.mock('@/lib/auth/session', () => ({

@@ -94,8 +94,8 @@ async function pollEvents(
     take: 100, // Limit to prevent huge responses
   });
 
-  // Check if agent is still running
-  const isRunning = isAgentRunning(sessionId) || currentStatus === AgentStatus.RUNNING;
+  // Check if agent is actually running in memory
+  const isActuallyRunning = isAgentRunning(sessionId);
 
   // Get the latest session state
   const session = await prisma.agentSession.findUnique({
@@ -107,8 +107,36 @@ async function pollEvents(
       queryName: true,
       lastError: true,
       todos: true,
+      updatedAt: true,
     },
   });
+
+  // Detect stale sessions: status is RUNNING but agent is not in memory
+  // This can happen if server restarts or agent crashes
+  let isRunning = isActuallyRunning;
+
+  if (!isActuallyRunning && currentStatus === AgentStatus.RUNNING && session) {
+    // Session is marked as RUNNING but no agent process exists
+    // Check if it's been stale for more than 30 seconds
+    const lastUpdate = session.updatedAt.getTime();
+    const staleThreshold = 30 * 1000; // 30 seconds
+    const isStale = Date.now() - lastUpdate > staleThreshold;
+
+    if (isStale) {
+      // Mark the session as PAUSED so it can be resumed
+      await prisma.agentSession.update({
+        where: { id: sessionId },
+        data: {
+          status: AgentStatus.PAUSED,
+          lastError: 'Session interrupted - can be resumed',
+        },
+      });
+      // Session is now paused - isRunning stays false
+    } else {
+      // Give it a bit more time - might still be starting up
+      isRunning = true;
+    }
+  }
 
   return new Response(
     JSON.stringify({
@@ -189,10 +217,36 @@ function streamEvents(
           return;
         }
 
+        // Check for stale sessions on initial connection
+        if (!isAgentRunning(sessionId) && initialStatus === AgentStatus.RUNNING) {
+          const session = await prisma.agentSession.findUnique({
+            where: { id: sessionId },
+            select: { updatedAt: true },
+          });
+
+          if (session) {
+            const lastUpdate = session.updatedAt.getTime();
+            const staleThreshold = 30 * 1000; // 30 seconds
+            if (Date.now() - lastUpdate > staleThreshold) {
+              // Mark as paused and close stream
+              await prisma.agentSession.update({
+                where: { id: sessionId },
+                data: {
+                  status: AgentStatus.PAUSED,
+                  lastError: 'Session interrupted - can be resumed',
+                },
+              });
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+              controller.close();
+              return;
+            }
+          }
+        }
+
         // Poll for new events every 500ms while agent is running
         const pollInterval = setInterval(async () => {
           try {
-            // Check if agent is still running
+            // Check if agent is still running in memory
             const running = isAgentRunning(sessionId);
 
             // Get new events
@@ -217,18 +271,38 @@ function streamEvents(
               }
             }
 
-            // If complete or no longer running, end the stream
+            // If complete or no longer running, check for stale sessions
             if (isComplete || !running) {
-              // Check session status one more time to get any final events
+              // Check session status one more time
               const session = await prisma.agentSession.findUnique({
                 where: { id: sessionId },
-                select: { status: true },
+                select: { status: true, updatedAt: true },
               });
 
               const isFinalStatus =
                 session?.status === AgentStatus.COMPLETED ||
                 session?.status === AgentStatus.FAILED ||
                 session?.status === AgentStatus.PAUSED;
+
+              // If not running and status is still RUNNING, check for stale session
+              if (!running && session?.status === AgentStatus.RUNNING) {
+                const lastUpdate = session.updatedAt.getTime();
+                const staleThreshold = 30 * 1000;
+                if (Date.now() - lastUpdate > staleThreshold) {
+                  // Mark as paused
+                  await prisma.agentSession.update({
+                    where: { id: sessionId },
+                    data: {
+                      status: AgentStatus.PAUSED,
+                      lastError: 'Session interrupted - can be resumed',
+                    },
+                  });
+                  clearInterval(pollInterval);
+                  controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                  controller.close();
+                  return;
+                }
+              }
 
               if (isComplete || isFinalStatus) {
                 clearInterval(pollInterval);
