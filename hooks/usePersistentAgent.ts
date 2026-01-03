@@ -84,6 +84,7 @@ export function usePersistentAgent() {
     completeAgent,
     setAgentTodos,
     setOpen,
+    setHasShownFinalQuery,
   } = useAiChatStore();
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -252,6 +253,7 @@ export function usePersistentAgent() {
             setCurrentQuery(args.sql);
             setCurrentSql(args.sql);
             setIsAiGenerated(true);
+            setHasShownFinalQuery(true);
           }
 
           // Handle execute_query results
@@ -449,6 +451,7 @@ export function usePersistentAgent() {
       setAgentTodos,
       completeAgent,
       addChatMessage,
+      setHasShownFinalQuery,
     ]
   );
 

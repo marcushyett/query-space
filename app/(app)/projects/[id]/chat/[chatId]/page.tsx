@@ -224,6 +224,7 @@ export default function ChatPage() {
       todos: [],
       stopReason: null,
       hasIncompleteTodos: false,
+      hasShownFinalQuery: false,
     })
 
     try {
