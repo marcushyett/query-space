@@ -30,7 +30,7 @@ export interface HistoryItem {
   executionTime?: number;
   // Session fields (for type: 'session')
   goal?: string;
-  status?: 'running' | 'paused' | 'completed' | 'failed';
+  status?: 'pending' | 'running' | 'paused' | 'completed' | 'failed';
   sessionId?: string;
   queryCount?: number;
 }
@@ -104,17 +104,11 @@ export async function GET(request: NextRequest) {
     });
 
     // Fetch standalone executions (not linked to a query)
-    // Include executions that match the project OR have no project (organization-wide executions)
     const standaloneExecutions = await prisma.queryExecution.findMany({
       where: {
         organizationId,
         queryId: null,
-        ...(projectId ? {
-          OR: [
-            { projectId },
-            { projectId: null },
-          ],
-        } : {}),
+        ...(projectId ? { projectId } : {}),
         ...(search ? {
           OR: [
             { sql: { contains: search, mode: 'insensitive' } },
@@ -127,17 +121,11 @@ export async function GET(request: NextRequest) {
     });
 
     // Fetch standalone sessions (not linked to a query)
-    // Include sessions that match the project OR have no project (organization-wide sessions)
     const standaloneSessions = await prisma.agentSession.findMany({
       where: {
         organizationId,
         queryId: null,
-        ...(projectId ? {
-          OR: [
-            { projectId },
-            { projectId: null },
-          ],
-        } : {}),
+        ...(projectId ? { projectId } : {}),
         ...(search ? { goal: { contains: search, mode: 'insensitive' } } : {}),
       },
       include: {
@@ -192,7 +180,7 @@ export async function GET(request: NextRequest) {
           queryId: query.id,
           queryName: session.queryName || query.name || undefined,
           goal: session.goal,
-          status: session.status.toLowerCase() as 'running' | 'paused' | 'completed' | 'failed',
+          status: session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed',
           queryCount: session._count.queryExecutions,
           timestamp: session.updatedAt.getTime(),
           projectId: query.project.id,
@@ -224,7 +212,7 @@ export async function GET(request: NextRequest) {
         id: session.id,
         sessionId: session.id,
         goal: session.goal,
-        status: session.status.toLowerCase() as 'running' | 'paused' | 'completed' | 'failed',
+        status: session.status.toLowerCase() as 'pending' | 'running' | 'paused' | 'completed' | 'failed',
         queryCount: session._count.queryExecutions,
         timestamp: session.updatedAt.getTime(),
       });

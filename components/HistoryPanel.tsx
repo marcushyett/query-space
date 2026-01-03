@@ -356,7 +356,8 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
   // Group items by type for display
   const sessions = items.filter(i => i.type === 'session');
   const executions = items.filter(i => i.type === 'execution');
-  const activeSessions = sessions.filter(s => s.status === 'running' || s.status === 'paused');
+  // Include 'pending' in active sessions (sessions that haven't started running yet)
+  const activeSessions = sessions.filter(s => s.status === 'running' || s.status === 'paused' || s.status === 'pending');
   const completedSessions = sessions.filter(s => s.status === 'completed' || s.status === 'failed');
 
   return (

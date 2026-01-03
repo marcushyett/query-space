@@ -547,6 +547,7 @@ export function usePersistentAgent() {
             prompt: prompt.trim(),
             organizationId,
             projectId: currentProjectId || undefined,
+            queryId: currentQueryId || undefined, // Pass existing queryId to link session
             schema: tables,
             previousSql: currentSql,
             model: selectedModel,
@@ -560,7 +561,7 @@ export function usePersistentAgent() {
 
         const { sessionId, queryId } = await response.json();
 
-        // If a query was auto-created, update the current query context
+        // If a query was auto-created (shouldn't happen now), update the current query context
         if (queryId && !currentQueryId) {
           setCurrentQueryId(queryId);
         }
