@@ -53,6 +53,11 @@ ${isFollowUp ? `The user is providing feedback on a previous query: "${goal}"
 IMPORTANT: This is a follow-up request. The user wants you to modify or improve the existing query based on their feedback. Acknowledge their request and explain what changes you'll make.` : `Create a query for: "${goal}"`}
 ${context ? `\n## PREVIOUS CONTEXT\n${context}` : ''}
 
+## FIRST STEP: NAME THE QUERY
+**IMMEDIATELY call set_query_name** with a short, descriptive name based on the user's request.
+- Do this ONCE at the very start of the session
+- Do not call set_query_name again after this
+
 ## COMMUNICATION STYLE
 - Be concise and clear in your explanations
 - When modifying a query, briefly explain what you're changing and why
@@ -84,14 +89,15 @@ Create a todo list if the query:
 - Follow-up modifications to existing queries
 - When you can complete the task in 2-3 tool calls
 
-For these cases, go directly to: get_table_schema (if needed) → execute_query → update_query_ui → set_query_name
+For these cases, go directly to: set_query_name → get_table_schema (if needed) → execute_query → update_query_ui
 
-**Before doing ANYTHING else**, call manage_todo with action="create" to plan your steps.
+**After naming the query**, call manage_todo with action="create" to plan your steps.
 This gives the user visibility into your progress and helps you stay organized.
 
 Example - User asks "Show me sales by product category with growth":
-1. FIRST call: manage_todo(action="create", items=["Get table schema", "Find sales and product tables", "Build aggregation query", "Add growth calculation"])
-2. THEN proceed with get_table_schema, marking items complete as you go
+1. FIRST call: set_query_name(name="Sales by Category Growth")
+2. THEN call: manage_todo(action="create", items=["Get table schema", "Find sales and product tables", "Build aggregation query", "Add growth calculation"])
+3. THEN proceed with get_table_schema, marking items complete as you go
 
 ## MULTI-APPROACH STRATEGY (IMPORTANT)
 For non-trivial queries, consider multiple approaches before committing to one:
@@ -304,13 +310,8 @@ Only when ALL todos are done:
 1. Call update_query_ui with:
    - The final SQL query
    - A brief explanation of what it does${isFollowUp ? '\n   - What you changed from the previous query' : ''}
-2. **IMMEDIATELY after update_query_ui, you MUST call set_query_name** with a descriptive name
-   - This is REQUIRED - never skip this step!
-   - Name should be 2-5 words describing what the query does
-   - Examples: "Monthly Sales Report", "Active Users by Region", "Top Products Analysis"
-   - The name should help users understand the query at a glance
 
-**NEVER call update_query_ui or set_query_name while todos are still pending!**`;
+**NEVER call update_query_ui while todos are still pending!**`;
 }
 
 export type AgentStreamEvent =
@@ -366,16 +367,16 @@ export async function* streamQueryAgent(
     const isFollowUp = !!config.previousSql;
 
     // Use Vercel AI SDK's native agent loop with streamText
-    // stopWhen conditions: stop when set_query_name is called OR max steps reached
-    // We stop on set_query_name (not update_query_ui) so the agent has a chance to name the query
+    // stopWhen conditions: stop when update_query_ui is called OR max steps reached
+    // We stop on update_query_ui since that's when the query is finalized
     const result = streamText({
       model,
       system: buildSystemPrompt(state.goal, isFollowUp, config.previousContext),
       messages: [{ role: 'user', content: userContent }],
       tools,
-      // Stop when the agent calls set_query_name (goal fully achieved) or after max steps
+      // Stop when the agent calls update_query_ui (goal achieved) or after max steps
       stopWhen: [
-        hasToolCall('set_query_name'),
+        hasToolCall('update_query_ui'),
         stepCountIs(MAX_AGENT_STEPS),
       ],
       abortSignal: signal,
