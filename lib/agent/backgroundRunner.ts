@@ -22,6 +22,7 @@ export interface BackgroundAgentConfig {
   schema: SchemaInfo[];
   previousSql?: string;
   previousContext?: string;
+  model?: string;
 }
 
 /**
@@ -30,7 +31,7 @@ export interface BackgroundAgentConfig {
  * All events are persisted to the database for later retrieval.
  */
 export async function startBackgroundAgent(config: BackgroundAgentConfig): Promise<void> {
-  const { sessionId, connectionString, schema, prompt, previousSql, previousContext } = config;
+  const { sessionId, connectionString, schema, prompt, previousSql, previousContext, model } = config;
 
   // Create abort controller for this agent
   const abortController = new AbortController();
@@ -52,6 +53,7 @@ export async function startBackgroundAgent(config: BackgroundAgentConfig): Promi
         schema,
         previousSql,
         previousContext,
+        model,
       },
       abortController.signal
     );

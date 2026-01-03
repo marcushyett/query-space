@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Input, Typography, Grid, Space, Empty } from 'antd';
+import { Button, Input, Typography, Grid, Space, Empty, Select } from 'antd';
 import {
   SendOutlined,
   CloseOutlined,
@@ -14,7 +14,7 @@ import {
   WifiOutlined,
   DisconnectOutlined,
 } from '@ant-design/icons';
-import { useAiChatStore } from '@/stores/aiChatStore';
+import { useAiChatStore, CLAUDE_MODELS, ClaudeModelId } from '@/stores/aiChatStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useQueryStore } from '@/stores/queryStore';
 import { usePersistentAgent } from '@/hooks/usePersistentAgent';
@@ -40,7 +40,7 @@ export function AiChatPanel() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
 
-  const { isOpen, setOpen, messages, isGenerating, agentProgress } = useAiChatStore();
+  const { isOpen, setOpen, messages, isGenerating, agentProgress, selectedModel, setSelectedModel } = useAiChatStore();
   const { organizationId } = useConnectionStore();
   const { isExecuting, setCurrentQuery } = useQueryStore();
   const {
@@ -104,6 +104,17 @@ export function AiChatPanel() {
         <Space>
           <RobotOutlined />
           <Text strong>AI Assistant</Text>
+          <Select
+            value={selectedModel}
+            onChange={(value: ClaudeModelId) => setSelectedModel(value)}
+            size="small"
+            style={{ width: 130 }}
+            disabled={isWorking || messages.length > 0}
+            options={Object.entries(CLAUDE_MODELS).map(([id, name]) => ({
+              value: id,
+              label: name,
+            }))}
+          />
           {/* Connection status indicator for active sessions */}
           {activeSessionId && agentProgress?.isRunning && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>

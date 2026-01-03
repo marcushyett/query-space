@@ -1,6 +1,16 @@
 import { create } from 'zustand';
 import type { ChartConfig } from '@/lib/chart-utils';
 
+// Available Claude models
+export const CLAUDE_MODELS = {
+  'claude-haiku-4-5-20251001': 'Claude Haiku 4.5',
+  'claude-sonnet-4-5-20250929': 'Claude Sonnet 4.5',
+} as const;
+
+export type ClaudeModelId = keyof typeof CLAUDE_MODELS;
+
+export const DEFAULT_MODEL: ClaudeModelId = 'claude-haiku-4-5-20251001';
+
 export interface QueryResultInfo {
   rowCount: number;
   executionTime: number;
@@ -110,6 +120,7 @@ interface AiChatStore {
   currentSql: string | null;
   isAiGenerated: boolean;
   lastQueryError: string | null;
+  selectedModel: ClaudeModelId;
 
   // Agent state
   agentProgress: AgentProgress | null;
@@ -133,6 +144,7 @@ interface AiChatStore {
   setIsGenerating: (generating: boolean) => void;
   setIsAiGenerated: (isAiGenerated: boolean) => void;
   setLastQueryError: (error: string | null) => void;
+  setSelectedModel: (model: ClaudeModelId) => void;
   clearChat: () => void;
   startNewConversation: () => void;
 
@@ -159,6 +171,7 @@ export const useAiChatStore = create<AiChatStore>((set) => ({
   currentSql: null,
   isAiGenerated: false,
   lastQueryError: null,
+  selectedModel: DEFAULT_MODEL,
   agentProgress: null,
 
   setOpen: (open: boolean) => {
@@ -366,6 +379,10 @@ export const useAiChatStore = create<AiChatStore>((set) => ({
 
   setLastQueryError: (error: string | null) => {
     set({ lastQueryError: error });
+  },
+
+  setSelectedModel: (model: ClaudeModelId) => {
+    set({ selectedModel: model });
   },
 
   clearChat: () => {
