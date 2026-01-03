@@ -16,7 +16,6 @@ import {
   PlusOutlined,
   FolderOutlined,
   CodeOutlined,
-  MessageOutlined,
 } from '@ant-design/icons'
 import { useOrganization } from './layout'
 
@@ -27,7 +26,6 @@ interface Project {
   title: string
   description: string | null
   queryCount: number
-  chatCount: number
   updatedAt: string
 }
 
@@ -226,10 +224,6 @@ export default function ProjectsPage() {
                   <span>
                     <CodeOutlined style={{ marginRight: 4 }} />
                     {project.queryCount} {project.queryCount === 1 ? 'query' : 'queries'}
-                  </span>
-                  <span>
-                    <MessageOutlined style={{ marginRight: 4 }} />
-                    {project.chatCount} {project.chatCount === 1 ? 'chat' : 'chats'}
                   </span>
                 </div>
               </div>
