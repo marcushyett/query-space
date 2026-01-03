@@ -172,7 +172,7 @@ export default function QueryEditorPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               name: 'Untitled',
-              sql: '',
+              sql: '-- Write your SQL query here',
             }),
           })
           if (createRes.ok) {
