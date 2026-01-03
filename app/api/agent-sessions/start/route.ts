@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getClaudeApiKey, requireDatabaseConnection } from '@/lib/auth/organization-settings';
 import { requireUser } from '@/lib/auth/session';
-import { startBackgroundAgent } from '@/lib/agent/backgroundRunner';
+import { runDurableAgent } from '@/lib/agent/durableAgentWorkflow';
 import type { SchemaInfo } from '@/lib/agent';
 
 export const runtime = 'nodejs';
@@ -130,9 +130,10 @@ export async function POST(request: NextRequest) {
     // Set the API key in environment for the Claude Agent SDK
     process.env.ANTHROPIC_API_KEY = effectiveApiKey;
 
-    // Start the agent in the background (non-blocking)
-    // We don't await this - it runs independently
-    startBackgroundAgent({
+    // Start the durable agent workflow
+    // The workflow runs durably and will survive serverless restarts
+    // We don't await this - it runs independently via Vercel Workflows
+    runDurableAgent({
       sessionId: session.id,
       organizationId,
       prompt: prompt.trim(),
@@ -142,8 +143,8 @@ export async function POST(request: NextRequest) {
       previousContext,
       model,
     }).catch((error) => {
-      // Log error but don't throw - the session status will be updated by the runner
-      console.error('Background agent error:', error);
+      // Log error but don't throw - the session status will be updated by the workflow
+      console.error('Durable agent workflow error:', error);
     });
 
     // Return the session ID immediately along with the query ID if created

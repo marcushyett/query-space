@@ -6,7 +6,7 @@ const {
   mockQueryFindUnique,
   mockQueryCreate,
   mockAgentSessionCreate,
-  mockStartBackgroundAgent,
+  mockRunDurableAgent,
   mockRequireUser,
   mockGetClaudeApiKey,
   mockRequireDatabaseConnection,
@@ -14,7 +14,7 @@ const {
   mockQueryFindUnique: vi.fn(),
   mockQueryCreate: vi.fn(),
   mockAgentSessionCreate: vi.fn(),
-  mockStartBackgroundAgent: vi.fn().mockResolvedValue(undefined),
+  mockRunDurableAgent: vi.fn().mockResolvedValue({ success: true, sessionId: 'session-123' }),
   mockRequireUser: vi.fn().mockResolvedValue({ id: 'user-1', email: 'test@test.com' }),
   mockGetClaudeApiKey: vi.fn().mockResolvedValue('test-api-key'),
   mockRequireDatabaseConnection: vi.fn().mockResolvedValue('postgresql://localhost/test'),
@@ -42,8 +42,8 @@ vi.mock('@/lib/auth/organization-settings', () => ({
   requireDatabaseConnection: mockRequireDatabaseConnection,
 }))
 
-vi.mock('@/lib/agent/backgroundRunner', () => ({
-  startBackgroundAgent: mockStartBackgroundAgent,
+vi.mock('@/lib/agent/durableAgentWorkflow', () => ({
+  runDurableAgent: mockRunDurableAgent,
 }))
 
 // Import after mocks
@@ -56,7 +56,7 @@ describe('Agent Session Start API', () => {
     mockRequireUser.mockResolvedValue({ id: 'user-1', email: 'test@test.com' })
     mockGetClaudeApiKey.mockResolvedValue('test-api-key')
     mockRequireDatabaseConnection.mockResolvedValue('postgresql://localhost/test')
-    mockStartBackgroundAgent.mockResolvedValue(undefined)
+    mockRunDurableAgent.mockResolvedValue({ success: true, sessionId: 'session-123' })
     // Reset environment
     delete process.env.ANTHROPIC_API_KEY
   })
@@ -312,8 +312,8 @@ describe('Agent Session Start API', () => {
     })
   })
 
-  describe('background agent', () => {
-    it('should start background agent with session details', async () => {
+  describe('durable agent workflow', () => {
+    it('should start durable agent workflow with session details', async () => {
       mockAgentSessionCreate.mockResolvedValue({
         id: 'session-123',
       })
@@ -329,7 +329,7 @@ describe('Agent Session Start API', () => {
 
       await POST(request)
 
-      expect(mockStartBackgroundAgent).toHaveBeenCalledWith(
+      expect(mockRunDurableAgent).toHaveBeenCalledWith(
         expect.objectContaining({
           sessionId: 'session-123',
           organizationId: 'org-1',

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { requireUser } from '@/lib/auth/session';
-import { stopBackgroundAgent, isAgentRunning } from '@/lib/agent/backgroundRunner';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,6 +11,8 @@ interface RouteParams {
 
 /**
  * Stop a running agent session.
+ * With durable workflows, we signal stopping by setting the status to PAUSED.
+ * The workflow will check this status and stop gracefully.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id: sessionId } = await params;
 
-    // Verify session exists
+    // Verify session exists and get current status
     const session = await prisma.agentSession.findUnique({
       where: { id: sessionId },
       select: { id: true, status: true },
@@ -29,13 +30,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Check if agent is running
-    const wasRunning = isAgentRunning(sessionId);
-
-    // Stop the agent
-    stopBackgroundAgent(sessionId);
+    const wasRunning = session.status === 'RUNNING';
 
     // Update session status to PAUSED
+    // The durable workflow will check this status and stop gracefully
     await prisma.agentSession.update({
       where: { id: sessionId },
       data: { status: 'PAUSED' },
