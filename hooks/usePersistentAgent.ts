@@ -217,7 +217,9 @@ export function usePersistentAgent() {
 
           const toolsWithActivity = ['get_table_schema', 'get_json_keys', 'execute_query', 'validate_query'];
           if (toolsWithActivity.includes(tc.toolName)) {
-            updateLatestToolActivityMessage(tc.toolName, toolStatus);
+            // Pass error message as result so it's visible to the user
+            const errorMessage = hasError ? String(errorValue) : undefined;
+            updateLatestToolActivityMessage(tc.toolName, toolStatus, errorMessage);
           }
 
           // Handle update_query_ui
