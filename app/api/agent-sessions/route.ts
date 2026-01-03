@@ -18,8 +18,10 @@ interface AgentSessionRecord {
   resumptionContext: string | null;
   chatHistory: unknown;
   queryName: string | null;
+  projectId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  project?: { id: string; title: string } | null;
   _count: { queryExecutions: number };
 }
 
@@ -35,6 +37,7 @@ const listSessionsSchema = z.object({
   projectId: z.string().optional(),
   queryId: z.string().optional(),
   status: z.enum(['RUNNING', 'PAUSED', 'COMPLETED', 'FAILED']).optional(),
+  search: z.string().optional(),
   limit: z.coerce.number().min(1).max(100).default(50),
   offset: z.coerce.number().min(0).default(0),
 });
@@ -57,7 +60,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { organizationId, projectId, queryId, status, limit, offset } = parsed.data;
+    const { organizationId, projectId, queryId, status, search, limit, offset } = parsed.data;
 
     // Check organization access
     const access = await checkOrganizationAccess(organizationId);
@@ -71,16 +74,26 @@ export async function GET(request: NextRequest) {
       projectId?: string;
       queryId?: string;
       status?: 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED';
+      OR?: Array<{ goal?: { contains: string; mode: 'insensitive' }; queryName?: { contains: string; mode: 'insensitive' } }>;
     } = { organizationId };
 
     if (projectId) where.projectId = projectId;
     if (queryId) where.queryId = queryId;
     if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { goal: { contains: search, mode: 'insensitive' } },
+        { queryName: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const [sessions, total] = await Promise.all([
       prisma.agentSession.findMany({
         where,
         include: {
+          project: {
+            select: { id: true, title: true },
+          },
           _count: {
             select: { queryExecutions: true },
           },
@@ -109,6 +122,8 @@ export async function GET(request: NextRequest) {
         chatHistory: s.chatHistory,
         queryName: s.queryName,
         queryCount: s._count.queryExecutions,
+        projectId: s.projectId,
+        projectName: s.project?.title || null,
         createdAt: s.createdAt.getTime(),
         updatedAt: s.updatedAt.getTime(),
       })),

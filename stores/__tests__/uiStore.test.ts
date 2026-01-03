@@ -75,18 +75,18 @@ describe('uiStore', () => {
     })
   })
 
-  describe('toggleHistoryDrawer', () => {
-    it('should open history drawer when closed', () => {
+  describe('setHistoryDrawerOpen', () => {
+    it('should open history drawer when set to true', () => {
       useUiStore.setState({ historyDrawerOpen: false })
-      useUiStore.getState().toggleHistoryDrawer()
+      useUiStore.getState().setHistoryDrawerOpen(true)
 
       const state = useUiStore.getState()
       expect(state.historyDrawerOpen).toBe(true)
     })
 
-    it('should close history drawer when open', () => {
+    it('should close history drawer when set to false', () => {
       useUiStore.setState({ historyDrawerOpen: true })
-      useUiStore.getState().toggleHistoryDrawer()
+      useUiStore.getState().setHistoryDrawerOpen(false)
 
       const state = useUiStore.getState()
       expect(state.historyDrawerOpen).toBe(false)

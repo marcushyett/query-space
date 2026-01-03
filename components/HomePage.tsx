@@ -16,7 +16,7 @@ import { SqlEditor } from './SqlEditor';
 import { QueryResults } from './QueryResults';
 import { TableBrowser } from './TableBrowser';
 import { TableDetailDrawer } from './TableDetailDrawer';
-import { QueryHistoryDrawer } from './QueryHistoryDrawer';
+import { AgentHistoryPanel } from './AgentHistoryPanel';
 import { AiChatPanel } from './AiChatPanel';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -38,7 +38,7 @@ const TOOLBAR_HEIGHT = 48; // Secondary toolbar
 export function HomePage() {
   const router = useRouter();
   const { organizationId } = useConnectionStore();
-  const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, toggleHistoryDrawer } = useUiStore();
+  const { tableBrowserOpen, toggleTableBrowser, setTableBrowserOpen, historyDrawerOpen, setHistoryDrawerOpen } = useUiStore();
   const { currentQuery, isExecuting } = useQueryStore();
   const { isOpen: aiChatOpen, setOpen: setAiChatOpen, isGenerating: isAiGenerating, agentProgress } = useAiChatStore();
   const isAgentWorking = isAiGenerating || (agentProgress?.isRunning ?? false);
@@ -146,8 +146,8 @@ export function HomePage() {
           <Button
             type="text"
             icon={<HistoryOutlined />}
-            onClick={toggleHistoryDrawer}
-            aria-label="Query History"
+            onClick={() => setHistoryDrawerOpen(true)}
+            aria-label="AI History"
           />
           {!isMobile && (
             <Text type="secondary" style={{ fontSize: 11 }}>
@@ -191,7 +191,10 @@ export function HomePage() {
       </Layout>
 
       <TableDetailDrawer />
-      <QueryHistoryDrawer />
+      <AgentHistoryPanel
+        open={historyDrawerOpen}
+        onClose={() => setHistoryDrawerOpen(false)}
+      />
     </Layout>
   );
 }
