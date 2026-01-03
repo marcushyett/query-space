@@ -276,7 +276,7 @@ describe('HistoryPanel', () => {
       })
     })
 
-    it('should display project name for sessions', async () => {
+    it('should display session without requiring project name', async () => {
       const items: HistoryItem[] = [{
         type: 'session',
         id: 'session-1',
@@ -295,8 +295,9 @@ describe('HistoryPanel', () => {
 
       render(<HistoryPanel open={true} onClose={() => {}} />)
 
+      // Project name is not displayed in minimal UI, but session goal should be
       await waitFor(() => {
-        expect(screen.getByText('Test Project')).toBeInTheDocument()
+        expect(screen.getByText(/Test session/)).toBeInTheDocument()
       })
     })
   })
