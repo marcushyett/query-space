@@ -238,7 +238,11 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
         : <UserOutlined style={{ color: '#ff4d4f' }} />;
     }
 
-    return <CodeOutlined style={{ color: '#666' }} />;
+    if (item.type === 'query') {
+      return <CodeOutlined style={{ color: '#1890ff' }} />;
+    }
+
+    return <CodeOutlined style={{ color: '#888' }} />;
   };
 
   const getStatusTag = (item: HistoryItem) => {
@@ -260,6 +264,14 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
       return item.success
         ? <Tag color="success" style={{ fontSize: 10, marginRight: 4 }}>OK</Tag>
         : <Tooltip title={item.error}><Tag color="error" style={{ fontSize: 10, marginRight: 4 }}>Error</Tag></Tooltip>;
+    }
+
+    if (item.type === 'query') {
+      return (
+        <Tag color="blue" style={{ fontSize: 10, marginRight: 4 }}>
+          query
+        </Tag>
+      );
     }
 
     return null;
@@ -337,6 +349,21 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
       );
     }
 
+    if (item.type === 'query' && item.sql) {
+      actions.push(
+        <Button
+          key="restore"
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleRestoreSql(item.sql!);
+          }}
+        >
+          Restore
+        </Button>
+      );
+    }
+
     return actions;
   };
 
@@ -350,12 +377,15 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
       }
     } else if (item.type === 'execution' && item.sql) {
       handleRestoreSql(item.sql);
+    } else if (item.type === 'query' && item.sql) {
+      handleRestoreSql(item.sql);
     }
   };
 
   // Group items by type for display
   const sessions = items.filter(i => i.type === 'session');
   const executions = items.filter(i => i.type === 'execution');
+  const queries = items.filter(i => i.type === 'query');
   // Include 'pending' in active sessions (sessions that haven't started running yet)
   const activeSessions = sessions.filter(s => s.status === 'running' || s.status === 'paused' || s.status === 'pending');
   const completedSessions = sessions.filter(s => s.status === 'completed' || s.status === 'failed');
@@ -429,10 +459,10 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
                   <List.Item
                     style={{
                       padding: '10px 12px',
-                      background: item.status === 'paused' ? 'rgba(250, 173, 20, 0.05)' : 'rgba(24, 144, 255, 0.05)',
+                      background: item.status === 'paused' ? 'rgba(250, 173, 20, 0.1)' : 'rgba(24, 144, 255, 0.1)',
                       borderRadius: 6,
                       marginBottom: 6,
-                      border: `1px solid ${item.status === 'paused' ? 'rgba(250, 173, 20, 0.2)' : 'rgba(24, 144, 255, 0.2)'}`,
+                      border: `1px solid ${item.status === 'paused' ? 'rgba(250, 173, 20, 0.3)' : 'rgba(24, 144, 255, 0.3)'}`,
                       cursor: 'pointer',
                     }}
                     onClick={() => handleItemClick(item)}
@@ -463,22 +493,23 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
             </div>
           )}
 
-          {/* Recent Activity (Completed Sessions + Executions mixed by time) */}
-          {(completedSessions.length > 0 || executions.length > 0) && (
+          {/* Recent Activity (Completed Sessions + Queries + Executions mixed by time) */}
+          {(completedSessions.length > 0 || queries.length > 0 || executions.length > 0) && (
             <div>
               <Text strong style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 8 }}>
                 Recent Activity
               </Text>
               <List
                 size="small"
-                dataSource={[...completedSessions, ...executions].sort((a, b) => b.timestamp - a.timestamp)}
+                dataSource={[...completedSessions, ...queries, ...executions].sort((a, b) => b.timestamp - a.timestamp)}
                 renderItem={(item) => (
                   <List.Item
                     style={{
                       padding: '10px 12px',
-                      background: '#fafafa',
+                      background: '#0a0a0a',
                       borderRadius: 6,
                       marginBottom: 6,
+                      border: '1px solid #333',
                       cursor: 'pointer',
                     }}
                     onClick={() => handleItemClick(item)}
@@ -492,6 +523,8 @@ export function HistoryPanel({ open, onClose, projectId, queryId }: HistoryPanel
                           <Text style={{ fontSize: 12 }} ellipsis>
                             {item.type === 'session'
                               ? truncateText(item.goal || 'AI Session', 50)
+                              : item.type === 'query'
+                              ? truncateText(item.queryName || 'Untitled Query', 50)
                               : truncateText(item.sql || 'Query', 50)}
                           </Text>
                         </Space>
