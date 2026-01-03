@@ -16,7 +16,7 @@ import { SqlEditor } from './SqlEditor';
 import { QueryResults } from './QueryResults';
 import { TableBrowser } from './TableBrowser';
 import { TableDetailDrawer } from './TableDetailDrawer';
-import { AgentHistoryPanel } from './AgentHistoryPanel';
+import { HistoryPanel } from './HistoryPanel';
 import { AiChatPanel } from './AiChatPanel';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -191,7 +191,7 @@ export function HomePage() {
       </Layout>
 
       <TableDetailDrawer />
-      <AgentHistoryPanel
+      <HistoryPanel
         open={historyDrawerOpen}
         onClose={() => setHistoryDrawerOpen(false)}
       />

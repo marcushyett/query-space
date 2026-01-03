@@ -6,6 +6,7 @@ import { getCurrentUser, checkOrganizationAccess } from '@/lib/auth/session';
 const listHistorySchema = z.object({
   organizationId: z.string(),
   projectId: z.string().optional(),
+  queryId: z.string().optional(),
   search: z.string().optional(),
   limit: z.coerce.number().min(1).max(200).default(100),
   offset: z.coerce.number().min(0).default(0),
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { organizationId, projectId, search, limit, offset } = parsed.data;
+    const { organizationId, projectId, queryId, search, limit, offset } = parsed.data;
 
     // Check organization access
     const access = await checkOrganizationAccess(organizationId);
@@ -70,6 +71,7 @@ export async function GET(request: NextRequest) {
     // Fetch queries with their executions and sessions
     const queries = await prisma.query.findMany({
       where: {
+        ...(queryId ? { id: queryId } : {}),
         project: {
           organizationId,
           ...(projectId ? { id: projectId } : {}),

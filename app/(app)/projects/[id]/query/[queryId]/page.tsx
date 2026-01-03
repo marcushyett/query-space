@@ -31,7 +31,7 @@ import { SqlEditor } from '@/components/SqlEditor'
 import { QueryResults } from '@/components/QueryResults'
 import { TableBrowser } from '@/components/TableBrowser'
 import { AiChatPanel } from '@/components/AiChatPanel'
-import { QueryVersionsPanel } from '@/components/QueryVersionsPanel'
+import { HistoryPanel } from '@/components/HistoryPanel'
 import { useOrganization } from '../../../../layout'
 import { useQueryStore, saveQueryExecution } from '@/stores/queryStore'
 import { useSchemaStore } from '@/stores/schemaStore'
@@ -751,10 +751,10 @@ export default function QueryEditorPage() {
         />
       )}
 
-      {/* Query History Panel */}
-      <QueryVersionsPanel
-        queryId={queryId}
-        currentSql={currentQuery}
+      {/* History Panel */}
+      <HistoryPanel
+        queryId={isNew ? undefined : queryId}
+        projectId={projectId}
         open={historyPanelOpen}
         onClose={() => setHistoryPanelOpen(false)}
       />
