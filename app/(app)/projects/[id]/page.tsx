@@ -36,7 +36,6 @@ interface Project {
   description: string | null
   organizationId: string
   queryCount: number
-  chatCount: number
   createdAt: string
   updatedAt: string
 }

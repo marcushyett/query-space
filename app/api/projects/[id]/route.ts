@@ -41,7 +41,6 @@ export async function GET(
         _count: {
           select: {
             queries: true,
-            aiChats: true,
           },
         },
       },
@@ -62,7 +61,6 @@ export async function GET(
         organizationId: project.organizationId,
         organizationName: project.organization.name,
         queryCount: project._count.queries,
-        chatCount: project._count.aiChats,
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
       },

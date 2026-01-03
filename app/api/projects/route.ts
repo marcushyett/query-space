@@ -88,7 +88,6 @@ export async function GET(request: NextRequest) {
           _count: {
             select: {
               queries: true,
-              aiChats: true,
             },
           },
           organization: {
@@ -110,8 +109,8 @@ export async function GET(request: NextRequest) {
         title: string;
         description: string | null;
         organizationId: string;
-        organization: { name: string };
-        _count: { queries: number; aiChats: number };
+        organization: { name: string | null };
+        _count: { queries: number };
         createdAt: Date;
         updatedAt: Date;
       }) => ({
@@ -121,7 +120,6 @@ export async function GET(request: NextRequest) {
         organizationId: p.organizationId,
         organizationName: p.organization.name,
         queryCount: p._count.queries,
-        chatCount: p._count.aiChats,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
       })),
