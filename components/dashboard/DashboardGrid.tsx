@@ -15,6 +15,7 @@ const COLS = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 };
 
 interface DashboardGridProps {
   onSaveLayout?: () => void;
+  readOnly?: boolean;
 }
 
 // Generate responsive layouts from the base layout
@@ -58,7 +59,7 @@ function generateResponsiveLayouts(baseLayout: GridLayoutItem[]) {
   return layouts;
 }
 
-export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
+export function DashboardGrid({ onSaveLayout, readOnly = false }: DashboardGridProps) {
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const {
     dashboard,
@@ -137,15 +138,17 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
               <div style={{ marginBottom: 8, fontSize: 16 }}>
                 No widgets yet
               </div>
-              <div style={{ fontSize: 13, color: '#666' }}>
-                {isEditMode
-                  ? 'Click "Add Widget" to get started'
-                  : 'Switch to edit mode to add widgets'}
-              </div>
+              {!readOnly && (
+                <div style={{ fontSize: 13, color: '#666' }}>
+                  {isEditMode
+                    ? 'Click "Add Widget" to get started'
+                    : 'Switch to edit mode to add widgets'}
+                </div>
+              )}
             </div>
           }
         >
-          {isEditMode && (
+          {isEditMode && !readOnly && (
             <button
               onClick={() => setAddWidgetOpen(true)}
               style={{
@@ -186,11 +189,11 @@ export function DashboardGrid({ onSaveLayout }: DashboardGridProps) {
         margin={isMobile ? [8, 8] : [16, 16]}
         containerPadding={[0, 0]}
         dragConfig={{
-          enabled: isEditMode && !isMobile,
+          enabled: isEditMode && !isMobile && !readOnly,
           handle: '.widget-drag-handle',
         }}
         resizeConfig={{
-          enabled: isEditMode && !isMobile,
+          enabled: isEditMode && !isMobile && !readOnly,
         }}
         onLayoutChange={handleLayoutChange}
         onBreakpointChange={handleBreakpointChange}

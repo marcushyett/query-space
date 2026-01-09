@@ -226,6 +226,7 @@ model Query {
   dashboardWidgets DashboardWidget[]
   executions QueryExecution[]
   agentSessions AgentSession[]
+  publicLinks PublicLink[]
 
   @@index([projectId])
   @@map("queries")
@@ -282,6 +283,7 @@ model Dashboard {
   organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projects     DashboardProject[]
   widgets      DashboardWidget[]
+  publicLinks  PublicLink[]
 
   @@index([organizationId])
   @@map("dashboards")
@@ -339,6 +341,40 @@ enum WidgetType {
   TEXT
 }
 
+// ============================================================================
+// PUBLIC LINKS (Short URLs for sharing)
+// ============================================================================
+
+model PublicLink {
+  id             String          @id @default(cuid())
+  shortId        String          @unique // 4-5 char short ID for URL (e.g., "abc12")
+  organizationId String
+
+  // What's being shared (one of these)
+  dashboardId    String?
+  queryId        String?
+
+  // Optional settings
+  expiresAt      DateTime?       // Optional expiration
+  password       String?         // Optional password protection (hashed)
+
+  // Tracking
+  viewCount      Int             @default(0)
+  lastViewedAt   DateTime?
+
+  createdById    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  dashboard      Dashboard?      @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  query          Query?          @relation(fields: [queryId], references: [id], onDelete: Cascade)
+
+  @@index([shortId])
+  @@index([dashboardId])
+  @@index([queryId])
+  @@map("public_links")
+}
 
 // ============================================================================
 // QUERY EXECUTION HISTORY

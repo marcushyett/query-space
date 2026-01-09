@@ -1,18 +1,25 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Table, Typography, Alert, Tabs, Tooltip } from 'antd';
-import { TableOutlined, BarChartOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { useState, useMemo, useCallback } from 'react';
+import { Table, Typography, Alert, Tabs, Tooltip, Button } from 'antd';
+import { TableOutlined, BarChartOutlined, InfoCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { useQueryStore } from '@/stores/queryStore';
 import { VisualizationPanel } from './VisualizationPanel';
 import { TechSpinner } from './TechSpinner';
 import { isChartable, isNumericType } from '@/lib/chart-utils';
+import { exportQueryResultsToCSV } from '@/lib/csv-export';
 
 const { Text } = Typography;
 
 export function QueryResults() {
   const { queryResults, isExecuting } = useQueryStore();
   const [activeTab, setActiveTab] = useState('table');
+
+  // Handle CSV export
+  const handleExportCSV = useCallback(() => {
+    if (!queryResults) return;
+    exportQueryResultsToCSV(queryResults);
+  }, [queryResults]);
 
   // Determine why visualization might not be available - must be before early returns
   const visualizationStatus = useMemo(() => {
@@ -136,10 +143,22 @@ export function QueryResults() {
   return (
     <div className="panel">
       <div className="results-header">
-        <Text>
-          {queryResults.rowCount} {queryResults.rowCount === 1 ? 'row' : 'rows'}
-        </Text>
-        <Text type="secondary">{queryResults.executionTime}ms</Text>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Text>
+            {queryResults.rowCount} {queryResults.rowCount === 1 ? 'row' : 'rows'}
+          </Text>
+          <Text type="secondary">{queryResults.executionTime}ms</Text>
+        </div>
+        <Tooltip title="Export to CSV">
+          <Button
+            type="text"
+            size="small"
+            icon={<DownloadOutlined />}
+            onClick={handleExportCSV}
+          >
+            CSV
+          </Button>
+        </Tooltip>
       </div>
       <div className="flex-1 overflow-hidden">
         <Tabs

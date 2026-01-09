@@ -66,6 +66,7 @@ export const authConfig: NextAuthConfig = {
         '/reset-password',
         '/verify-email',
         '/invite',
+        '/m', // Public links (short URLs)
       ].some(path => nextUrl.pathname === path || nextUrl.pathname.startsWith(`${path}/`))
 
       if (isPublicPath) {
